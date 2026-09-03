@@ -10,39 +10,21 @@ import { ReplayScrubber } from '@/components/ReplayScrubber';
 import { playCriticalAudioAlert } from '@/components/AudioAlertManager';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { createSOSReport, fetchReplayEvents, fetchSimulatedRiskScores, triggerOptimizeDispatch } from '@/services/api';
+import {
+  fetchReplayEvents,
+  fetchSimulatedRiskScores,
+  resetSimulationScenario,
+  triggerOptimizeDispatch,
+  triggerSimulationScenario,
+} from '@/services/api';
 import { DispatchAssignment, EventLog, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
+import { CheckCircle, Info, X } from 'lucide-react';
 
 // Dynamically import MapContainer to prevent SSR hydration errors with maplibre-gl
 const MapContainer = dynamic(
   () => import('@/components/MapContainer').then((mod) => mod.MapContainer),
   { ssr: false }
 );
-
-// Initial Default Rescue Units for demonstration
-const INITIAL_RESCUE_UNITS: RescueUnit[] = [
-  {
-    id: 'unit-boat-01',
-    name: 'NDRF Rescue Boat Alpha',
-    unit_type: 'BOAT',
-    current_location: { type: 'Point', coordinates: [80.27, 13.08] },
-    status: 'AVAILABLE',
-  },
-  {
-    id: 'unit-amb-02',
-    name: 'SDRF Ambulance Bravo',
-    unit_type: 'AMBULANCE',
-    current_location: { type: 'Point', coordinates: [80.20, 13.00] },
-    status: 'AVAILABLE',
-  },
-  {
-    id: 'unit-drone-03',
-    name: 'Survey Drone Charlie',
-    unit_type: 'DRONE',
-    current_location: { type: 'Point', coordinates: [80.24, 13.05] },
-    status: 'AVAILABLE',
-  },
-];
 
 export default function DashboardPage() {
   // 1. Dashboard State
@@ -51,17 +33,28 @@ export default function DashboardPage() {
 
   const [riskGrid, setRiskGrid] = useState<RiskGridCollection | null>(null);
   const [sosReports, setSosReports] = useState<SOSReport[]>([]);
-  const [rescueUnits, setRescueUnits] = useState<RescueUnit[]>(INITIAL_RESCUE_UNITS);
+  const [rescueUnits, setRescueUnits] = useState<RescueUnit[]>([]);
   const [dispatchAssignments, setDispatchAssignments] = useState<DispatchAssignment[]>([]);
 
   const [selectedRiskCell, setSelectedRiskCell] = useState<RiskFeatureProperties | null>(null);
 
   const [isDispatching, setIsDispatching] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  // Toast Notification State
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
 
   // 2. Replay Mode State
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [replayEvents, setReplayEvents] = useState<EventLog[]>([]);
+
+  const showToast = (text: string, type: 'success' | 'info' = 'success') => {
+    setToastMessage({ text, type });
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
 
   // 3. What-If Risk Simulation Data Fetching
   useEffect(() => {
@@ -132,6 +125,11 @@ export default function DashboardPage() {
       setSosReports((prev) =>
         prev.map((r) => (r.id === data.sos_id ? { ...r, status: 'ASSIGNED' } : r))
       );
+    } else if (event === 'SCENARIO_RESET') {
+      setSosReports([]);
+      setDispatchAssignments([]);
+      setRescueUnits([]);
+      showToast('Scenario state reset by backend', 'info');
     }
   }, [isReplayMode]);
 
@@ -141,32 +139,36 @@ export default function DashboardPage() {
     enabled: !isReplayMode,
   });
 
-  // 5. Trigger Flood Event Scenario Handler
+  // 5. Hackathon Live Scenario Generator Handler
   const handleTriggerFloodScenario = async () => {
     setIsTriggering(true);
     try {
-      // Create synthetic high-severity SOS report around flood zone
-      const lat = 13.08 + (Math.random() - 0.5) * 0.05;
-      const lon = 80.27 + (Math.random() - 0.5) * 0.05;
-      const severities = ['HIGH', 'CRITICAL_TRAPPED', 'MEDIUM'];
-      const chosenSev = severities[Math.floor(Math.random() * severities.length)];
-
-      const report = await createSOSReport({
-        latitude: lat,
-        longitude: lon,
-        severity: chosenSev,
-        voice_transcript: 'Emergency scenario: Water level rising quickly near residential complex!',
-      });
-
-      setSosReports((prev) => [report, ...prev]);
-
-      if (chosenSev === 'CRITICAL_TRAPPED') {
-        playCriticalAudioAlert();
-      }
+      const result = await triggerSimulationScenario();
+      showToast(
+        `Scenario Initiated: ${result.seeded_units} Rescue Units & ${result.seeded_reports} SOS Reports Loaded!`,
+        'success'
+      );
     } catch (err) {
-      console.error('Failed to trigger flood scenario:', err);
+      console.error('Failed to trigger live simulation scenario:', err);
+      showToast('Failed to trigger simulation scenario', 'info');
     } finally {
       setIsTriggering(false);
+    }
+  };
+
+  // Reset Scenario Handler
+  const handleResetScenario = async () => {
+    setIsResetting(true);
+    try {
+      await resetSimulationScenario();
+      setSosReports([]);
+      setDispatchAssignments([]);
+      setRescueUnits([]);
+      showToast('Demo state safely wiped. Baseline DB intact.', 'info');
+    } catch (err) {
+      console.error('Failed to reset simulation:', err);
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -188,9 +190,14 @@ export default function DashboardPage() {
         setRescueUnits((prev) =>
           prev.map((u) => (assignedUnitIds.has(u.id) ? { ...u, status: 'DISPATCHED' } : u))
         );
+
+        showToast(`Hungarian Optimizer Dispatched ${assignments.length} Rescue Units!`, 'success');
+      } else {
+        showToast('No pending reports or available units to dispatch.', 'info');
       }
     } catch (err) {
       console.error('Failed to run rescue dispatch optimizer:', err);
+      showToast('Dispatch optimizer failed', 'info');
     } finally {
       setIsDispatching(false);
     }
@@ -203,6 +210,7 @@ export default function DashboardPage() {
       try {
         const events = await fetchReplayEvents();
         setReplayEvents(events);
+        showToast('Digital Twin Replay Mode Activated', 'info');
       } catch (err) {
         console.error('Failed to fetch replay events:', err);
       }
@@ -267,6 +275,27 @@ export default function DashboardPage() {
 
   return (
     <main className="w-full h-screen overflow-hidden flex flex-col relative bg-slate-950 font-sans">
+      {/* Non-Blocking Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+          <div className={`px-4 py-2.5 rounded-full border shadow-2xl backdrop-blur-md flex items-center gap-2 text-xs font-bold ${
+            toastMessage.type === 'success'
+              ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50'
+              : 'bg-sky-950/90 text-sky-300 border-sky-500/50'
+          }`}>
+            {toastMessage.type === 'success' ? (
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
+            ) : (
+              <Info className="w-4 h-4 text-sky-400" />
+            )}
+            <span>{toastMessage.text}</span>
+            <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-75">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Persistent Top Stats Bar */}
       <TopStatsBar
         monitoredAreaKm2={42.5}
@@ -292,9 +321,11 @@ export default function DashboardPage() {
         rainfall={rainfall}
         onRainfallChange={setRainfall}
         onTriggerFloodScenario={handleTriggerFloodScenario}
+        onResetScenario={handleResetScenario}
         onRunDispatch={handleRunDispatch}
         isDispatching={isDispatching}
         isTriggering={isTriggering}
+        isResetting={isResetting}
       />
 
       {/* 4. Right Live Dispatch Queue Drawer */}

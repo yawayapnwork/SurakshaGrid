@@ -10,6 +10,7 @@ from app.db.session import engine
 from app.routers.dispatch import router as dispatch_router
 from app.routers.replay import router as replay_router
 from app.routers.risk import router as risk_router
+from app.routers.simulation import router as simulation_router
 from app.routers.sos import router as sos_router
 from app.routers.ws import router as ws_router
 from app.services.ws_manager import ws_manager
@@ -45,6 +46,7 @@ app.include_router(sos_router, prefix="/api/v1")
 app.include_router(dispatch_router, prefix="/api/v1")
 app.include_router(risk_router, prefix="/api/v1")
 app.include_router(replay_router, prefix="/api/v1")
+app.include_router(simulation_router, prefix="/api/v1")
 app.include_router(ws_router)
 
 

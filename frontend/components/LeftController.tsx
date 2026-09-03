@@ -1,27 +1,31 @@
 'use client';
 
 import React from 'react';
-import { CloudRain, Play, Zap } from 'lucide-react';
+import { CloudRain, Play, RotateCcw, Zap } from 'lucide-react';
 
 interface LeftControllerProps {
   rainfall: number;
   onRainfallChange: (val: number) => void;
   onTriggerFloodScenario: () => void;
+  onResetScenario: () => void;
   onRunDispatch: () => void;
   isDispatching: boolean;
   isTriggering: boolean;
+  isResetting: boolean;
 }
 
 export const LeftController: React.FC<LeftControllerProps> = ({
   rainfall,
   onRainfallChange,
   onTriggerFloodScenario,
+  onResetScenario,
   onRunDispatch,
   isDispatching,
   isTriggering,
+  isResetting,
 }) => {
   return (
-    <aside className="fixed left-6 top-20 z-20 w-80 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-2xl p-5 shadow-2xl text-slate-100 space-y-6">
+    <aside className="fixed left-6 top-20 z-20 w-80 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-2xl p-5 shadow-2xl text-slate-100 space-y-5">
       <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
         <Zap className="w-5 h-5 text-amber-400" />
         <h2 className="font-bold text-sm text-white tracking-wide uppercase">
@@ -54,15 +58,26 @@ export const LeftController: React.FC<LeftControllerProps> = ({
         </div>
       </div>
 
-      {/* 2. Trigger Flood Event Scenario */}
-      <button
-        onClick={onTriggerFloodScenario}
-        disabled={isTriggering}
-        className="w-full py-2.5 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:border-amber-500/50 font-bold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-      >
-        <Zap className={`w-4 h-4 text-amber-400 ${isTriggering ? 'animate-spin' : ''}`} />
-        {isTriggering ? 'Injecting Emergency SOS...' : 'Trigger Flood Event Scenario'}
-      </button>
+      {/* 2. Trigger Flood Event & Reset Scenario Actions */}
+      <div className="space-y-2">
+        <button
+          onClick={onTriggerFloodScenario}
+          disabled={isTriggering || isResetting}
+          className="w-full py-2.5 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:border-amber-500/50 font-bold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+        >
+          <Zap className={`w-4 h-4 text-amber-400 ${isTriggering ? 'animate-spin' : ''}`} />
+          {isTriggering ? 'Seeding Hackathon Demo...' : 'Trigger Flood Event Scenario'}
+        </button>
+
+        <button
+          onClick={onResetScenario}
+          disabled={isTriggering || isResetting}
+          className="w-full py-2 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 font-semibold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
+          {isResetting ? 'Wiping Demo State...' : 'Reset Scenario State'}
+        </button>
+      </div>
 
       {/* 3. Run Rescue Dispatch */}
       <button

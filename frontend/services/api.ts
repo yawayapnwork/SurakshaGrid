@@ -55,3 +55,33 @@ export async function createSOSReport(data: {
   }
   return res.json();
 }
+
+export async function triggerSimulationScenario(): Promise<{
+  status: string;
+  seeded_units: number;
+  seeded_reports: number;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/simulation/trigger`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to trigger simulation scenario: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+export async function resetSimulationScenario(): Promise<{
+  status: string;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/simulation/reset`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to reset simulation scenario: ${res.statusText}`);
+  }
+  return res.json();
+}
