@@ -22,6 +22,8 @@ import {
 import { DispatchAssignment, EventLog, LiveAnalyticsStats, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
 import { CheckCircle, Info, X } from 'lucide-react';
 
+import { MapErrorBoundary } from '@/components/MapErrorBoundary';
+
 // Dynamically import MapContainer to prevent SSR hydration errors with maplibre-gl
 const MapContainer = dynamic(
   () => import('@/components/MapContainer').then((mod) => mod.MapContainer),
@@ -370,14 +372,16 @@ export default function DashboardPage() {
         onOpenAARModal={() => setIsAARModalOpen(true)}
       />
 
-      {/* 2. Central Interactive Map */}
-      <MapContainer
-        riskGrid={riskGrid}
-        sosReports={sosReports}
-        rescueUnits={rescueUnits}
-        dispatchAssignments={dispatchAssignments}
-        onSelectRiskCell={setSelectedRiskCell}
-      />
+      {/* 2. Central Interactive Map with Error Boundary */}
+      <MapErrorBoundary>
+        <MapContainer
+          riskGrid={riskGrid}
+          sosReports={sosReports}
+          rescueUnits={rescueUnits}
+          dispatchAssignments={dispatchAssignments}
+          onSelectRiskCell={setSelectedRiskCell}
+        />
+      </MapErrorBoundary>
 
       {/* 3. Left Controller Drawer */}
       <LeftController

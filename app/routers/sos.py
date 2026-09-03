@@ -1,11 +1,12 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
+from app.core.rate_limiter import check_sos_rate_limit
 from app.db.session import get_db
 from app.models.enums import SOSSeverity, SOSStatus
 from app.models.event_log import EventLog
@@ -24,6 +25,7 @@ router = APIRouter(tags=["sos"])
     "/sos",
     response_model=SOSReportRead,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(check_sos_rate_limit)],
     summary="Submit a citizen SOS flood report",
 )
 async def create_sos_report(

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Globe, Mic, MicOff, Volume2 } from 'lucide-react';
+import { AlertCircle, Globe, Mic, MicOff, Volume2 } from 'lucide-react';
 
 interface VoiceToTextInputProps {
   value: string;
@@ -20,6 +20,7 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
   const [selectedLang, setSelectedLang] = useState('hi-IN');
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const recognitionRef = useRef<any>(null);
 
@@ -48,12 +49,20 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
       }
       if (currentTranscript) {
         onChange(value ? `${value} ${currentTranscript}` : currentTranscript);
+        setErrorMessage(null);
       }
     };
 
     recognition.onerror = (event: any) => {
       console.warn('Speech recognition error:', event.error);
       setIsListening(false);
+      if (event.error === 'not-allowed' || event.error === 'permission-denied') {
+        setErrorMessage('Microphone access denied. Please grant permission in browser settings.');
+      } else if (event.error === 'no-speech') {
+        setErrorMessage('No speech detected. Tap microphone and speak clearly.');
+      } else {
+        setErrorMessage(`Voice input error: ${event.error}`);
+      }
     };
 
     recognition.onend = () => {
@@ -75,6 +84,7 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
 
   const toggleListening = () => {
     if (!recognitionRef.current) return;
+    setErrorMessage(null);
 
     if (isListening) {
       recognitionRef.current.stop();
@@ -84,8 +94,10 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
         recognitionRef.current.lang = selectedLang;
         recognitionRef.current.start();
         setIsListening(true);
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to start speech recognition:', err);
+        setErrorMessage('Microphone permission or browser speech error.');
+        setIsListening(false);
       }
     }
   };
@@ -145,7 +157,15 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
         )}
       </div>
 
-      {isListening && (
+      {/* Error Message Banner */}
+      {errorMessage && (
+        <div className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {isListening && !errorMessage && (
         <div className="flex items-center gap-2 text-xs text-red-400 font-semibold animate-pulse px-1">
           <span className="w-2 h-2 rounded-full bg-red-500" />
           Listening ({SUPPORTED_LANGUAGES.find((l) => l.code === selectedLang)?.label})... Speak clearly.

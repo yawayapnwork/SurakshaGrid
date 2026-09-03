@@ -80,7 +80,7 @@ def compute_haversine_duration_matrix(
 async def fetch_osrm_duration_matrix(
     unit_coords: list[tuple[float, float]],
     incident_coords: list[tuple[float, float]],
-    timeout_seconds: float = 3.0,
+    timeout_seconds: float = 1.5,
 ) -> np.ndarray | None:
     """Queries OSRM Table Service for driving duration matrix in seconds.
 

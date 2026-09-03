@@ -49,7 +49,8 @@ export default function CitizenReportPage() {
       },
       (err) => {
         console.warn('Geolocation error:', err);
-        setGeoStatus('GPS detection failed. Using manual coordinates fallback.');
+        setGeoStatus('GPS permission denied or unavailable. Set location manually below.');
+        setIsManualLocation(true);
         setLatitude(13.0827);
         setLongitude(80.2707);
       },
