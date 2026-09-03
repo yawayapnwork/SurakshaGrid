@@ -69,3 +69,16 @@ export interface EventLog {
   payload: Record<string, any>;
   occurred_at: string;
 }
+
+export interface LiveAnalyticsStats {
+  monitored_area_km2: number;
+  total_sos_logged: number;
+  total_sos_confirmed: number;
+  total_sos_resolved: number;
+  active_sos_count: number;
+  critical_sos_count: number;
+  dispatched_units_count: number;
+  available_units_count: number;
+  total_units_count: number;
+  avg_eta_minutes: number;
+}

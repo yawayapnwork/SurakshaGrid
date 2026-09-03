@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, AlertTriangle, Clock, Navigation, ShieldCheck, Volume2, VolumeX } from 'lucide-react';
+import { Activity, AlertTriangle, Clock, FileText, Navigation, ShieldCheck, Volume2, VolumeX } from 'lucide-react';
 
 interface TopStatsBarProps {
   monitoredAreaKm2?: number;
@@ -13,6 +13,7 @@ interface TopStatsBarProps {
   isReplayMode: boolean;
   isMuted: boolean;
   onToggleMute: () => void;
+  onOpenAARModal?: () => void;
 }
 
 export const TopStatsBar: React.FC<TopStatsBarProps> = ({
@@ -25,6 +26,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
   isReplayMode,
   isMuted,
   onToggleMute,
+  onOpenAARModal,
 }) => {
   return (
     <header className="w-full bg-slate-950/90 backdrop-blur-md border-b border-slate-800 text-slate-100 px-6 py-3 shadow-lg flex flex-wrap items-center justify-between z-30 relative">
@@ -44,14 +46,14 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
         </div>
       </div>
 
-      {/* Stats Counter Grid */}
+      {/* Stats Counter Grid with Micro-Animations */}
       <div className="flex items-center gap-6 text-sm">
         {/* Monitored Area */}
         <div className="flex items-center gap-2 bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
           <Activity className="w-4 h-4 text-emerald-400" />
           <div>
             <span className="text-xs text-slate-400 block">Monitored Area</span>
-            <span className="font-bold text-slate-200">{monitoredAreaKm2} km²</span>
+            <span className="font-bold text-slate-200 transition-all duration-300">{monitoredAreaKm2} km²</span>
           </div>
         </div>
 
@@ -60,8 +62,8 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
           <AlertTriangle className="w-4 h-4 text-amber-400" />
           <div>
             <span className="text-xs text-slate-400 block">Active SOS</span>
-            <span className="font-bold text-amber-300">
-              {activeSosCount} {criticalCount > 0 && <span className="text-red-400 font-extrabold">({criticalCount} Critical)</span>}
+            <span className="font-bold text-amber-300 transition-all duration-300">
+              {activeSosCount} {criticalCount > 0 && <span className="text-red-400 font-extrabold animate-pulse">({criticalCount} Critical)</span>}
             </span>
           </div>
         </div>
@@ -71,7 +73,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
           <Navigation className="w-4 h-4 text-sky-400" />
           <div>
             <span className="text-xs text-slate-400 block">Dispatched Units</span>
-            <span className="font-bold text-sky-300">{dispatchedUnitsCount} Units</span>
+            <span className="font-bold text-sky-300 transition-all duration-300">{dispatchedUnitsCount} Units</span>
           </div>
         </div>
 
@@ -80,13 +82,24 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
           <Clock className="w-4 h-4 text-purple-400" />
           <div>
             <span className="text-xs text-slate-400 block">Avg Dispatch ETA</span>
-            <span className="font-bold text-purple-300">{avgEtaMinutes.toFixed(1)} mins</span>
+            <span className="font-bold text-purple-300 transition-all duration-300">{avgEtaMinutes.toFixed(1)} mins</span>
           </div>
         </div>
       </div>
 
-      {/* Mode Badge & Mute Toggle Button */}
+      {/* Actions: Export AAR Report, Sound Toggle, Connection Badge */}
       <div className="flex items-center gap-3">
+        {/* Export AAR Button */}
+        {onOpenAARModal && (
+          <button
+            onClick={onOpenAARModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:border-sky-500/50 text-xs font-semibold transition-all shadow-sm"
+          >
+            <FileText className="w-4 h-4 text-sky-400" />
+            <span>Export AAR</span>
+          </button>
+        )}
+
         {/* Audio Siren Mute/Unmute Toggle Button */}
         <button
           onClick={onToggleMute}

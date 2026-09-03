@@ -7,17 +7,19 @@ import { LeftController } from '@/components/LeftController';
 import { RightDispatchQueue } from '@/components/RightDispatchQueue';
 import { RiskCardModal } from '@/components/RiskCardModal';
 import { ReplayScrubber } from '@/components/ReplayScrubber';
+import { ExportAARModal } from '@/components/ExportAARModal';
 import { playTwoToneEmergencyAlert } from '@/components/AudioAlertManager';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import {
+  fetchLiveAnalyticsStats,
   fetchReplayEvents,
   fetchSimulatedRiskScores,
   resetSimulationScenario,
   triggerOptimizeDispatch,
   triggerSimulationScenario,
 } from '@/services/api';
-import { DispatchAssignment, EventLog, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
+import { DispatchAssignment, EventLog, LiveAnalyticsStats, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
 import { CheckCircle, Info, X } from 'lucide-react';
 
 // Dynamically import MapContainer to prevent SSR hydration errors with maplibre-gl
@@ -35,6 +37,7 @@ export default function DashboardPage() {
   const [sosReports, setSosReports] = useState<SOSReport[]>([]);
   const [rescueUnits, setRescueUnits] = useState<RescueUnit[]>([]);
   const [dispatchAssignments, setDispatchAssignments] = useState<DispatchAssignment[]>([]);
+  const [analyticsStats, setAnalyticsStats] = useState<LiveAnalyticsStats | null>(null);
 
   const [selectedRiskCell, setSelectedRiskCell] = useState<RiskFeatureProperties | null>(null);
 
@@ -44,6 +47,9 @@ export default function DashboardPage() {
 
   // Audio Siren Mute State (persisted in localStorage)
   const [isMuted, setIsMuted] = useState<boolean>(false);
+
+  // AAR Report Modal State
+  const [isAARModalOpen, setIsAARModalOpen] = useState(false);
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
@@ -90,6 +96,26 @@ export default function DashboardPage() {
       isSubscribed = false;
     };
   }, [debouncedRainfall]);
+
+  // Periodic polling (every 3s) for live analytics aggregator metrics
+  useEffect(() => {
+    let isSubscribed = true;
+    const fetchAnalytics = () => {
+      fetchLiveAnalyticsStats()
+        .then((data) => {
+          if (isSubscribed) setAnalyticsStats(data);
+        })
+        .catch((err) => console.error('Error fetching live analytics stats:', err));
+    };
+
+    fetchAnalytics();
+    const interval = setInterval(fetchAnalytics, 3000);
+
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   // Periodic timer (every 10s) to update elapsed time visual state machine
   useEffect(() => {
@@ -294,15 +320,16 @@ export default function DashboardPage() {
     setDispatchAssignments(reconstructedDispatches);
   };
 
-  // Derived Top Stats
-  const activeSosCount = sosReports.filter((r) => r.status !== 'RESOLVED').length;
-  const criticalCount = sosReports.filter((r) => r.severity === 'CRITICAL_TRAPPED').length;
-  const dispatchedUnitsCount = rescueUnits.filter((u) => u.status === 'DISPATCHED').length;
+  // Derived Top Stats (prefer live analytics stats if available)
+  const activeSosCount = analyticsStats ? analyticsStats.active_sos_count : sosReports.filter((r) => r.status !== 'RESOLVED').length;
+  const criticalCount = analyticsStats ? analyticsStats.critical_sos_count : sosReports.filter((r) => r.severity === 'CRITICAL_TRAPPED').length;
+  const dispatchedUnitsCount = analyticsStats ? analyticsStats.dispatched_units_count : rescueUnits.filter((u) => u.status === 'DISPATCHED').length;
 
-  const avgEtaMinutes =
-    dispatchAssignments.length > 0
-      ? dispatchAssignments.reduce((acc, a) => acc + a.eta_seconds / 60, 0) / dispatchAssignments.length
-      : 0;
+  const avgEtaMinutes = analyticsStats
+    ? analyticsStats.avg_eta_minutes
+    : dispatchAssignments.length > 0
+    ? dispatchAssignments.reduce((acc, a) => acc + a.eta_seconds / 60, 0) / dispatchAssignments.length
+    : 0;
 
   return (
     <main className="w-full h-screen overflow-hidden flex flex-col relative bg-slate-950 font-sans">
@@ -331,7 +358,7 @@ export default function DashboardPage() {
 
       {/* 1. Persistent Top Stats Bar */}
       <TopStatsBar
-        monitoredAreaKm2={42.5}
+        monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
         activeSosCount={activeSosCount}
         criticalCount={criticalCount}
         dispatchedUnitsCount={dispatchedUnitsCount}
@@ -340,6 +367,7 @@ export default function DashboardPage() {
         isReplayMode={isReplayMode}
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
+        onOpenAARModal={() => setIsAARModalOpen(true)}
       />
 
       {/* 2. Central Interactive Map */}
@@ -372,7 +400,17 @@ export default function DashboardPage() {
         onClose={() => setSelectedRiskCell(null)}
       />
 
-      {/* 6. Replay Time-Scrubber Control */}
+      {/* 6. Incident After-Action Report (AAR) Export Modal */}
+      <ExportAARModal
+        isOpen={isAARModalOpen}
+        onClose={() => setIsAARModalOpen(false)}
+        sosReports={sosReports}
+        rescueUnits={rescueUnits}
+        dispatchAssignments={dispatchAssignments}
+        monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
+      />
+
+      {/* 7. Replay Time-Scrubber Control */}
       <ReplayScrubber
         events={replayEvents}
         isReplayMode={isReplayMode}

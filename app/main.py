@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.core.config import get_settings
 from app.db.session import engine
+from app.routers.analytics import router as analytics_router
 from app.routers.dispatch import router as dispatch_router
 from app.routers.replay import router as replay_router
 from app.routers.risk import router as risk_router
@@ -47,6 +48,7 @@ app.include_router(dispatch_router, prefix="/api/v1")
 app.include_router(risk_router, prefix="/api/v1")
 app.include_router(replay_router, prefix="/api/v1")
 app.include_router(simulation_router, prefix="/api/v1")
+app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(ws_router)
 
 
