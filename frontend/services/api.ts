@@ -177,3 +177,17 @@ export async function fetchLiveAnalyticsStats(): Promise<LiveAnalyticsStats> {
   }
   return res.json();
 }
+
+export async function fetchNearbySOSReports(
+  latitude: number,
+  longitude: number,
+  radiusMeters: number = 5000
+): Promise<SOSReport[]> {
+  const res = await fetch(
+    `${API_BASE_URL}/api/v1/sos/nearby?latitude=${latitude}&longitude=${longitude}&radius_meters=${radiusMeters}`
+  );
+  if (!res.ok) {
+    throw new Error(`Failed to fetch nearby SOS reports: ${res.statusText}`);
+  }
+  return res.json();
+}

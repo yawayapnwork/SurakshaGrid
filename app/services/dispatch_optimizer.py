@@ -85,33 +85,41 @@ async def compute_postgis_duration_matrix(
     avg_speed_m_s: float = 8.333,
 ) -> np.ndarray:
     """Computes distance matrix (in seconds) between rescue units and SOS reports
-
-    using PostGIS ST_Distance spatial function over EPSG:3857 projection.
+    using a single batched PostGIS ST_Distance query over spatial geography.
     """
     num_units = len(available_units)
     num_incidents = len(pending_reports)
     matrix = np.zeros((num_units, num_incidents), dtype=float)
 
-    for i, unit in enumerate(available_units):
-        for j, report in enumerate(pending_reports):
-            try:
-                # Query PostGIS for spatial distance in meters using ST_Transform (EPSG 3857 planar projection)
-                from sqlalchemy import func
-                stmt = select(
-                    func.ST_Distance(
-                        func.ST_Transform(unit.current_location, 3857),
-                        func.ST_Transform(report.location, 3857),
-                    )
-                )
-                res = await db.execute(stmt)
-                dist_m = float(res.scalar_one_or_none() or 0.0)
-                matrix[i, j] = dist_m / avg_speed_m_s
-            except Exception:
-                # Fallback to Python haversine if DB session is mocked in unit tests
-                u_lon, u_lat = extract_coordinates(unit.current_location)
-                r_lon, r_lat = extract_coordinates(report.location)
-                dist_m = haversine_distance_meters(u_lat, u_lon, r_lat, r_lon)
-                matrix[i, j] = dist_m / avg_speed_m_s
+    unit_ids = [u.id for u in available_units]
+    report_ids = [r.id for r in pending_reports]
+
+    try:
+        from sqlalchemy import text
+        stmt = text("""
+            SELECT u.id AS unit_id, r.id AS report_id,
+                   ST_Distance(u.current_location::geography, r.location::geography) AS dist_m
+            FROM rescue_units u
+            CROSS JOIN sos_reports r
+            WHERE u.id = ANY(:unit_ids) AND r.id = ANY(:report_ids)
+        """)
+        result = await db.execute(stmt, {"unit_ids": unit_ids, "report_ids": report_ids})
+        rows = result.fetchall()
+
+        unit_id_map = {u.id: i for i, u in enumerate(available_units)}
+        report_id_map = {r.id: j for j, r in enumerate(pending_reports)}
+
+        for row in rows:
+            u_idx = unit_id_map.get(row.unit_id)
+            r_idx = report_id_map.get(row.report_id)
+            if u_idx is not None and r_idx is not None:
+                dist_m = float(row.dist_m or 0.0)
+                matrix[u_idx, r_idx] = dist_m / avg_speed_m_s
+    except Exception as exc:
+        logger.warning(f"Batched PostGIS duration calculation failed ({exc}), using Haversine fallback")
+        unit_coords = [extract_coordinates(u.current_location) for u in available_units]
+        incident_coords = [extract_coordinates(r.location) for r in pending_reports]
+        matrix = compute_haversine_duration_matrix(unit_coords, incident_coords, avg_speed_m_s)
 
     return matrix
 
@@ -149,13 +157,13 @@ async def fetch_osrm_duration_matrix(
                         durations = np.nan_to_num(durations, nan=3600.0, posinf=3600.0)
                         return durations
     except Exception as exc:
-        logger.warning(f"OSRM Table service unavailable ({exc}), falling back to Haversine distance")
+        logger.warning(f"OSRM Table service unavailable ({exc}), falling back to PostGIS spatial matrix")
 
     return None
 
 
 async def optimize_rescue_dispatch(db: AsyncSession) -> list[DispatchAssignment]:
-    """Queries pending SOS reports and available rescue units, computes OSRM/Haversine cost matrix,
+    """Queries pending SOS reports and available rescue units, computes OSRM/PostGIS/Haversine cost matrix,
 
     solves optimal assignments via Hungarian algorithm, updates DB states, logs events, and broadcasts via WS.
     """
@@ -177,10 +185,10 @@ async def optimize_rescue_dispatch(db: AsyncSession) -> list[DispatchAssignment]
     unit_coords = [extract_coordinates(u.current_location) for u in available_units]
     incident_coords = [extract_coordinates(r.location) for r in pending_reports]
 
-    # 4. Compute duration matrix (ETA in seconds) using OSRM Table Service or Haversine fallback
+    # 4. Compute duration matrix (ETA in seconds): Tier 1 OSRM -> Tier 2 Batched PostGIS ST_Distance -> Tier 3 Haversine
     duration_matrix = await fetch_osrm_duration_matrix(unit_coords, incident_coords)
     if duration_matrix is None:
-        duration_matrix = compute_haversine_duration_matrix(unit_coords, incident_coords)
+        duration_matrix = await compute_postgis_duration_matrix(db, available_units, pending_reports)
 
     # 5. Formulate assignment cost matrix: Cost = ETA_minutes * (1.0 - (urgency_weight + trust_weight))
     num_units = len(available_units)

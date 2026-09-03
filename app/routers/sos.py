@@ -208,12 +208,13 @@ async def get_nearby_sos_reports(
 ) -> list[SOSReportRead]:
     """Queries active SOS reports within radius_meters of a coordinate using PostGIS ST_DWithin spatial index filter."""
     try:
-        from sqlalchemy import func
-        point_geom = func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326)
+        from sqlalchemy import cast, func
+        from geoalchemy2 import Geography
+        point_geog = func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326)
         stmt = select(SOSReport).where(
             func.ST_DWithin(
-                func.ST_Transform(SOSReport.location, 3857),
-                func.ST_Transform(point_geom, 3857),
+                cast(SOSReport.location, Geography),
+                cast(point_geog, Geography),
                 radius_meters,
             )
         )

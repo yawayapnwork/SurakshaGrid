@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, Crosshair, MapPin, Send, ShieldAlert, Spar
 import { VoiceToTextInput } from '@/components/VoiceToTextInput';
 import { ImageCompressorInput } from '@/components/ImageCompressorInput';
 import { ConfirmNearbyModal } from '@/components/ConfirmNearbyModal';
+import { fetchNearbySOSReports } from '@/services/api';
 import { SOSReport, SOSSeverity } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
@@ -57,6 +58,14 @@ export default function CitizenReportPage() {
       { enableHighAccuracy: true, timeout: 8000 }
     );
   }, []);
+
+  // Query active SOS reports within 5km radius using PostGIS ST_DWithin spatial index
+  useEffect(() => {
+    if (latitude === null || longitude === null) return;
+    fetchNearbySOSReports(latitude, longitude)
+      .then((reports) => setNearbyReports(reports))
+      .catch((err) => console.error('Error fetching nearby SOS reports:', err));
+  }, [latitude, longitude]);
 
   // Submit SOS Report to backend POST /api/v1/sos
   const handleSubmit = async (e: React.FormEvent) => {
