@@ -131,7 +131,7 @@ class PreflightChecker:
         trigger_url = f'{self.api_url}/api/v1/simulation/trigger'
 
         admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
-        admin_password = os.environ.get('ADMIN_PASSWORD', 'SurakshaAdmin2026!')
+        admin_password = os.environ.get('ADMIN_PASSWORD_PLAIN', 'SurakshaGrid2026!')
 
         try:
             # Login to acquire Bearer JWT

@@ -21,7 +21,12 @@ python scripts/seed_db.py   # seed initial rescue units, SOS reports & genesis e
 uvicorn app.main:app --reload
 ```
 
-`DATABASE_URL` must use the `postgresql+asyncpg://` scheme. `CORS_ORIGINS` is a comma-separated list of allowed origins.
+`DATABASE_URL` must use the `postgresql+asyncpg://` scheme. `CORS_ORIGINS` is a comma-separated list of allowed origins. `ADMIN_PASSWORD` is a required environment variable containing a bcrypt password hash.
+
+To generate a bcrypt password hash for `ADMIN_PASSWORD`:
+```bash
+python -c "from app.core.security import get_password_hash; print(get_password_hash('yourpassword'))"
+```
 
 ## Database Seeding
 

@@ -42,7 +42,7 @@ def run_smoke_test(base_url: str) -> None:
         # Step 2: Authenticate Admin/Officer via /api/v1/auth/login
         print("2️⃣ Authenticating Officer Credentials (/api/v1/auth/login)...")
         admin_username = os.environ.get("ADMIN_USERNAME", "admin")
-        admin_password = os.environ.get("ADMIN_PASSWORD", "SurakshaAdmin2026!")
+        admin_password = os.environ.get("ADMIN_PASSWORD_PLAIN", "SurakshaGrid2026!")
         login_resp = client.post(
             f"{base_url}/api/v1/auth/login",
             json={"username": admin_username, "password": admin_password},

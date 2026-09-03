@@ -28,7 +28,7 @@ class Settings(BaseSettings):
 
     ENVIRONMENT: str = Field(default="production")
     ADMIN_USERNAME: str = Field(default="admin")
-    ADMIN_PASSWORD: str = Field(default="SurakshaAdmin2026!")
+    ADMIN_PASSWORD: str = Field(..., min_length=12, description="Bcrypt hash of the admin/dispatcher password")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60)
 
     @field_validator("CORS_ORIGINS", mode="before")
