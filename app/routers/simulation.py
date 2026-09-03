@@ -45,8 +45,11 @@ async def reset_demo_state(db: AsyncSession) -> None:
     await ws_manager.publish("SCENARIO_RESET", {"status": "cleared"})
 
 
-async def run_staggered_simulation(sim_id: str, test_db: AsyncSession | None = None) -> None:
-    """Background task that progressively inserts and broadcasts SOS reports with real staggered timing."""
+async def run_staggered_simulation(sim_id: str) -> None:
+    """Background task that progressively inserts and broadcasts SOS reports with real staggered timing.
+
+    Uses AsyncSessionLocal to obtain dedicated non-request DB sessions.
+    """
     global _active_sim_id
 
     # 12 Realistic SOS Reports with staggered delays (in seconds)
@@ -191,9 +194,6 @@ async def run_staggered_simulation(sim_id: str, test_db: AsyncSession | None = N
             logger.info("Staggered simulation cancelled or superseded.")
             break
 
-        if test_db is not None:
-            delay_sec = 0
-
         if delay_sec > 0:
             await asyncio.sleep(delay_sec)
 
@@ -209,7 +209,8 @@ async def run_staggered_simulation(sim_id: str, test_db: AsyncSession | None = N
         conf_id = uuid.uuid4() if add_conf else None
         conf_time = created_ts + timedelta(seconds=1) if add_conf else None
 
-        if test_db is not None:
+        # Dedicated non-request session from AsyncSessionLocal
+        async with AsyncSessionLocal() as task_db:
             report = SOSReport(
                 id=report_id,
                 location=location_wkt,
@@ -221,7 +222,7 @@ async def run_staggered_simulation(sim_id: str, test_db: AsyncSession | None = N
                 voice_transcript=transcript,
                 created_at=created_ts,
             )
-            test_db.add(report)
+            task_db.add(report)
 
             event = EventLog(
                 event_type="SOS_CREATED",
@@ -237,7 +238,7 @@ async def run_staggered_simulation(sim_id: str, test_db: AsyncSession | None = N
                 },
                 occurred_at=created_ts,
             )
-            test_db.add(event)
+            task_db.add(event)
 
             if add_conf and conf_id and conf_time:
                 confirmation = SOSConfirmation(
@@ -245,7 +246,7 @@ async def run_staggered_simulation(sim_id: str, test_db: AsyncSession | None = N
                     sos_id=report.id,
                     confirmed_at=conf_time,
                 )
-                test_db.add(confirmation)
+                task_db.add(confirmation)
                 conf_event = EventLog(
                     event_type="SOS_CONFIRMED",
                     payload={
@@ -255,59 +256,9 @@ async def run_staggered_simulation(sim_id: str, test_db: AsyncSession | None = N
                     },
                     occurred_at=conf_time,
                 )
-                test_db.add(conf_event)
+                task_db.add(conf_event)
 
-            await test_db.commit()
-        else:
-            async with AsyncSessionLocal() as db:
-                report = SOSReport(
-                    id=report_id,
-                    location=location_wkt,
-                    status=SOSStatus.PENDING,
-                    severity=sev,
-                    photo_url=photo_url,
-                    visual_confidence_score=conf,
-                    trust_score=trust,
-                    voice_transcript=transcript,
-                    created_at=created_ts,
-                )
-                db.add(report)
-
-                event = EventLog(
-                    event_type="SOS_CREATED",
-                    payload={
-                        "sos_id": str(report_id),
-                        "latitude": lat,
-                        "longitude": lon,
-                        "severity": sev_str,
-                        "photo_url": photo_url,
-                        "visual_confidence_score": conf,
-                        "trust_score": trust,
-                        "voice_transcript": transcript,
-                    },
-                    occurred_at=created_ts,
-                )
-                db.add(event)
-
-                if add_conf and conf_id and conf_time:
-                    confirmation = SOSConfirmation(
-                        id=conf_id,
-                        sos_id=report.id,
-                        confirmed_at=conf_time,
-                    )
-                    db.add(confirmation)
-                    conf_event = EventLog(
-                        event_type="SOS_CONFIRMED",
-                        payload={
-                            "sos_id": str(report.id),
-                            "trust_score": trust,
-                            "confirmation_id": str(conf_id),
-                        },
-                        occurred_at=conf_time,
-                    )
-                    db.add(conf_event)
-
-                await db.commit()
+            await task_db.commit()
 
         # Broadcast real-time WebSocket events
         await ws_manager.publish(
@@ -398,9 +349,8 @@ async def trigger_simulation(
 
     await db.commit()
 
-    # 3. Schedule background staggered SOS spawner (pass db if mocked in tests)
-    is_mock = hasattr(db, "_spec_class") or hasattr(db, "assert_called") or type(db).__name__ == "AsyncMock"
-    background_tasks.add_task(run_staggered_simulation, sim_id, db if is_mock else None)
+    # 3. Schedule background staggered SOS spawner with dedicated AsyncSessionLocal session management
+    background_tasks.add_task(run_staggered_simulation, sim_id)
 
     logger.info(f"Triggered live simulation: seeded {len(seeded_units)} units immediately. Spawning SOS reports progressively.")
 
