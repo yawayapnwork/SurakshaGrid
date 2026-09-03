@@ -189,106 +189,110 @@ async def run_staggered_simulation(sim_id: str) -> None:
         ),
     ]
 
-    for lon, lat, sev, photo_url, conf, trust, transcript, delay_sec, add_conf in sos_reports_data:
-        if _active_sim_id != sim_id:
-            logger.info("Staggered simulation cancelled or superseded.")
-            break
+    try:
+        for lon, lat, sev, photo_url, conf, trust, transcript, delay_sec, add_conf in sos_reports_data:
+            if _active_sim_id != sim_id:
+                logger.info(f"Staggered simulation {sim_id} cancelled or superseded.")
+                return
 
-        if delay_sec > 0:
-            await asyncio.sleep(delay_sec)
+            if delay_sec > 0:
+                await asyncio.sleep(delay_sec)
 
-        if _active_sim_id != sim_id:
-            logger.info("Staggered simulation cancelled or superseded during sleep.")
-            break
+            if _active_sim_id != sim_id:
+                logger.info(f"Staggered simulation {sim_id} cancelled or superseded during sleep.")
+                return
 
-        created_ts = datetime.now(timezone.utc)
-        report_id = uuid.uuid4()
-        location_wkt = f"SRID=4326;POINT({lon} {lat})"
-        sev_str = sev.value if hasattr(sev, "value") else str(sev)
+            created_ts = datetime.now(timezone.utc)
+            report_id = uuid.uuid4()
+            location_wkt = f"SRID=4326;POINT({lon} {lat})"
+            sev_str = sev.value if hasattr(sev, "value") else str(sev)
 
-        conf_id = uuid.uuid4() if add_conf else None
-        conf_time = created_ts + timedelta(seconds=1) if add_conf else None
+            conf_id = uuid.uuid4() if add_conf else None
+            conf_time = created_ts + timedelta(seconds=1) if add_conf else None
 
-        # Dedicated non-request session from AsyncSessionLocal
-        async with AsyncSessionLocal() as task_db:
-            report = SOSReport(
-                id=report_id,
-                location=location_wkt,
-                status=SOSStatus.PENDING,
-                severity=sev,
-                photo_url=photo_url,
-                visual_confidence_score=conf,
-                trust_score=trust,
-                voice_transcript=transcript,
-                created_at=created_ts,
-            )
-            task_db.add(report)
+            # Dedicated non-request session from AsyncSessionLocal
+            async with AsyncSessionLocal() as task_db:
+                report = SOSReport(
+                    id=report_id,
+                    location=location_wkt,
+                    status=SOSStatus.PENDING,
+                    severity=sev,
+                    photo_url=photo_url,
+                    visual_confidence_score=conf,
+                    trust_score=trust,
+                    voice_transcript=transcript,
+                    created_at=created_ts,
+                )
+                task_db.add(report)
 
-            event = EventLog(
-                event_type="SOS_CREATED",
-                payload={
+                event = EventLog(
+                    event_type="SOS_CREATED",
+                    payload={
+                        "sos_id": str(report_id),
+                        "latitude": lat,
+                        "longitude": lon,
+                        "severity": sev_str,
+                        "photo_url": photo_url,
+                        "visual_confidence_score": conf,
+                        "trust_score": trust,
+                        "voice_transcript": transcript,
+                    },
+                    occurred_at=created_ts,
+                )
+                task_db.add(event)
+
+                if add_conf and conf_id and conf_time:
+                    confirmation = SOSConfirmation(
+                        id=conf_id,
+                        sos_id=report.id,
+                        confirmed_at=conf_time,
+                    )
+                    task_db.add(confirmation)
+                    conf_event = EventLog(
+                        event_type="SOS_CONFIRMED",
+                        payload={
+                            "sos_id": str(report.id),
+                            "trust_score": trust,
+                            "confirmation_id": str(conf_id),
+                        },
+                        occurred_at=conf_time,
+                    )
+                    task_db.add(conf_event)
+
+                await task_db.commit()
+
+            # Broadcast real-time WebSocket events
+            await ws_manager.publish(
+                "SOS_CREATED",
+                {
                     "sos_id": str(report_id),
-                    "latitude": lat,
-                    "longitude": lon,
+                    "location": {"type": "Point", "coordinates": [lon, lat]},
                     "severity": sev_str,
+                    "status": SOSStatus.PENDING.value,
                     "photo_url": photo_url,
                     "visual_confidence_score": conf,
                     "trust_score": trust,
                     "voice_transcript": transcript,
+                    "created_at": created_ts.isoformat(),
                 },
-                occurred_at=created_ts,
             )
-            task_db.add(event)
 
-            if add_conf and conf_id and conf_time:
-                confirmation = SOSConfirmation(
-                    id=conf_id,
-                    sos_id=report.id,
-                    confirmed_at=conf_time,
-                )
-                task_db.add(confirmation)
-                conf_event = EventLog(
-                    event_type="SOS_CONFIRMED",
-                    payload={
-                        "sos_id": str(report.id),
+            if add_conf and conf_id:
+                await ws_manager.publish(
+                    "SOS_CONFIRMED",
+                    {
+                        "sos_id": str(report_id),
                         "trust_score": trust,
+                        "severity": sev_str,
+                        "status": SOSStatus.PENDING.value,
                         "confirmation_id": str(conf_id),
                     },
-                    occurred_at=conf_time,
                 )
-                task_db.add(conf_event)
 
-            await task_db.commit()
-
-        # Broadcast real-time WebSocket events
-        await ws_manager.publish(
-            "SOS_CREATED",
-            {
-                "sos_id": str(report_id),
-                "location": {"type": "Point", "coordinates": [lon, lat]},
-                "severity": sev_str,
-                "status": SOSStatus.PENDING.value,
-                "photo_url": photo_url,
-                "visual_confidence_score": conf,
-                "trust_score": trust,
-                "voice_transcript": transcript,
-                "created_at": created_ts.isoformat(),
-            },
-        )
-
-        if add_conf and conf_id:
-            await ws_manager.publish(
-                "SOS_CONFIRMED",
-                {
-                    "sos_id": str(report_id),
-                    "trust_score": trust,
-                    "severity": sev_str,
-                    "status": SOSStatus.PENDING.value,
-                    "confirmation_id": str(conf_id),
-                },
-            )
-
-    logger.info("Completed background staggered SOS simulation spawner.")
+        logger.info(f"Completed background staggered SOS simulation spawner {sim_id}.")
+    finally:
+        if _active_sim_id == sim_id:
+            _active_sim_id = None
 
 
 @router.post(

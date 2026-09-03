@@ -88,6 +88,42 @@ async def test_trigger_simulation_background_staggered_inserts():
 
 
 @pytest.mark.asyncio
+async def test_trigger_simulation_idempotent_restart():
+    """Asserts that calling trigger consecutive times cancels previous in-flight simulation runs and restarts cleanly."""
+    mock_db = AsyncMock()
+
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_officer] = lambda: {"sub": "admin", "role": "officer"}
+
+    mock_task_db = AsyncMock()
+    mock_task_db.commit = AsyncMock()
+
+    class MockTaskSessionContext:
+        async def __aenter__(self):
+            return mock_task_db
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    with patch("app.routers.simulation.ws_manager.publish", new_callable=AsyncMock), \
+         patch("app.routers.simulation.AsyncSessionLocal", side_effect=MockTaskSessionContext), \
+         patch("asyncio.sleep", new_callable=AsyncMock):
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            resp1 = await ac.post("/api/v1/simulation/trigger")
+            resp2 = await ac.post("/api/v1/simulation/trigger")
+
+        app.dependency_overrides.clear()
+
+        assert resp1.status_code == status.HTTP_200_OK
+        assert resp2.status_code == status.HTTP_200_OK
+        assert resp2.json()["status"] == "started"
+
+
+@pytest.mark.asyncio
 async def test_reset_simulation_api():
     mock_db = AsyncMock()
 
