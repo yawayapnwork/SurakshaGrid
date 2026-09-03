@@ -67,8 +67,8 @@ export async function createSOSReport(data: {
 export async function triggerSimulationScenario(): Promise<{
   status: string;
   seeded_units: number;
-  seeded_reports: number;
-  message: string;
+  seeded_reports?: number;
+  message?: string;
 }> {
   const res = await fetch(`${API_BASE_URL}/api/v1/simulation/trigger`, {
     method: 'POST',

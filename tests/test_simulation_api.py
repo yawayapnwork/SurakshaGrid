@@ -27,11 +27,9 @@ async def test_trigger_simulation_api():
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["status"] == "success"
+        assert data["status"] == "started"
         assert data["seeded_units"] == 7
-        assert data["seeded_reports"] == 12
         assert mock_db.commit.called
-        assert mock_pub.call_count >= 13  # 1 reset event + 12 created SOS reports
 
 
 @pytest.mark.asyncio

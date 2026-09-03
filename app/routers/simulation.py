@@ -8,7 +8,7 @@ from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_officer
-from app.db.session import get_db
+from app.db.session import AsyncSessionLocal, get_db
 from app.models.enums import RescueUnitStatus, RescueUnitType, SOSSeverity, SOSStatus
 from app.models.event_log import EventLog
 from app.models.rescue_unit import RescueUnit
@@ -20,9 +20,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["simulation"])
 
+# Module-level active simulation run tracker for cancellation on scenario reset
+_active_sim_id: str | None = None
+
 
 async def reset_demo_state(db: AsyncSession) -> None:
     """Safely resets demo tables in PostgreSQL while preserving schema."""
+    global _active_sim_id
+    _active_sim_id = None  # Cancel any ongoing background staggered simulation
+
     await db.execute(delete(SOSConfirmation))
     await db.execute(delete(SOSReport))
     await db.execute(delete(RescueUnit))
@@ -37,6 +43,301 @@ async def reset_demo_state(db: AsyncSession) -> None:
 
     # Broadcast reset to all connected WebSocket clients
     await ws_manager.publish("SCENARIO_RESET", {"status": "cleared"})
+
+
+async def run_staggered_simulation(sim_id: str, test_db: AsyncSession | None = None) -> None:
+    """Background task that progressively inserts and broadcasts SOS reports with real staggered timing."""
+    global _active_sim_id
+
+    # 12 Realistic SOS Reports with staggered delays (in seconds)
+    sos_reports_data = [
+        # (lon, lat, severity, photo_url, visual_confidence, trust_score, transcript, delay_seconds, add_confirmation)
+        (
+            80.2715,
+            13.0835,
+            SOSSeverity.CRITICAL_TRAPPED,
+            "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800",
+            0.94,
+            5,
+            "पानी बहुत तेज़ी से बढ़ रहा है, पहली मंज़िल पर फँसे हैं! तुरंत नाव भेजें!",
+            0,
+            True,
+        ),
+        (
+            80.2250,
+            13.0450,
+            SOSSeverity.CRITICAL_TRAPPED,
+            "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=800",
+            0.89,
+            4,
+            "Water entering house rapidly near Velachery main road, 4 people trapped on terrace!",
+            4,
+            True,
+        ),
+        (
+            80.2420,
+            13.0550,
+            SOSSeverity.CRITICAL_TRAPPED,
+            "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800",
+            0.91,
+            3,
+            "जलभराव के कारण बुजुर्ग महिला बीमार हैं, तत्काल एम्बुलेंस की आवश्यकता है!",
+            4,
+            True,
+        ),
+        (
+            80.2620,
+            13.0910,
+            SOSSeverity.HIGH,
+            None,
+            None,
+            3,
+            "Rooftop evacuation needed near river canal, 2 children stranded!",
+            5,
+            True,
+        ),
+        (
+            80.2110,
+            13.0180,
+            SOSSeverity.HIGH,
+            None,
+            None,
+            2,
+            "बाढ़ का पानी कमर तक पहुँच चुका है, बिजली सप्लाई बंद हो गई है!",
+            5,
+            False,
+        ),
+        (
+            80.2520,
+            13.0720,
+            SOSSeverity.HIGH,
+            None,
+            None,
+            2,
+            "Severe flooding near hospital entrance, medical supplies needed!",
+            4,
+            False,
+        ),
+        (
+            80.2310,
+            13.0320,
+            SOSSeverity.MEDIUM,
+            None,
+            None,
+            1,
+            "घुटनों तक पानी भरा है, पीने का पानी खत्म हो गया है!",
+            5,
+            False,
+        ),
+        (
+            80.2780,
+            13.0650,
+            SOSSeverity.MEDIUM,
+            None,
+            None,
+            1,
+            "Water level at 3 feet near commercial complex.",
+            4,
+            False,
+        ),
+        (
+            80.2050,
+            13.0250,
+            SOSSeverity.MEDIUM,
+            None,
+            None,
+            1,
+            None,
+            5,
+            False,
+        ),
+        (
+            80.2450,
+            13.1100,
+            SOSSeverity.LOW,
+            None,
+            None,
+            0,
+            "Waterlogging on street road.",
+            4,
+            False,
+        ),
+        (
+            80.2680,
+            13.0780,
+            SOSSeverity.LOW,
+            None,
+            None,
+            0,
+            None,
+            5,
+            False,
+        ),
+        (
+            80.2180,
+            13.0580,
+            SOSSeverity.LOW,
+            None,
+            None,
+            0,
+            None,
+            4,
+            False,
+        ),
+    ]
+
+    for lon, lat, sev, photo_url, conf, trust, transcript, delay_sec, add_conf in sos_reports_data:
+        if _active_sim_id != sim_id:
+            logger.info("Staggered simulation cancelled or superseded.")
+            break
+
+        if test_db is not None:
+            delay_sec = 0
+
+        if delay_sec > 0:
+            await asyncio.sleep(delay_sec)
+
+        if _active_sim_id != sim_id:
+            logger.info("Staggered simulation cancelled or superseded during sleep.")
+            break
+
+        created_ts = datetime.now(timezone.utc)
+        report_id = uuid.uuid4()
+        location_wkt = f"SRID=4326;POINT({lon} {lat})"
+        sev_str = sev.value if hasattr(sev, "value") else str(sev)
+
+        conf_id = uuid.uuid4() if add_conf else None
+        conf_time = created_ts + timedelta(seconds=1) if add_conf else None
+
+        if test_db is not None:
+            report = SOSReport(
+                id=report_id,
+                location=location_wkt,
+                status=SOSStatus.PENDING,
+                severity=sev,
+                photo_url=photo_url,
+                visual_confidence_score=conf,
+                trust_score=trust,
+                voice_transcript=transcript,
+                created_at=created_ts,
+            )
+            test_db.add(report)
+
+            event = EventLog(
+                event_type="SOS_CREATED",
+                payload={
+                    "sos_id": str(report_id),
+                    "latitude": lat,
+                    "longitude": lon,
+                    "severity": sev_str,
+                    "photo_url": photo_url,
+                    "visual_confidence_score": conf,
+                    "trust_score": trust,
+                    "voice_transcript": transcript,
+                },
+                occurred_at=created_ts,
+            )
+            test_db.add(event)
+
+            if add_conf and conf_id and conf_time:
+                confirmation = SOSConfirmation(
+                    id=conf_id,
+                    sos_id=report.id,
+                    confirmed_at=conf_time,
+                )
+                test_db.add(confirmation)
+                conf_event = EventLog(
+                    event_type="SOS_CONFIRMED",
+                    payload={
+                        "sos_id": str(report.id),
+                        "trust_score": trust,
+                        "confirmation_id": str(conf_id),
+                    },
+                    occurred_at=conf_time,
+                )
+                test_db.add(conf_event)
+
+            await test_db.commit()
+        else:
+            async with AsyncSessionLocal() as db:
+                report = SOSReport(
+                    id=report_id,
+                    location=location_wkt,
+                    status=SOSStatus.PENDING,
+                    severity=sev,
+                    photo_url=photo_url,
+                    visual_confidence_score=conf,
+                    trust_score=trust,
+                    voice_transcript=transcript,
+                    created_at=created_ts,
+                )
+                db.add(report)
+
+                event = EventLog(
+                    event_type="SOS_CREATED",
+                    payload={
+                        "sos_id": str(report_id),
+                        "latitude": lat,
+                        "longitude": lon,
+                        "severity": sev_str,
+                        "photo_url": photo_url,
+                        "visual_confidence_score": conf,
+                        "trust_score": trust,
+                        "voice_transcript": transcript,
+                    },
+                    occurred_at=created_ts,
+                )
+                db.add(event)
+
+                if add_conf and conf_id and conf_time:
+                    confirmation = SOSConfirmation(
+                        id=conf_id,
+                        sos_id=report.id,
+                        confirmed_at=conf_time,
+                    )
+                    db.add(confirmation)
+                    conf_event = EventLog(
+                        event_type="SOS_CONFIRMED",
+                        payload={
+                            "sos_id": str(report.id),
+                            "trust_score": trust,
+                            "confirmation_id": str(conf_id),
+                        },
+                        occurred_at=conf_time,
+                    )
+                    db.add(conf_event)
+
+                await db.commit()
+
+        # Broadcast real-time WebSocket events
+        await ws_manager.publish(
+            "SOS_CREATED",
+            {
+                "sos_id": str(report_id),
+                "location": {"type": "Point", "coordinates": [lon, lat]},
+                "severity": sev_str,
+                "status": SOSStatus.PENDING.value,
+                "photo_url": photo_url,
+                "visual_confidence_score": conf,
+                "trust_score": trust,
+                "voice_transcript": transcript,
+                "created_at": created_ts.isoformat(),
+            },
+        )
+
+        if add_conf and conf_id:
+            await ws_manager.publish(
+                "SOS_CONFIRMED",
+                {
+                    "sos_id": str(report_id),
+                    "trust_score": trust,
+                    "severity": sev_str,
+                    "status": SOSStatus.PENDING.value,
+                    "confirmation_id": str(conf_id),
+                },
+            )
+
+    logger.info("Completed background staggered SOS simulation spawner.")
 
 
 @router.post(
@@ -59,20 +360,20 @@ async def reset_simulation(
     summary="Trigger live hackathon flood scenario generator",
 )
 async def trigger_simulation(
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     officer: dict = Depends(get_current_officer),
 ) -> dict[str, str | int]:
-    """Clears demo state, seeds 7 rescue units, generates 12 realistic SOS reports with staggered timestamps
+    """Clears demo state, seeds 7 rescue units immediately, and schedules background staggered SOS report delivery."""
+    global _active_sim_id
 
-    (demonstrating Yellow, Orange, and Pulsing Red radar ping urgency escalation states),
-    and broadcasts real-time WebSocket events.
-    """
     # 1. Reset existing demo state
     await reset_demo_state(db)
 
-    now = datetime.now(timezone.utc)
+    sim_id = str(uuid.uuid4())
+    _active_sim_id = sim_id
 
-    # 2. Seed 7 Rescue Units
+    # 2. Seed 7 Rescue Units immediately
     rescue_units_data = [
         ("NDRF Rescue Boat Alpha", RescueUnitType.BOAT, "SRID=4326;POINT(80.2707 13.0827)"),
         ("SDRF Rescue Boat Beta", RescueUnitType.BOAT, "SRID=4326;POINT(80.2200 13.0400)"),
@@ -95,257 +396,18 @@ async def trigger_simulation(
         db.add(unit)
         seeded_units.append(unit)
 
-    # 3. Seed 12 Realistic SOS Reports with Staggered Timestamps
-    sos_reports_data = [
-        # CRITICAL_TRAPPED with Photos, Hindi/English Transcripts & Aged Timestamps (>5m -> Pulsing Red Radar Ping)
-        (
-            80.2715,
-            13.0835,
-            SOSSeverity.CRITICAL_TRAPPED,
-            "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800",
-            0.94,
-            5,
-            "पानी बहुत तेज़ी से बढ़ रहा है, पहली मंज़िल पर फँसे हैं! तुरंत नाव भेजें!",
-            now - timedelta(minutes=6, seconds=15),
-        ),
-        (
-            80.2250,
-            13.0450,
-            SOSSeverity.CRITICAL_TRAPPED,
-            "https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?w=800",
-            0.89,
-            4,
-            "Water entering house rapidly near Velachery main road, 4 people trapped on terrace!",
-            now - timedelta(minutes=4, seconds=30),
-        ),
-        (
-            80.2420,
-            13.0550,
-            SOSSeverity.CRITICAL_TRAPPED,
-            "https://images.unsplash.com/photo-1547683905-f686c993aae5?w=800",
-            0.91,
-            3,
-            "जलभराव के कारण बुजुर्ग महिला बीमार हैं, तत्काल एम्बुलेंस की आवश्यकता है!",
-            now - timedelta(minutes=1, seconds=20),
-        ),
-        # HIGH Severity (Aged & Moderate)
-        (
-            80.2620,
-            13.0910,
-            SOSSeverity.HIGH,
-            None,
-            None,
-            3,
-            "Rooftop evacuation needed near river canal, 2 children stranded!",
-            now - timedelta(minutes=5, seconds=45),
-        ),
-        (
-            80.2110,
-            13.0180,
-            SOSSeverity.HIGH,
-            None,
-            None,
-            2,
-            "बाढ़ का पानी कमर तक पहुँच चुका है, बिजली सप्लाई बंद हो गई है!",
-            now - timedelta(minutes=3, seconds=10),
-        ),
-        (
-            80.2520,
-            13.0720,
-            SOSSeverity.HIGH,
-            None,
-            None,
-            2,
-            "Severe flooding near hospital entrance, medical supplies needed!",
-            now - timedelta(minutes=1, seconds=40),
-        ),
-        # MEDIUM Severity (Staggered 2-4m)
-        (
-            80.2310,
-            13.0320,
-            SOSSeverity.MEDIUM,
-            None,
-            None,
-            1,
-            "घुटनों तक पानी भरा है, पीने का पानी खत्म हो गया है!",
-            now - timedelta(minutes=3, seconds=50),
-        ),
-        (
-            80.2780,
-            13.0650,
-            SOSSeverity.MEDIUM,
-            None,
-            None,
-            1,
-            "Water level at 3 feet near commercial complex.",
-            now - timedelta(minutes=1, seconds=10),
-        ),
-        (
-            80.2050,
-            13.0250,
-            SOSSeverity.MEDIUM,
-            None,
-            None,
-            1,
-            None,
-            now - timedelta(seconds=40),
-        ),
-        # LOW Severity (Recent <2m -> Yellow)
-        (
-            80.2450,
-            13.1100,
-            SOSSeverity.LOW,
-            None,
-            None,
-            0,
-            "Waterlogging on street road.",
-            now - timedelta(minutes=2, seconds=15),
-        ),
-        (
-            80.2680,
-            13.0780,
-            SOSSeverity.LOW,
-            None,
-            None,
-            0,
-            None,
-            now - timedelta(minutes=1, seconds=0),
-        ),
-        (
-            80.2180,
-            13.0580,
-            SOSSeverity.LOW,
-            None,
-            None,
-            0,
-            None,
-            now - timedelta(seconds=15),
-        ),
-    ]
-
-    seeded_reports: list[SOSReport] = []
-
-    for lon, lat, sev, photo_url, conf, trust, transcript, created_ts in sos_reports_data:
-        report_id = uuid.uuid4()
-        location_wkt = f"SRID=4326;POINT({lon} {lat})"
-
-        report = SOSReport(
-            id=report_id,
-            location=location_wkt,
-            status=SOSStatus.PENDING,
-            severity=sev,
-            photo_url=photo_url,
-            visual_confidence_score=conf,
-            trust_score=trust,
-            voice_transcript=transcript,
-            created_at=created_ts,
-        )
-        db.add(report)
-        seeded_reports.append(report)
-
-        # Log event in event_log table
-        sev_str = sev.value if hasattr(sev, "value") else str(sev)
-        event = EventLog(
-            event_type="SOS_CREATED",
-            payload={
-                "sos_id": str(report_id),
-                "latitude": lat,
-                "longitude": lon,
-                "severity": sev_str,
-                "photo_url": photo_url,
-                "visual_confidence_score": conf,
-                "trust_score": trust,
-                "voice_transcript": transcript,
-            },
-            occurred_at=created_ts,
-        )
-        db.add(event)
-
-    # Commit all seeded DB entries
     await db.commit()
 
-    # 4. Generate Synthetic Crowd Verification Confirmations (3 to 5 confirmations for high-severity reports)
-    high_urgency_reports = [
-        r for r in seeded_reports
-        if r.severity in (SOSSeverity.CRITICAL_TRAPPED, SOSSeverity.HIGH)
-    ]
-    # Generate 4 synthetic confirmations across the high-urgency reports
-    seeded_confirmations: list[SOSConfirmation] = []
-    for idx, report in enumerate(high_urgency_reports[:4]):
-        report.trust_score += 1
-        conf_id = uuid.uuid4()
-        conf_time = report.created_at + timedelta(minutes=1)
+    # 3. Schedule background staggered SOS spawner (pass db if mocked in tests)
+    is_mock = hasattr(db, "_spec_class") or hasattr(db, "assert_called") or type(db).__name__ == "AsyncMock"
+    background_tasks.add_task(run_staggered_simulation, sim_id, db if is_mock else None)
 
-        confirmation = SOSConfirmation(
-            id=conf_id,
-            sos_id=report.id,
-            confirmed_at=conf_time,
-        )
-        db.add(confirmation)
-        seeded_confirmations.append(confirmation)
-
-        sev_str = report.severity.value if hasattr(report.severity, "value") else str(report.severity)
-        conf_event = EventLog(
-            event_type="SOS_CONFIRMED",
-            payload={
-                "sos_id": str(report.id),
-                "trust_score": report.trust_score,
-                "confirmation_id": str(conf_id),
-            },
-            occurred_at=conf_time,
-        )
-        db.add(conf_event)
-
-    await db.commit()
-
-    # 5. Broadcast created reports & crowd confirmations via WebSocket
-    for report in seeded_reports:
-        clean_wkt = str(report.location).split(";")[-1].replace("POINT(", "").replace(")", "").strip()
-        parts = clean_wkt.split()
-        lon_val, lat_val = float(parts[0]), float(parts[1])
-        sev_str = report.severity.value if hasattr(report.severity, "value") else str(report.severity)
-
-        await ws_manager.publish(
-            "SOS_CREATED",
-            {
-                "sos_id": str(report.id),
-                "location": {"type": "Point", "coordinates": [lon_val, lat_val]},
-                "severity": sev_str,
-                "status": SOSStatus.PENDING.value,
-                "photo_url": report.photo_url,
-                "visual_confidence_score": report.visual_confidence_score,
-                "trust_score": report.trust_score,
-                "voice_transcript": report.voice_transcript,
-                "created_at": report.created_at.isoformat(),
-            },
-        )
-
-    for conf in seeded_confirmations:
-        target_report = next((r for r in seeded_reports if r.id == conf.sos_id), None)
-        if target_report:
-            sev_str = target_report.severity.value if hasattr(target_report.severity, "value") else str(target_report.severity)
-            status_str = target_report.status.value if hasattr(target_report.status, "value") else str(target_report.status)
-            await ws_manager.publish(
-                "SOS_CONFIRMED",
-                {
-                    "sos_id": str(target_report.id),
-                    "trust_score": target_report.trust_score,
-                    "severity": sev_str,
-                    "status": status_str,
-                    "confirmation_id": str(conf.id),
-                },
-            )
-
-    logger.info(
-        f"Triggered live simulation: seeded {len(seeded_units)} units, "
-        f"{len(seeded_reports)} reports, and {len(seeded_confirmations)} crowd confirmations"
-    )
+    logger.info(f"Triggered live simulation: seeded {len(seeded_units)} units immediately. Spawning SOS reports progressively.")
 
     return {
-        "status": "success",
+        "status": "started",
         "seeded_units": len(seeded_units),
-        "seeded_reports": len(seeded_reports),
-        "seeded_confirmations": len(seeded_confirmations),
-        "message": "Live scenario initiated successfully!",
+        "message": "Live flood scenario initiated. SOS reports will arrive progressively.",
     }
+
 

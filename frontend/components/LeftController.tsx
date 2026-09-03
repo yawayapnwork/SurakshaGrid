@@ -66,7 +66,7 @@ export const LeftController: React.FC<LeftControllerProps> = ({
           className="w-full py-2.5 px-4 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:border-amber-500/50 font-bold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           <Zap className={`w-4 h-4 text-amber-400 ${isTriggering ? 'animate-spin' : ''}`} />
-          {isTriggering ? 'Seeding Hackathon Demo...' : 'Trigger Flood Event Scenario'}
+          {isTriggering ? 'Scenario running…' : 'Trigger Flood Event Scenario'}
         </button>
 
         <button
