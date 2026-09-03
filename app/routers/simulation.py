@@ -1,8 +1,9 @@
+import asyncio
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,10 +54,13 @@ async def reset_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, str]
     status_code=status.HTTP_200_OK,
     summary="Trigger live hackathon flood scenario generator",
 )
-async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, str | int]:
-    """Clears demo state, seeds 7 rescue units, generates 12 realistic SOS reports with photos
+async def trigger_simulation(
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, str | int]:
+    """Clears demo state, seeds 7 rescue units, generates 12 realistic SOS reports with staggered timestamps
 
-    and multilingual voice transcripts, and broadcasts real-time WebSocket events.
+    (demonstrating Yellow, Orange, and Pulsing Red radar ping urgency escalation states),
+    and broadcasts real-time WebSocket events.
     """
     # 1. Reset existing demo state
     await reset_demo_state(db)
@@ -86,9 +90,9 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
         db.add(unit)
         seeded_units.append(unit)
 
-    # 3. Seed 12 Realistic SOS Reports
+    # 3. Seed 12 Realistic SOS Reports with Staggered Timestamps
     sos_reports_data = [
-        # CRITICAL_TRAPPED with Photos & Hindi/English Transcripts
+        # CRITICAL_TRAPPED with Photos, Hindi/English Transcripts & Aged Timestamps (>5m -> Pulsing Red Radar Ping)
         (
             80.2715,
             13.0835,
@@ -97,6 +101,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             0.94,
             5,
             "पानी बहुत तेज़ी से बढ़ रहा है, पहली मंज़िल पर फँसे हैं! तुरंत नाव भेजें!",
+            now - timedelta(minutes=6, seconds=15),
         ),
         (
             80.2250,
@@ -106,6 +111,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             0.89,
             4,
             "Water entering house rapidly near Velachery main road, 4 people trapped on terrace!",
+            now - timedelta(minutes=4, seconds=30),
         ),
         (
             80.2420,
@@ -115,8 +121,9 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             0.91,
             3,
             "जलभराव के कारण बुजुर्ग महिला बीमार हैं, तत्काल एम्बुलेंस की आवश्यकता है!",
+            now - timedelta(minutes=1, seconds=20),
         ),
-        # HIGH Severity
+        # HIGH Severity (Aged & Moderate)
         (
             80.2620,
             13.0910,
@@ -125,6 +132,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             3,
             "Rooftop evacuation needed near river canal, 2 children stranded!",
+            now - timedelta(minutes=5, seconds=45),
         ),
         (
             80.2110,
@@ -134,6 +142,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             2,
             "बाढ़ का पानी कमर तक पहुँच चुका है, बिजली सप्लाई बंद हो गई है!",
+            now - timedelta(minutes=3, seconds=10),
         ),
         (
             80.2520,
@@ -143,8 +152,9 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             2,
             "Severe flooding near hospital entrance, medical supplies needed!",
+            now - timedelta(minutes=1, seconds=40),
         ),
-        # MEDIUM Severity
+        # MEDIUM Severity (Staggered 2-4m)
         (
             80.2310,
             13.0320,
@@ -153,6 +163,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             1,
             "घुटनों तक पानी भरा है, पीने का पानी खत्म हो गया है!",
+            now - timedelta(minutes=3, seconds=50),
         ),
         (
             80.2780,
@@ -162,6 +173,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             1,
             "Water level at 3 feet near commercial complex.",
+            now - timedelta(minutes=1, seconds=10),
         ),
         (
             80.2050,
@@ -171,8 +183,9 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             1,
             None,
+            now - timedelta(seconds=40),
         ),
-        # LOW Severity
+        # LOW Severity (Recent <2m -> Yellow)
         (
             80.2450,
             13.1100,
@@ -181,6 +194,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             0,
             "Waterlogging on street road.",
+            now - timedelta(minutes=2, seconds=15),
         ),
         (
             80.2680,
@@ -190,6 +204,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             0,
             None,
+            now - timedelta(minutes=1, seconds=0),
         ),
         (
             80.2180,
@@ -199,12 +214,13 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             None,
             0,
             None,
+            now - timedelta(seconds=15),
         ),
     ]
 
     seeded_reports: list[SOSReport] = []
 
-    for lon, lat, sev, photo_url, conf, trust, transcript in sos_reports_data:
+    for lon, lat, sev, photo_url, conf, trust, transcript, created_ts in sos_reports_data:
         report_id = uuid.uuid4()
         location_wkt = f"SRID=4326;POINT({lon} {lat})"
 
@@ -217,7 +233,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
             visual_confidence_score=conf,
             trust_score=trust,
             voice_transcript=transcript,
-            created_at=now,
+            created_at=created_ts,
         )
         db.add(report)
         seeded_reports.append(report)
@@ -236,16 +252,15 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
                 "trust_score": trust,
                 "voice_transcript": transcript,
             },
-            occurred_at=now,
+            occurred_at=created_ts,
         )
         db.add(event)
 
     # Commit all seeded DB entries
     await db.commit()
 
-    # 4. Broadcast each created report via WebSocket
+    # 4. Broadcast created reports via WebSocket
     for report in seeded_reports:
-        # Extract coordinates
         clean_wkt = str(report.location).split(";")[-1].replace("POINT(", "").replace(")", "").strip()
         parts = clean_wkt.split()
         lon_val, lat_val = float(parts[0]), float(parts[1])
@@ -262,7 +277,7 @@ async def trigger_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, st
                 "visual_confidence_score": report.visual_confidence_score,
                 "trust_score": report.trust_score,
                 "voice_transcript": report.voice_transcript,
-                "created_at": now.isoformat(),
+                "created_at": report.created_at.isoformat(),
             },
         )
 
