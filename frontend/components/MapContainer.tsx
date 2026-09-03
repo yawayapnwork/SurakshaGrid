@@ -53,8 +53,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         type: 'fill',
         source: 'flood-zone-source',
         paint: {
-          'fill-color': 'rgba(14, 165, 233, 0.45)', // Translucent cyan/blue water fill
-          'fill-opacity': 0.85,
+          'fill-color': '#0ea5e9', // Sky blue flood zone extent
+          'fill-opacity': 0.45,
         },
       });
 

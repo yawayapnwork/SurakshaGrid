@@ -64,7 +64,7 @@ def test_estimate_water_confidence_solid_gray():
 
 def test_estimate_water_confidence_concrete_tan():
     """Solid concrete-tan square should NOT score above ~0.3 confidence."""
-    concrete_bytes = create_synthetic_image_bytes(b=150, g=150, r=150)
+    concrete_bytes = create_synthetic_image_bytes(b=145, g=150, r=155)
     confidence = estimate_water_confidence(concrete_bytes)
     assert confidence <= 0.3
 

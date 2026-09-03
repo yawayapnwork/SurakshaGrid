@@ -44,6 +44,10 @@ def extract_coordinates(geom: Any) -> tuple[float, float]:
         parts = clean_str.split()
         if len(parts) >= 2:
             return (float(parts[0]), float(parts[1]))
+    logger.warning(
+        f"Could not parse coordinates from geometry input ({geom!r}). "
+        "Falling back to default coordinates (80.2707, 13.0827)."
+    )
     return (80.2707, 13.0827)
 
 
