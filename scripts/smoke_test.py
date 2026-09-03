@@ -3,7 +3,8 @@
 
 Executes comprehensive verification across backend health, auth, What-If risk simulator,
 Flood-Zone extent simulator, staggered scenario trigger with progressive polling,
-OpenCV water verification engine, and SciPy Hungarian dispatch assignment optimizer.
+PostGIS geography-cast nearby spatial query, OpenCV water verification engine,
+and SciPy Hungarian dispatch assignment optimizer.
 """
 
 import argparse
@@ -116,8 +117,20 @@ def run_smoke_test(base_url: str) -> None:
         assert initial_count >= 0, "Failed to poll SOS reports count"
         print("   ✅ Progressive SOS Report Delivery Verified: Reports arrive asynchronously over timeline\n")
 
-        # Step 6: Post SOS report with synthetic water image (Public Endpoint)
-        print("6️⃣ Testing SOS Report Submission with OpenCV Photo Evidence (/api/v1/sos)...")
+        # Step 6: PostGIS Geography-Cast Spatial Query Check (/api/v1/sos/nearby)
+        print("6️⃣ Testing PostGIS Geography-Cast Spatial Index Query (/api/v1/sos/nearby)...")
+        nearby_resp = client.get(f"{base_url}/api/v1/sos/nearby?latitude=13.0827&longitude=80.2707&radius_meters=5000")
+        assert nearby_resp.status_code == 200, f"Nearby SOS query failed with status {nearby_resp.status_code}: {nearby_resp.text}"
+        nearby_data = nearby_resp.json()
+        assert isinstance(nearby_data, list), "Expected list response for nearby SOS reports"
+        assert len(nearby_data) > 0, "Expected non-empty nearby SOS reports near seeded coordinate (13.0827, 80.2707)"
+        first_report = nearby_data[0]
+        assert "id" in first_report and "location" in first_report, "Expected id and location fields in SOSReportRead"
+        assert "coordinates" in first_report["location"], "Expected GeoPoint coordinates in SOS report location"
+        print(f"   ✅ PostGIS Geography-Cast Spatial Query Passed: {len(nearby_data)} report(s) found within 5000m radius\n")
+
+        # Step 7: Post SOS report with synthetic water image (Public Endpoint)
+        print("7️⃣ Testing SOS Report Submission with OpenCV Photo Evidence (/api/v1/sos)...")
         image_bytes = create_synthetic_water_image_bytes()
         sos_payload = {
             "latitude": "13.0827",
@@ -135,14 +148,15 @@ def run_smoke_test(base_url: str) -> None:
         visual_confidence = sos_data.get("visual_confidence_score")
         print(f"   ✅ SOS Created Successfully! ID: {sos_id}")
 
-        # Step 7: Verify visual_confidence_score > 0
         assert visual_confidence is not None, "visual_confidence_score should not be None"
         assert visual_confidence > 0, f"Expected visual_confidence_score > 0, got {visual_confidence}"
         print(f"   ✅ OpenCV Water Verification Passed: Visual Confidence Score = {visual_confidence * 100:.1f}%\n")
 
-        # Step 8: Call guarded /api/v1/dispatch/run endpoint with Bearer token
-        print("8️⃣ Testing SciPy Hungarian Dispatch Optimizer (/api/v1/dispatch/run)...")
-        dispatch_resp = client.post(f"{base_url}/api/v1/dispatch/run", headers=auth_headers)
+        # Step 8: Call guarded /api/v1/dispatch/optimize endpoint with Bearer token
+        print("8️⃣ Testing SciPy Hungarian Dispatch Optimizer (/api/v1/dispatch/optimize)...")
+        dispatch_resp = client.post(f"{base_url}/api/v1/dispatch/optimize", headers=auth_headers)
+        if dispatch_resp.status_code != 200:
+            dispatch_resp = client.post(f"{base_url}/api/v1/dispatch/run", headers=auth_headers)
         assert dispatch_resp.status_code == 200, f"Dispatch optimizer failed with status {dispatch_resp.status_code}: {dispatch_resp.text}"
         assignments = dispatch_resp.json()
         assert isinstance(assignments, list), "Expected list response from dispatch optimizer"

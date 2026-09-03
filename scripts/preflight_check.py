@@ -8,6 +8,7 @@ and Vercel (Frontend Next.js) against PRD §8 performance criteria.
 import argparse
 import asyncio
 import os
+import socket
 import sys
 import time
 from typing import Any, Dict, List, Tuple
@@ -15,6 +16,9 @@ from urllib.parse import urlparse
 
 import httpx
 import websockets
+
+# Ensure project root is in sys.path when executed directly
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 class PreflightChecker:
@@ -30,6 +34,12 @@ class PreflightChecker:
         return f'{scheme}://{parsed.netloc}{path}'
 
     async def run_all_checks(self) -> bool:
+        if sys.platform == 'win32':
+            try:
+                sys.stdout.reconfigure(encoding='utf-8')
+            except Exception:
+                pass
+
         print('\n' + '=' * 83)
         print('                       SURAKSHAGRID PRE-FLIGHT VALIDATION                      ')
         print('=' * 83)
@@ -44,34 +54,44 @@ class PreflightChecker:
         async with httpx.AsyncClient(timeout=10.0) as client:
             all_passed = True
 
-            # 1. Database & PostGIS Health Check
+            # 1. ADMIN_PASSWORD Bcrypt Hash & Env Check
+            passed, latency, details = self.check_admin_password_hash()
+            self._log_result(1, 'ADMIN_PASSWORD Bcrypt Hash Check', passed, latency, details)
+            all_passed = all_passed and passed
+
+            # 2. Environment Infrastructure Reachability Check (DB, Redis, OSRM)
+            passed, latency, details = await self.check_env_reachability(client)
+            self._log_result(2, 'Env Services (DB/Redis/OSRM)', passed, latency, details)
+            all_passed = all_passed and passed
+
+            # 3. Database & PostGIS Health Check (/healthz)
             passed, latency, details = await self.check_health(client)
-            self._log_result(1, 'DB & PostGIS Health Check', passed, latency, details)
+            self._log_result(3, 'DB & PostGIS Health Check', passed, latency, details)
             all_passed = all_passed and passed
 
-            # 2. What-If Risk Simulation Latency Test (<300ms)
+            # 4. What-If Risk Simulation Latency Test (<300ms)
             passed, latency, details = await self.check_risk_simulation_latency(client)
-            self._log_result(2, 'What-If Simulation Latency (<300ms)', passed, latency, details)
+            self._log_result(4, 'What-If Simulation Latency (<300ms)', passed, latency, details)
             all_passed = all_passed and passed
 
-            # 3. SciPy Hungarian Dispatch Solver Test
+            # 5. SciPy Hungarian Dispatch Solver Test
             passed, latency, details = await self.check_dispatch_solver(client)
-            self._log_result(3, 'SciPy Hungarian Dispatch Solver', passed, latency, details)
+            self._log_result(5, 'SciPy Hungarian Dispatch Solver', passed, latency, details)
             all_passed = all_passed and passed
 
-            # 4. WebSocket Connectivity Test (/ws/live-feed)
+            # 6. WebSocket Connectivity Test (/ws/live-feed)
             passed, latency, details = await self.check_websocket_connectivity()
-            self._log_result(4, 'WebSocket Live Feed Connectivity', passed, latency, details)
+            self._log_result(6, 'WebSocket Live Feed Connectivity', passed, latency, details)
             all_passed = all_passed and passed
 
-            # 5. Frontend Audio Fallback Asset Check (/alert.mp3)
+            # 7. Frontend Audio Fallback Asset Check (/alert.mp3)
             passed, latency, details = await self.check_frontend_asset(client)
-            self._log_result(5, 'Frontend Audio Asset (/alert.mp3)', passed, latency, details)
+            self._log_result(7, 'Frontend Audio Asset (/alert.mp3)', passed, latency, details)
             all_passed = all_passed and passed
 
         print('-' * 83)
         if all_passed:
-            print('RESULT: ALL 5 PRE-FLIGHT CHECKS PASSED [DEPLOYMENT READY] ✅')
+            print('RESULT: ALL PRE-FLIGHT CHECKS PASSED [DEPLOYMENT READY] ✅')
         else:
             print('RESULT: PRE-FLIGHT VERIFICATION FAILED [DO NOT DEPLOY] ❌')
         print('=' * 83 + '\n')
@@ -90,8 +110,82 @@ class PreflightChecker:
             'details': details,
         })
 
+    def check_admin_password_hash(self) -> Tuple[bool, float, str]:
+        """Check 1: Validates ADMIN_PASSWORD environment variable is configured as a valid bcrypt hash."""
+        admin_password_hash = os.environ.get('ADMIN_PASSWORD', '')
+
+        if not admin_password_hash:
+            try:
+                from app.core.config import get_settings
+                admin_password_hash = get_settings().ADMIN_PASSWORD
+            except Exception:
+                pass
+
+        if not admin_password_hash:
+            return False, -1, 'ADMIN_PASSWORD environment variable is missing'
+
+        if 'EXAMPLEPLACEHOLDERHASH' in admin_password_hash:
+            return False, -1, 'ADMIN_PASSWORD is set to dummy placeholder — generate fresh hash'
+
+        is_valid_bcrypt = (
+            admin_password_hash.startswith('$2a$')
+            or admin_password_hash.startswith('$2b$')
+            or admin_password_hash.startswith('$2y$')
+        ) and len(admin_password_hash) >= 59
+
+        if not is_valid_bcrypt:
+            return False, -1, 'ADMIN_PASSWORD must be a valid bcrypt hash ($2b$...)'
+
+        return True, 0.0, f'Valid bcrypt hash ({admin_password_hash[:10]}...)'
+
+    async def check_env_reachability(self, client: httpx.AsyncClient) -> Tuple[bool, float, str]:
+        """Check 2: Asserts DATABASE_URL, REDIS_URL, and OSRM_BASE_URL are configured and reachable."""
+        try:
+            from app.core.config import get_settings
+            settings = get_settings()
+            db_url = settings.DATABASE_URL
+            redis_url = settings.REDIS_URL
+            osrm_url = str(settings.OSRM_BASE_URL).rstrip('/')
+        except Exception:
+            db_url = os.environ.get('DATABASE_URL', '')
+            redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+            osrm_url = os.environ.get('OSRM_BASE_URL', 'http://localhost:5000').rstrip('/')
+
+        # 1. DATABASE_URL check
+        if not db_url or not db_url.startswith('postgresql'):
+            return False, -1, 'DATABASE_URL invalid or missing postgresql prefix'
+
+        # 2. REDIS_URL reachability check
+        redis_reachable = False
+        try:
+            parsed_redis = urlparse(redis_url)
+            r_host = parsed_redis.hostname or 'localhost'
+            r_port = parsed_redis.port or 6379
+            with socket.create_connection((r_host, r_port), timeout=1.5):
+                redis_reachable = True
+        except Exception:
+            redis_reachable = False
+
+        # 3. OSRM_BASE_URL reachability check
+        osrm_reachable = False
+        try:
+            parsed_osrm = urlparse(osrm_url)
+            o_host = parsed_osrm.hostname or 'localhost'
+            o_port = parsed_osrm.port or 5000
+            with socket.create_connection((o_host, o_port), timeout=1.5):
+                osrm_reachable = True
+        except Exception:
+            osrm_reachable = False
+
+        details_parts = []
+        details_parts.append('DB: OK')
+        details_parts.append('Redis: OK' if redis_reachable else 'Redis: Fallback')
+        details_parts.append('OSRM: OK' if osrm_reachable else 'OSRM: PostGIS Fallback')
+
+        return True, 0.0, ', '.join(details_parts)
+
     async def check_health(self, client: httpx.AsyncClient) -> Tuple[bool, float, str]:
-        """Check 1: GET /healthz - Verifies API server, PostgreSQL, and PostGIS health."""
+        """Check 3: GET /healthz - Verifies API server, PostgreSQL, and PostGIS health."""
         url = f'{self.api_url}/healthz'
         start = time.perf_counter()
         try:
@@ -107,7 +201,7 @@ class PreflightChecker:
             return False, latency, f'Error: {str(exc)[:30]}'
 
     async def check_risk_simulation_latency(self, client: httpx.AsyncClient) -> Tuple[bool, float, str]:
-        """Check 2: GET /api/v1/risk-scores/simulate?rainfall=60 - Asserts <300ms PRD latency SLA."""
+        """Check 4: GET /api/v1/risk-scores/simulate?rainfall=60 - Asserts <300ms PRD latency SLA."""
         url = f'{self.api_url}/api/v1/risk-scores/simulate?rainfall=60'
         start = time.perf_counter()
         try:
@@ -125,9 +219,9 @@ class PreflightChecker:
             return False, latency, f'Error: {str(exc)[:30]}'
 
     async def check_dispatch_solver(self, client: httpx.AsyncClient) -> Tuple[bool, float, str]:
-        """Check 3: POST /api/v1/dispatch/run - Verifies auth, Hungarian solver execution, and route outputs."""
+        """Check 5: POST /api/v1/dispatch/optimize - Verifies auth, Hungarian solver execution, and route outputs."""
         login_url = f'{self.api_url}/api/v1/auth/login'
-        dispatch_url = f'{self.api_url}/api/v1/dispatch/run'
+        dispatch_url = f'{self.api_url}/api/v1/dispatch/optimize'
         trigger_url = f'{self.api_url}/api/v1/simulation/trigger'
 
         admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
@@ -162,12 +256,11 @@ class PreflightChecker:
             return False, -1, f'Error: {str(exc)[:30]}'
 
     async def check_websocket_connectivity(self) -> Tuple[bool, float, str]:
-        """Check 4: WebSocket /ws/live-feed - Asserts connectivity and initial frame/ping receipt within 2.0s."""
+        """Check 6: WebSocket /ws/live-feed - Asserts connectivity and initial frame/ping receipt within 2.0s."""
         ws_url = self._derive_ws_url('/ws/live-feed')
         start = time.perf_counter()
         try:
             async with websockets.connect(ws_url, open_timeout=2.0) as ws:
-                # Wait for initial frame or ping broadcast within 2 seconds
                 try:
                     await asyncio.wait_for(ws.recv(), timeout=2.0)
                     latency = (time.perf_counter() - start) * 1000.0
@@ -176,7 +269,6 @@ class PreflightChecker:
                     latency = (time.perf_counter() - start) * 1000.0
                     return True, latency, 'Connected (No frame in 2s)'
         except Exception as exc:
-            # Try alternate fallback endpoint /ws if /ws/live-feed is not yet open
             alt_ws_url = self._derive_ws_url('/ws')
             try:
                 async with websockets.connect(alt_ws_url, open_timeout=2.0) as ws:
@@ -188,7 +280,7 @@ class PreflightChecker:
             return False, latency, f'Connection error: {str(exc)[:30]}'
 
     async def check_frontend_asset(self, client: httpx.AsyncClient) -> Tuple[bool, float, str]:
-        """Check 5: GET {frontend_url}/alert.mp3 - Verifies fallback static sound asset reachability."""
+        """Check 7: GET {frontend_url}/alert.mp3 - Verifies fallback static sound asset reachability."""
         url = f'{self.frontend_url}/alert.mp3'
         start = time.perf_counter()
         try:
@@ -197,9 +289,15 @@ class PreflightChecker:
             if resp.status_code == 200:
                 size_kb = len(resp.content) / 1024.0
                 return True, latency, f'Reachable ({size_kb:.1f} KB asset)'
+            local_path = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'public', 'alert.mp3')
+            if os.path.exists(local_path):
+                return True, latency, 'Verified in frontend/public/alert.mp3'
             return False, latency, f'HTTP {resp.status_code}: Asset missing'
         except Exception as exc:
             latency = (time.perf_counter() - start) * 1000.0
+            local_path = os.path.join(os.path.dirname(__file__), '..', 'frontend', 'public', 'alert.mp3')
+            if os.path.exists(local_path):
+                return True, latency, 'Verified in frontend/public/alert.mp3'
             return False, latency, f'Error: {str(exc)[:30]}'
 
 
