@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { CloudRain, Play, RotateCcw, Zap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CloudRain, ExternalLink, Play, QrCode, RotateCcw, Zap } from 'lucide-react';
 
 interface LeftControllerProps {
   rainfall: number;
@@ -24,6 +24,14 @@ export const LeftController: React.FC<LeftControllerProps> = ({
   isTriggering,
   isResetting,
 }) => {
+  const [reportUrl, setReportUrl] = useState<string>('http://localhost:3000/report');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setReportUrl(`${window.location.origin}/report`);
+    }
+  }, []);
+
   return (
     <aside className="fixed left-6 top-20 z-20 w-80 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-2xl p-5 shadow-2xl text-slate-100 space-y-5">
       <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
@@ -88,6 +96,33 @@ export const LeftController: React.FC<LeftControllerProps> = ({
         <Play className={`w-4 h-4 fill-current ${isDispatching ? 'animate-bounce' : ''}`} />
         {isDispatching ? 'Running Hungarian Matcher...' : 'Run Rescue Dispatch'}
       </button>
+
+      {/* 4. Citizen SOS QR Code & Live Mobile Reporting Link */}
+      <div className="space-y-2 bg-slate-900/80 p-3 rounded-xl border border-slate-800/80 text-center">
+        <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-white">
+          <QrCode className="w-4 h-4 text-emerald-400" />
+          <span>Scan to file a live SOS report from your phone</span>
+        </div>
+        <div className="flex justify-center py-1">
+          <div className="p-1.5 bg-white rounded-lg shadow-md inline-block">
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(reportUrl)}`}
+              alt="Scan QR code to open Citizen SOS report form"
+              width={110}
+              height={110}
+              className="w-24 h-24 object-contain"
+            />
+          </div>
+        </div>
+        <a
+          href="/report"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center gap-1 text-[11px] font-bold text-sky-400 hover:text-sky-300 hover:underline"
+        >
+          Open Citizen SOS Form <ExternalLink className="w-3 h-3" />
+        </a>
+      </div>
     </aside>
   );
 };

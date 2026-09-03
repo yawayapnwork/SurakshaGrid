@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, AlertTriangle, Clock, FileText, Navigation, Pause, Play, ShieldCheck, Square, Volume2, VolumeX } from 'lucide-react';
+import { Activity, AlertTriangle, Clock, FileText, Navigation, Pause, Play, QrCode, ShieldCheck, Square, Volume2, VolumeX } from 'lucide-react';
 
 export interface TopStatsBarProps {
   monitoredAreaKm2?: number;
@@ -164,6 +164,18 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
             <span>Export AAR</span>
           </button>
         )}
+
+        {/* Citizen SOS Direct Form & Mobile Link */}
+        <a
+          href="/report"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 hover:border-red-500/50 text-xs font-semibold transition-all shadow-sm"
+          title="Open Citizen SOS Emergency Reporting Form"
+        >
+          <QrCode className="w-4 h-4 text-red-400" />
+          <span>Citizen SOS</span>
+        </a>
 
         {/* Audio Siren Mute/Unmute Toggle Button */}
         <button
