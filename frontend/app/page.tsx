@@ -7,7 +7,7 @@ import { LeftController } from '@/components/LeftController';
 import { RightDispatchQueue } from '@/components/RightDispatchQueue';
 import { RiskCardModal } from '@/components/RiskCardModal';
 import { ReplayScrubber } from '@/components/ReplayScrubber';
-import { playCriticalAudioAlert } from '@/components/AudioAlertManager';
+import { playTwoToneEmergencyAlert } from '@/components/AudioAlertManager';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import {
@@ -42,12 +42,31 @@ export default function DashboardPage() {
   const [isTriggering, setIsTriggering] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
+  // Audio Siren Mute State (persisted in localStorage)
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
 
   // 2. Replay Mode State
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [replayEvents, setReplayEvents] = useState<EventLog[]>([]);
+
+  // Load sound mute preference from localStorage on client mount
+  useEffect(() => {
+    const savedMute = localStorage.getItem('surakshagrid_muted');
+    if (savedMute !== null) {
+      setIsMuted(savedMute === 'true');
+    }
+  }, []);
+
+  const handleToggleMute = () => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      localStorage.setItem('surakshagrid_muted', String(next));
+      return next;
+    });
+  };
 
   const showToast = (text: string, type: 'success' | 'info' = 'success') => {
     setToastMessage({ text, type });
@@ -72,66 +91,77 @@ export default function DashboardPage() {
     };
   }, [debouncedRainfall]);
 
+  // Periodic timer (every 10s) to update elapsed time visual state machine
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSosReports((prev) => [...prev]); // Trigger re-render for marker elapsed time state
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   // 4. WebSocket Message Handler
-  const handleWebSocketMessage = useCallback((msg: { event: string; data: Record<string, any> }) => {
-    if (isReplayMode) return; // Pause live WebSocket updates in replay mode
+  const handleWebSocketMessage = useCallback(
+    (msg: { event: string; data: Record<string, any> }) => {
+      if (isReplayMode) return; // Pause live WebSocket updates in replay mode
 
-    const { event, data } = msg;
+      const { event, data } = msg;
 
-    if (event === 'SOS_CREATED') {
-      const newReport: SOSReport = {
-        id: data.sos_id,
-        location: data.location || { type: 'Point', coordinates: [80.27, 13.08] },
-        status: data.status || 'PENDING',
-        severity: data.severity || 'HIGH',
-        photo_url: data.photo_url,
-        visual_confidence_score: data.visual_confidence_score,
-        trust_score: data.trust_score || 0,
-        voice_transcript: data.voice_transcript,
-        created_at: data.created_at || new Date().toISOString(),
-      };
+      if (event === 'SOS_CREATED') {
+        const newReport: SOSReport = {
+          id: data.sos_id,
+          location: data.location || { type: 'Point', coordinates: [80.27, 13.08] },
+          status: data.status || 'PENDING',
+          severity: data.severity || 'HIGH',
+          photo_url: data.photo_url,
+          visual_confidence_score: data.visual_confidence_score,
+          trust_score: data.trust_score || 0,
+          voice_transcript: data.voice_transcript,
+          created_at: data.created_at || new Date().toISOString(),
+        };
 
-      setSosReports((prev) => {
-        if (prev.some((r) => r.id === newReport.id)) return prev;
-        return [newReport, ...prev];
-      });
+        setSosReports((prev) => {
+          if (prev.some((r) => r.id === newReport.id)) return prev;
+          return [newReport, ...prev];
+        });
 
-      // Play Web Audio Alert tone if CRITICAL_TRAPPED
-      if (newReport.severity === 'CRITICAL_TRAPPED') {
-        playCriticalAudioAlert();
+        // Fire synthetic two-tone siren alert if CRITICAL_TRAPPED
+        if (newReport.severity === 'CRITICAL_TRAPPED') {
+          playTwoToneEmergencyAlert(isMuted);
+        }
+      } else if (event === 'SOS_CONFIRMED') {
+        setSosReports((prev) =>
+          prev.map((r) => (r.id === data.sos_id ? { ...r, trust_score: data.trust_score } : r))
+        );
+      } else if (event === 'UNIT_DISPATCHED') {
+        const assignment: DispatchAssignment = {
+          sos_id: data.sos_id,
+          rescue_unit_id: data.rescue_unit_id,
+          unit_name: data.unit_name,
+          eta_seconds: data.eta_seconds,
+          cost: data.cost,
+          assigned_at: data.assigned_at || new Date().toISOString(),
+        };
+
+        setDispatchAssignments((prev) => [assignment, ...prev]);
+
+        // Update unit status to DISPATCHED
+        setRescueUnits((prev) =>
+          prev.map((u) => (u.id === data.rescue_unit_id ? { ...u, status: 'DISPATCHED' } : u))
+        );
+
+        // Update SOS report status to ASSIGNED
+        setSosReports((prev) =>
+          prev.map((r) => (r.id === data.sos_id ? { ...r, status: 'ASSIGNED' } : r))
+        );
+      } else if (event === 'SCENARIO_RESET') {
+        setSosReports([]);
+        setDispatchAssignments([]);
+        setRescueUnits([]);
+        showToast('Scenario state reset by backend', 'info');
       }
-    } else if (event === 'SOS_CONFIRMED') {
-      setSosReports((prev) =>
-        prev.map((r) => (r.id === data.sos_id ? { ...r, trust_score: data.trust_score } : r))
-      );
-    } else if (event === 'UNIT_DISPATCHED') {
-      const assignment: DispatchAssignment = {
-        sos_id: data.sos_id,
-        rescue_unit_id: data.rescue_unit_id,
-        unit_name: data.unit_name,
-        eta_seconds: data.eta_seconds,
-        cost: data.cost,
-        assigned_at: data.assigned_at || new Date().toISOString(),
-      };
-
-      setDispatchAssignments((prev) => [assignment, ...prev]);
-
-      // Update unit status to DISPATCHED
-      setRescueUnits((prev) =>
-        prev.map((u) => (u.id === data.rescue_unit_id ? { ...u, status: 'DISPATCHED' } : u))
-      );
-
-      // Update SOS report status to ASSIGNED
-      setSosReports((prev) =>
-        prev.map((r) => (r.id === data.sos_id ? { ...r, status: 'ASSIGNED' } : r))
-      );
-    } else if (event === 'SCENARIO_RESET') {
-      setSosReports([]);
-      setDispatchAssignments([]);
-      setRescueUnits([]);
-      showToast('Scenario state reset by backend', 'info');
-    }
-  }, [isReplayMode]);
+    },
+    [isReplayMode, isMuted]
+  );
 
   // Connect WebSocket Hook
   const { isConnected } = useWebSocket({
@@ -148,6 +178,7 @@ export default function DashboardPage() {
         `Scenario Initiated: ${result.seeded_units} Rescue Units & ${result.seeded_reports} SOS Reports Loaded!`,
         'success'
       );
+      playTwoToneEmergencyAlert(isMuted);
     } catch (err) {
       console.error('Failed to trigger live simulation scenario:', err);
       showToast('Failed to trigger simulation scenario', 'info');
@@ -278,11 +309,13 @@ export default function DashboardPage() {
       {/* Non-Blocking Toast Notification */}
       {toastMessage && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 animate-bounce">
-          <div className={`px-4 py-2.5 rounded-full border shadow-2xl backdrop-blur-md flex items-center gap-2 text-xs font-bold ${
-            toastMessage.type === 'success'
-              ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50'
-              : 'bg-sky-950/90 text-sky-300 border-sky-500/50'
-          }`}>
+          <div
+            className={`px-4 py-2.5 rounded-full border shadow-2xl backdrop-blur-md flex items-center gap-2 text-xs font-bold ${
+              toastMessage.type === 'success'
+                ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50'
+                : 'bg-sky-950/90 text-sky-300 border-sky-500/50'
+            }`}
+          >
             {toastMessage.type === 'success' ? (
               <CheckCircle className="w-4 h-4 text-emerald-400" />
             ) : (
@@ -305,6 +338,8 @@ export default function DashboardPage() {
         avgEtaMinutes={avgEtaMinutes}
         isConnected={isConnected}
         isReplayMode={isReplayMode}
+        isMuted={isMuted}
+        onToggleMute={handleToggleMute}
       />
 
       {/* 2. Central Interactive Map */}

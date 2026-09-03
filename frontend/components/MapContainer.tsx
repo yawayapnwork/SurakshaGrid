@@ -93,7 +93,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         source: 'dispatch-routes-source',
         paint: {
           'line-color': '#38bdf8',
-          'line-width': 3,
+          'line-width': 3.5,
           'line-dasharray': [2, 2],
         },
       });
@@ -182,7 +182,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     });
   }, [dispatchAssignments, sosReports, rescueUnits]);
 
-  // Render SOS Report Markers & Rescue Unit Markers
+  // Render SOS Report Markers & Rescue Unit Markers with Visual Urgency State Machine
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -190,41 +190,54 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
-    // Render SOS Markers
+    const now = Date.now();
+
+    // Render SOS Markers with Time-Elapsed Visual Urgency State Machine
     sosReports.forEach((report) => {
       const [lon, lat] = report.location.coordinates;
       const el = document.createElement('div');
       el.className = 'relative flex items-center justify-center cursor-pointer';
 
-      let bgColor = 'bg-yellow-500';
-      let border = 'border-yellow-300';
-      let isCritical = report.severity === 'CRITICAL_TRAPPED';
+      // Compute elapsed minutes since report creation
+      const createdAtMs = new Date(report.created_at).getTime();
+      const elapsedMins = Math.max(0, (now - createdAtMs) / (1000 * 60));
 
-      if (report.severity === 'MEDIUM') {
-        bgColor = 'bg-orange-500';
-        border = 'border-orange-300';
-      } else if (report.severity === 'HIGH') {
+      let bgColor = 'bg-amber-400'; // < 2 mins: Yellow (#FACC15)
+      let border = 'border-amber-200';
+      let isRadarPing = false;
+
+      if (report.severity === 'CRITICAL_TRAPPED' || elapsedMins >= 5.0) {
+        // > 5 mins or CRITICAL_TRAPPED: Pulsing Red (#EF4444) ring with radar ping animation
         bgColor = 'bg-red-600';
         border = 'border-red-300';
-      } else if (isCritical) {
-        bgColor = 'bg-red-600';
-        border = 'border-red-400';
+        isRadarPing = true;
+      } else if (elapsedMins >= 2.0 || report.severity === 'HIGH') {
+        // 2 to 5 mins: Orange (#FB923C)
+        bgColor = 'bg-orange-500';
+        border = 'border-orange-200';
       }
 
       el.innerHTML = `
-        ${isCritical ? '<div class="absolute w-8 h-8 rounded-full bg-red-500 animate-ping opacity-75"></div>' : ''}
-        <div class="relative w-6 h-6 rounded-full ${bgColor} border-2 ${border} flex items-center justify-center text-[10px] font-black text-white shadow-lg">
+        ${isRadarPing ? '<div class="absolute w-10 h-10 rounded-full bg-red-500 animate-ping opacity-75"></div>' : ''}
+        <div class="relative w-7 h-7 rounded-full ${bgColor} border-2 ${border} flex items-center justify-center text-[10px] font-black text-slate-950 shadow-xl">
           SOS
         </div>
       `;
+
+      const elapsedText = elapsedMins < 1 ? 'Just now' : `${elapsedMins.toFixed(1)}m ago`;
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([lon, lat])
         .setPopup(
           new maplibregl.Popup({ offset: 15 }).setHTML(`
             <div class="p-2 text-slate-900 font-sans">
-              <div class="font-bold text-xs uppercase ${isCritical ? 'text-red-600' : 'text-slate-800'}">
-                Severity: ${report.severity}
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-bold text-xs uppercase ${isRadarPing ? 'text-red-600 font-extrabold' : 'text-slate-800'}">
+                  ${report.severity}
+                </span>
+                <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                  ${elapsedText}
+                </span>
               </div>
               <div class="text-[11px] text-slate-600 mt-1">Status: ${report.status}</div>
               <div class="text-[11px] text-slate-600">Trust Score: ${report.trust_score}</div>
@@ -243,7 +256,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       const el = document.createElement('div');
       el.className = 'relative flex items-center justify-center cursor-pointer';
       el.innerHTML = `
-        <div class="w-7 h-7 rounded-lg bg-sky-600 border-2 border-sky-300 flex items-center justify-center text-xs shadow-lg text-white font-bold">
+        <div class="w-7.5 h-7.5 rounded-lg bg-sky-600 border-2 border-sky-300 flex items-center justify-center text-xs shadow-lg text-white font-bold">
           🚁
         </div>
       `;

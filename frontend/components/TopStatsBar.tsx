@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, AlertTriangle, Clock, Navigation, ShieldCheck } from 'lucide-react';
+import { Activity, AlertTriangle, Clock, Navigation, ShieldCheck, Volume2, VolumeX } from 'lucide-react';
 
 interface TopStatsBarProps {
   monitoredAreaKm2?: number;
@@ -11,6 +11,8 @@ interface TopStatsBarProps {
   avgEtaMinutes: number;
   isConnected: boolean;
   isReplayMode: boolean;
+  isMuted: boolean;
+  onToggleMute: () => void;
 }
 
 export const TopStatsBar: React.FC<TopStatsBarProps> = ({
@@ -21,6 +23,8 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
   avgEtaMinutes,
   isConnected,
   isReplayMode,
+  isMuted,
+  onToggleMute,
 }) => {
   return (
     <header className="w-full bg-slate-950/90 backdrop-blur-md border-b border-slate-800 text-slate-100 px-6 py-3 shadow-lg flex flex-wrap items-center justify-between z-30 relative">
@@ -81,15 +85,38 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
         </div>
       </div>
 
-      {/* Mode Badge */}
-      <div className="flex items-center gap-2">
+      {/* Mode Badge & Mute Toggle Button */}
+      <div className="flex items-center gap-3">
+        {/* Audio Siren Mute/Unmute Toggle Button */}
+        <button
+          onClick={onToggleMute}
+          title={isMuted ? 'Unmute Emergency Siren Alerts' : 'Mute Emergency Siren Alerts'}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all ${
+            isMuted
+              ? 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+              : 'bg-red-500/20 text-red-300 border-red-500/40 hover:bg-red-500/30 animate-pulse'
+          }`}
+        >
+          {isMuted ? (
+            <>
+              <VolumeX className="w-4 h-4 text-slate-400" />
+              <span>Muted</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-4 h-4 text-red-400" />
+              <span>Sound ON</span>
+            </>
+          )}
+        </button>
+
         {isReplayMode ? (
-          <span className="flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 animate-pulse">
+          <span className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 animate-pulse">
             <span className="w-2 h-2 rounded-full bg-purple-400" />
             REPLAY MODE
           </span>
         ) : (
-          <span className={`flex items-center gap-2 text-xs font-semibold px-3 py-1 rounded-full border ${
+          <span className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border ${
             isConnected
               ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
               : 'bg-red-500/20 text-red-300 border-red-500/40'
