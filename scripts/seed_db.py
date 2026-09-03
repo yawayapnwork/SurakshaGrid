@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 # Ensure project root is in sys.path when executed directly as a script
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import AsyncSessionLocal
@@ -29,6 +29,51 @@ from app.models.sos_report import SOSReport
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("seed_db")
+
+
+async def verify_spatial_indexes_and_geometries(db: AsyncSession) -> None:
+    """Checks whether GiST spatial indexes exist and confirms geometry columns function correctly."""
+    # 1. Check for spatial index migration (0002_enable_postgis_spatial_indexing)
+    try:
+        idx_res = await db.execute(
+            text(
+                "SELECT indexname FROM pg_indexes WHERE indexname IN "
+                "('ix_sos_reports_location', 'ix_rescue_units_current_location')"
+            )
+        )
+        found_indexes = set(idx_res.scalars().all())
+        expected_indexes = {"ix_sos_reports_location", "ix_rescue_units_current_location"}
+
+        if not expected_indexes.issubset(found_indexes):
+            missing = expected_indexes - found_indexes
+            logger.warning(
+                f"⚠️  Spatial index migration (0002_enable_postgis_spatial_indexing) may not have been fully applied! "
+                f"Missing GiST spatial index(es): {missing}. Please run 'alembic upgrade head'."
+            )
+        else:
+            logger.info("✅ Confirmed PostGIS spatial indexes (ix_sos_reports_location, ix_rescue_units_current_location) are active.")
+    except Exception as exc:
+        logger.warning(f"⚠️  Could not verify spatial indexes: {exc}")
+
+    # 2. Confirm inserted geometries work correctly with spatial_index=True
+    try:
+        units_res = await db.execute(select(RescueUnit))
+        units = list(units_res.scalars().all())
+        reports_res = await db.execute(select(SOSReport))
+        reports = list(reports_res.scalars().all())
+
+        for u in units:
+            assert u.current_location is not None, f"Rescue unit {u.name} geometry location is null"
+        for r in reports:
+            assert r.location is not None, f"SOS report {r.id} geometry location is null"
+
+        logger.info(
+            f"✅ Confirmed inserted geometries work correctly with spatial_index=True: "
+            f"{len(units)} rescue units and {len(reports)} SOS reports verified."
+        )
+    except Exception as exc:
+        logger.error(f"❌ Geometry verification failed: {exc}")
+        raise
 
 
 async def seed_database(force_reset: bool = False) -> None:
@@ -52,6 +97,7 @@ async def seed_database(force_reset: bool = False) -> None:
                 f"ℹ️  Database is already seeded with {existing_unit_count} rescue units. "
                 "Skipping seeding (use --force-reset to overwrite)."
             )
+            await verify_spatial_indexes_and_geometries(db)
             return
 
         logger.info("🚀 Seeding fresh database state...")
@@ -205,6 +251,10 @@ async def seed_database(force_reset: bool = False) -> None:
 
         # Commit all seeded entries
         await db.commit()
+
+        # 4. Verify spatial indexes and inserted geometries
+        await verify_spatial_indexes_and_geometries(db)
+
         logger.info(
             f"🎉 Database successfully seeded with {len(seeded_units)} rescue units, "
             f"{len(seeded_reports)} baseline SOS reports, and SYSTEM_INITIALIZED event log!"

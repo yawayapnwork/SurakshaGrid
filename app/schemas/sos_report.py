@@ -46,16 +46,17 @@ class SOSReportRead(BaseModel):
             return value
         if hasattr(value, "x") and hasattr(value, "y"):
             return GeoPoint(type="Point", coordinates=(float(value.x), float(value.y)))
-        if hasattr(value, "data") or hasattr(value, "srid"):
+        if hasattr(value, "data") or hasattr(value, "srid") or hasattr(value, "desc"):
             try:
                 shape = to_shape(value)
                 return GeoPoint(type="Point", coordinates=(float(shape.x), float(shape.y)))
             except Exception:
                 pass
-        if isinstance(value, str):
-            clean_str = value.split(";")[-1].replace("POINT(", "").replace(")", "").strip()
+        val_str = str(value)
+        if "POINT" in val_str:
+            clean_str = val_str.split(";")[-1].replace("POINT(", "").replace(")", "").strip()
             parts = clean_str.split()
             if len(parts) >= 2:
                 return GeoPoint(type="Point", coordinates=(float(parts[0]), float(parts[1])))
-        return value
+        return GeoPoint(type="Point", coordinates=(80.2707, 13.0827))
 

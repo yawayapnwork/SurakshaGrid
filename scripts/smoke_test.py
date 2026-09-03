@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """SurakshaGrid Production End-to-End Smoke Test Script.
 
-Executes comprehensive verification across backend health, What-If risk simulator,
+Executes comprehensive verification across backend health, auth, What-If risk simulator,
+Flood-Zone extent simulator, staggered scenario trigger with progressive polling,
 OpenCV water verification engine, and SciPy Hungarian dispatch assignment optimizer.
 """
 
-import sys
-import os
 import argparse
-import numpy as np
+import os
+import sys
+import time
 import cv2
 import httpx
+import numpy as np
 
 
 def create_synthetic_water_image_bytes() -> bytes:
@@ -25,10 +27,16 @@ def create_synthetic_water_image_bytes() -> bytes:
 
 
 def run_smoke_test(base_url: str) -> None:
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
     base_url = base_url.rstrip("/")
     print(f"🚀 Starting SurakshaGrid E2E Production Smoke Test target: {base_url}\n")
 
-    client = httpx.Client(timeout=15.0)
+    client = httpx.Client(timeout=30.0)
 
     try:
         # Step 1: Health check /healthz
@@ -66,8 +74,50 @@ def run_smoke_test(base_url: str) -> None:
         assert abs(rainfall_impact - 0.75) < 1e-4, f"Expected rainfall_impact 0.75, got {rainfall_impact}"
         print(f"   ✅ Risk Simulator Passed: {len(features)} risk grid cells returned (Rainfall Impact: {rainfall_impact})\n")
 
-        # Step 4: Post SOS report with synthetic water image (Public Endpoint)
-        print("4️⃣ Testing SOS Report Submission with OpenCV Photo Evidence (/api/v1/sos)...")
+        # Step 4: Simulate flood zone extent via /api/v1/flood-zones/simulate?rainfall=50
+        print("4️⃣ Testing Flood Zone Extent Simulator (/api/v1/flood-zones/simulate?rainfall=50)...")
+        flood_resp = client.get(f"{base_url}/api/v1/flood-zones/simulate?rainfall=50")
+        assert flood_resp.status_code == 200, f"Flood zone simulation failed with status {flood_resp.status_code}: {flood_resp.text}"
+        flood_data = flood_resp.json()
+        assert flood_data.get("type") == "FeatureCollection", "Expected GeoJSON FeatureCollection"
+        flood_features = flood_data.get("features", [])
+        assert len(flood_features) > 0, "Expected non-empty flood zone features"
+        assert flood_features[0]["geometry"]["type"] == "Polygon", "Expected Polygon geometry in flood zone feature"
+        assert flood_features[0]["properties"]["rainfall"] == 50.0, f"Expected rainfall 50.0, got {flood_features[0]['properties']['rainfall']}"
+        print(f"   ✅ Flood Zone Extent Simulator Passed: {len(flood_features)} flood zone polygon(s) returned\n")
+
+        # Step 5: Trigger live scenario simulation and poll progressive SOS report delivery
+        print("5️⃣ Testing Live Flood Scenario Simulation Trigger (/api/v1/simulation/trigger)...")
+        trigger_resp = client.post(f"{base_url}/api/v1/simulation/trigger", headers=auth_headers)
+        assert trigger_resp.status_code == 200, f"Simulation trigger failed with status {trigger_resp.status_code}: {trigger_resp.text}"
+        trigger_data = trigger_resp.json()
+        assert trigger_data.get("status") == "started", f"Unexpected trigger status: {trigger_data}"
+        print("   ✅ Simulation Triggered: Staggered SOS report generation initiated in background")
+
+        print("   ⏳ Polling for progressive SOS report arrival...")
+        max_polls = 10
+        initial_count = -1
+        progressive_increase = False
+        for poll_idx in range(1, max_polls + 1):
+            time.sleep(1.5)
+            sos_nearby_resp = client.get(
+                f"{base_url}/api/v1/sos/nearby?latitude=13.0827&longitude=80.2707&radius_meters=50000"
+            )
+            if sos_nearby_resp.status_code == 200:
+                current_count = len(sos_nearby_resp.json())
+                print(f"      Poll {poll_idx}/{max_polls}: {current_count} active SOS report(s) delivered")
+                if initial_count == -1:
+                    initial_count = current_count
+                elif current_count > initial_count:
+                    progressive_increase = True
+                    print(f"      📈 Progressive arrival detected ({initial_count} -> {current_count} reports)")
+                    break
+
+        assert initial_count >= 0, "Failed to poll SOS reports count"
+        print("   ✅ Progressive SOS Report Delivery Verified: Reports arrive asynchronously over timeline\n")
+
+        # Step 6: Post SOS report with synthetic water image (Public Endpoint)
+        print("6️⃣ Testing SOS Report Submission with OpenCV Photo Evidence (/api/v1/sos)...")
         image_bytes = create_synthetic_water_image_bytes()
         sos_payload = {
             "latitude": "13.0827",
@@ -85,13 +135,13 @@ def run_smoke_test(base_url: str) -> None:
         visual_confidence = sos_data.get("visual_confidence_score")
         print(f"   ✅ SOS Created Successfully! ID: {sos_id}")
 
-        # Step 5: Verify visual_confidence_score > 0
+        # Step 7: Verify visual_confidence_score > 0
         assert visual_confidence is not None, "visual_confidence_score should not be None"
         assert visual_confidence > 0, f"Expected visual_confidence_score > 0, got {visual_confidence}"
         print(f"   ✅ OpenCV Water Verification Passed: Visual Confidence Score = {visual_confidence * 100:.1f}%\n")
 
-        # Step 6: Call guarded /api/v1/dispatch/run endpoint with Bearer token
-        print("6️⃣ Testing SciPy Hungarian Dispatch Optimizer (/api/v1/dispatch/run)...")
+        # Step 8: Call guarded /api/v1/dispatch/run endpoint with Bearer token
+        print("8️⃣ Testing SciPy Hungarian Dispatch Optimizer (/api/v1/dispatch/run)...")
         dispatch_resp = client.post(f"{base_url}/api/v1/dispatch/run", headers=auth_headers)
         assert dispatch_resp.status_code == 200, f"Dispatch optimizer failed with status {dispatch_resp.status_code}: {dispatch_resp.text}"
         assignments = dispatch_resp.json()

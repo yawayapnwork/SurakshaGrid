@@ -9,3 +9,7 @@ venv/
 .ruff_cache/
 dist/
 build/
+
+scratch/
+*.pid
+*.log

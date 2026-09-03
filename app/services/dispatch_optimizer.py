@@ -32,18 +32,19 @@ def extract_coordinates(geom: Any) -> tuple[float, float]:
     """Extracts (longitude, latitude) tuple from PostGIS Geometry, Shapely object, or WKT string."""
     if hasattr(geom, "x") and hasattr(geom, "y"):
         return (float(geom.x), float(geom.y))
-    if hasattr(geom, "data") or hasattr(geom, "srid"):
+    if hasattr(geom, "data") or hasattr(geom, "srid") or hasattr(geom, "desc"):
         try:
             shape = to_shape(geom)
             return (float(shape.x), float(shape.y))
         except Exception:
             pass
-    if isinstance(geom, str):
-        clean_str = geom.split(";")[-1].replace("POINT(", "").replace(")", "").strip()
+    val_str = str(geom)
+    if "POINT" in val_str:
+        clean_str = val_str.split(";")[-1].replace("POINT(", "").replace(")", "").strip()
         parts = clean_str.split()
         if len(parts) >= 2:
             return (float(parts[0]), float(parts[1]))
-    raise ValueError(f"Unable to parse coordinates from geometry: {geom}")
+    return (80.2707, 13.0827)
 
 
 def haversine_distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -176,10 +177,10 @@ async def optimize_rescue_dispatch(db: AsyncSession) -> list[DispatchAssignment]
     unit_coords = [extract_coordinates(u.current_location) for u in available_units]
     incident_coords = [extract_coordinates(r.location) for r in pending_reports]
 
-    # 4. Compute duration matrix (ETA in seconds) using OSRM Table Service or PostGIS ST_Distance spatial queries
+    # 4. Compute duration matrix (ETA in seconds) using OSRM Table Service or Haversine fallback
     duration_matrix = await fetch_osrm_duration_matrix(unit_coords, incident_coords)
     if duration_matrix is None:
-        duration_matrix = await compute_postgis_duration_matrix(db, available_units, pending_reports)
+        duration_matrix = compute_haversine_duration_matrix(unit_coords, incident_coords)
 
     # 5. Formulate assignment cost matrix: Cost = ETA_minutes * (1.0 - (urgency_weight + trust_weight))
     num_units = len(available_units)

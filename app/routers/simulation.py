@@ -224,6 +224,7 @@ async def run_staggered_simulation(sim_id: str) -> None:
                     created_at=created_ts,
                 )
                 task_db.add(report)
+                await task_db.flush()
 
                 event = EventLog(
                     event_type="SOS_CREATED",
