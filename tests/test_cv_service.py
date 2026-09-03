@@ -53,3 +53,26 @@ async def test_cv_service_threadpool_execution():
     confidence = await run_in_threadpool(estimate_water_confidence, image_bytes)
     assert isinstance(confidence, float)
     assert 0.0 <= confidence <= 1.0
+
+
+def test_estimate_water_confidence_solid_gray():
+    """Solid neutral gray square (concrete/pavement) should NOT score above ~0.3 confidence."""
+    gray_bytes = create_synthetic_image_bytes(b=128, g=128, r=128)
+    confidence = estimate_water_confidence(gray_bytes)
+    assert confidence <= 0.3
+
+
+def test_estimate_water_confidence_concrete_tan():
+    """Solid concrete-tan square should NOT score above ~0.3 confidence."""
+    concrete_bytes = create_synthetic_image_bytes(b=150, g=150, r=150)
+    confidence = estimate_water_confidence(concrete_bytes)
+    assert confidence <= 0.3
+
+
+def test_estimate_water_confidence_solid_blue_and_brown():
+    """Solid blue or muddy-brown image SHOULD score above 0.3 confidence."""
+    blue_bytes = create_synthetic_image_bytes(b=200, g=120, r=40)
+    muddy_bytes = create_synthetic_image_bytes(b=40, g=100, r=160)
+    assert estimate_water_confidence(blue_bytes) > 0.3
+    assert estimate_water_confidence(muddy_bytes) > 0.3
+

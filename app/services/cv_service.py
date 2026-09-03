@@ -44,9 +44,9 @@ def estimate_water_confidence(image_bytes: bytes) -> float:
         standing_blue_upper = np.array([135, 255, 245], dtype=np.uint8)
         mask_standing_blue = cv2.inRange(hsv, standing_blue_lower, standing_blue_upper)
 
-        # 3. Murky / Grayish standing water (low saturation reflections)
-        standing_gray_lower = np.array([0, 0, 30], dtype=np.uint8)
-        standing_gray_upper = np.array([180, 45, 190], dtype=np.uint8)
+        # 3. Murky / Grayish standing water (low saturation reflections constrained to blue-gray water band H 85-135)
+        standing_gray_lower = np.array([85, 10, 30], dtype=np.uint8)
+        standing_gray_upper = np.array([135, 45, 190], dtype=np.uint8)
         mask_standing_gray = cv2.inRange(hsv, standing_gray_lower, standing_gray_upper)
 
         # Combine all masks with bitwise OR
