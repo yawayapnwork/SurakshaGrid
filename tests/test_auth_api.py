@@ -23,6 +23,20 @@ async def test_auth_login_success():
 
 
 @pytest.mark.asyncio
+async def test_auth_login_form_success():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.post(
+            "/api/v1/auth/login",
+            data={"username": settings.ADMIN_USERNAME, "password": settings.ADMIN_PASSWORD},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+
+
+@pytest.mark.asyncio
 async def test_auth_login_invalid_credentials():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.post(
@@ -39,3 +53,4 @@ async def test_guarded_endpoint_unauthorized():
         response = await ac.post("/api/v1/dispatch/run")
 
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
