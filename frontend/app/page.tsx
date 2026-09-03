@@ -15,6 +15,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import {
   fetchLiveAnalyticsStats,
   fetchReplayEvents,
+  fetchSimulatedFloodZones,
   fetchSimulatedRiskScores,
   resetSimulationScenario,
   triggerOptimizeDispatch,
@@ -37,6 +38,7 @@ export default function DashboardPage() {
   const debouncedRainfall = useDebounce(rainfall, 250);
 
   const [riskGrid, setRiskGrid] = useState<RiskGridCollection | null>(null);
+  const [floodZones, setFloodZones] = useState<any | null>(null);
   const [sosReports, setSosReports] = useState<SOSReport[]>([]);
   const [rescueUnits, setRescueUnits] = useState<RescueUnit[]>([]);
   const [dispatchAssignments, setDispatchAssignments] = useState<DispatchAssignment[]>([]);
@@ -84,16 +86,20 @@ export default function DashboardPage() {
     }, 4000);
   };
 
-  // 3. What-If Risk Simulation Data Fetching
+  // 3. What-If Risk Simulation & Flood Zone Data Fetching
   useEffect(() => {
     let isSubscribed = true;
-    fetchSimulatedRiskScores(debouncedRainfall)
-      .then((data) => {
+    Promise.all([
+      fetchSimulatedRiskScores(debouncedRainfall),
+      fetchSimulatedFloodZones(debouncedRainfall),
+    ])
+      .then(([riskData, floodData]) => {
         if (isSubscribed) {
-          setRiskGrid(data);
+          setRiskGrid(riskData);
+          setFloodZones(floodData);
         }
       })
-      .catch((err) => console.error('Error simulating risk scores:', err));
+      .catch((err) => console.error('Error simulating risk scores or flood zones:', err));
 
     return () => {
       isSubscribed = false;
@@ -391,6 +397,7 @@ export default function DashboardPage() {
       <MapErrorBoundary>
         <MapContainer
           riskGrid={riskGrid}
+          floodZones={floodZones}
           sosReports={sosReports}
           rescueUnits={rescueUnits}
           dispatchAssignments={dispatchAssignments}

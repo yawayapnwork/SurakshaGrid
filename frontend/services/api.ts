@@ -10,6 +10,14 @@ export async function fetchSimulatedRiskScores(rainfall: number = 0): Promise<Ri
   return res.json();
 }
 
+export async function fetchSimulatedFloodZones(rainfall: number = 0): Promise<any> {
+  const res = await fetch(`${API_BASE_URL}/api/v1/flood-zones/simulate?rainfall=${rainfall}`);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch flood zones: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function triggerOptimizeDispatch(): Promise<DispatchAssignment[]> {
   const res = await fetch(`${API_BASE_URL}/api/v1/dispatch/optimize`, {
     method: 'POST',

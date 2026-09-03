@@ -7,6 +7,7 @@ import { DispatchAssignment, RescueUnit, RiskFeatureProperties, RiskGridCollecti
 
 interface MapContainerProps {
   riskGrid: RiskGridCollection | null;
+  floodZones?: any | null;
   sosReports: SOSReport[];
   rescueUnits: RescueUnit[];
   dispatchAssignments: DispatchAssignment[];
@@ -15,6 +16,7 @@ interface MapContainerProps {
 
 export const MapContainer: React.FC<MapContainerProps> = ({
   riskGrid,
+  floodZones,
   sosReports,
   rescueUnits,
   dispatchAssignments,
@@ -40,6 +42,22 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     map.addControl(new maplibregl.NavigationControl(), 'top-right');
 
     map.on('load', () => {
+      // 0. Add Flood Zone Source & Layer (Rendered BELOW Risk Grid)
+      map.addSource('flood-zone-source', {
+        type: 'geojson',
+        data: floodZones || { type: 'FeatureCollection', features: [] },
+      });
+
+      map.addLayer({
+        id: 'flood-zone-fill',
+        type: 'fill',
+        source: 'flood-zone-source',
+        paint: {
+          'fill-color': 'rgba(14, 165, 233, 0.45)', // Translucent cyan/blue water fill
+          'fill-opacity': 0.85,
+        },
+      });
+
       // 1. Add Risk Grid Source & Layer
       map.addSource('risk-grid-source', {
         type: 'geojson',
@@ -164,6 +182,15 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       source.setData(riskGrid);
     }
   }, [riskGrid]);
+
+  // Hot-swap Flood Zone Data on map when floodZones prop updates
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const source = mapRef.current.getSource('flood-zone-source') as maplibregl.GeoJSONSource;
+    if (source && floodZones) {
+      source.setData(floodZones);
+    }
+  }, [floodZones]);
 
   // Update Dispatch Routes on Map when dispatchAssignments, sosReports, or rescueUnits change
   useEffect(() => {
