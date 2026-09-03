@@ -4,9 +4,11 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, status
+import redis.asyncio as aioredis
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.deps import get_current_officer
 from app.db.session import AsyncSessionLocal, get_db
 from app.models.enums import RescueUnitStatus, RescueUnitType, SOSSeverity, SOSStatus
@@ -20,14 +22,48 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["simulation"])
 
-# Module-level active simulation run tracker for cancellation on scenario reset
+# Redis key for cross-worker active simulation ID synchronization
+REDIS_SIM_KEY = "surakshagrid:active_sim_id"
+
+# In-memory fallback active simulation ID tracker (for single-worker or Redis-offline fallback)
 _active_sim_id: str | None = None
+
+
+async def _get_active_sim_id() -> str | None:
+    """Reads active simulation ID from Redis, with graceful fallback to in-memory state on connection error."""
+    global _active_sim_id
+    try:
+        settings = get_settings()
+        if settings.REDIS_URL:
+            client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            val = await client.get(REDIS_SIM_KEY)
+            await client.aclose()
+            return val
+    except Exception as exc:
+        logger.warning(f"Failed to read active_sim_id from Redis ({exc}). Falling back to in-memory state.")
+    return _active_sim_id
+
+
+async def _set_active_sim_id(sim_id: str | None) -> None:
+    """Sets or clears active simulation ID in Redis, updating in-memory fallback state."""
+    global _active_sim_id
+    _active_sim_id = sim_id
+    try:
+        settings = get_settings()
+        if settings.REDIS_URL:
+            client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            if sim_id is None:
+                await client.delete(REDIS_SIM_KEY)
+            else:
+                await client.set(REDIS_SIM_KEY, sim_id)
+            await client.aclose()
+    except Exception as exc:
+        logger.warning(f"Failed to update active_sim_id in Redis ({exc}). Updated in-memory state fallback.")
 
 
 async def reset_demo_state(db: AsyncSession) -> None:
     """Safely resets demo tables in PostgreSQL while preserving schema."""
-    global _active_sim_id
-    _active_sim_id = None  # Cancel any ongoing background staggered simulation
+    await _set_active_sim_id(None)  # Cancel any ongoing background staggered simulation across workers
 
     await db.execute(delete(SOSConfirmation))
     await db.execute(delete(SOSReport))
@@ -48,10 +84,9 @@ async def reset_demo_state(db: AsyncSession) -> None:
 async def run_staggered_simulation(sim_id: str) -> None:
     """Background task that progressively inserts and broadcasts SOS reports with real staggered timing.
 
-    Uses AsyncSessionLocal to obtain dedicated non-request DB sessions.
+    Uses AsyncSessionLocal to obtain dedicated non-request DB sessions. Cross-worker state is
+    synchronized via Redis GET/SET checks to guard against race conditions across Uvicorn workers.
     """
-    global _active_sim_id
-
     # 12 Realistic SOS Reports with staggered delays (in seconds)
     sos_reports_data = [
         # (lon, lat, severity, photo_url, visual_confidence, trust_score, transcript, delay_seconds, add_confirmation)
@@ -191,14 +226,16 @@ async def run_staggered_simulation(sim_id: str) -> None:
 
     try:
         for lon, lat, sev, photo_url, conf, trust, transcript, delay_sec, add_conf in sos_reports_data:
-            if _active_sim_id != sim_id:
+            active_id = await _get_active_sim_id()
+            if active_id != sim_id:
                 logger.info(f"Staggered simulation {sim_id} cancelled or superseded.")
                 return
 
             if delay_sec > 0:
                 await asyncio.sleep(delay_sec)
 
-            if _active_sim_id != sim_id:
+            active_id = await _get_active_sim_id()
+            if active_id != sim_id:
                 logger.info(f"Staggered simulation {sim_id} cancelled or superseded during sleep.")
                 return
 
@@ -290,7 +327,8 @@ async def run_staggered_simulation(sim_id: str) -> None:
                     },
                 )
 
-        if _active_sim_id == sim_id:
+        active_id = await _get_active_sim_id()
+        if active_id == sim_id:
             logger.info(f"Completed background staggered SOS simulation spawner {sim_id}.")
             await ws_manager.publish(
                 "SIMULATION_COMPLETE",
@@ -302,8 +340,9 @@ async def run_staggered_simulation(sim_id: str) -> None:
                 },
             )
     finally:
-        if _active_sim_id == sim_id:
-            _active_sim_id = None
+        active_id = await _get_active_sim_id()
+        if active_id == sim_id:
+            await _set_active_sim_id(None)
 
 
 @router.post(
@@ -331,13 +370,11 @@ async def trigger_simulation(
     officer: dict = Depends(get_current_officer),
 ) -> dict[str, str | int]:
     """Clears demo state, seeds 7 rescue units immediately, and schedules background staggered SOS report delivery."""
-    global _active_sim_id
-
-    # 1. Reset existing demo state
+    # 1. Reset existing demo state across all workers via Redis
     await reset_demo_state(db)
 
     sim_id = str(uuid.uuid4())
-    _active_sim_id = sim_id
+    await _set_active_sim_id(sim_id)
 
     # 2. Seed 7 Rescue Units immediately
     rescue_units_data = [
@@ -374,5 +411,3 @@ async def trigger_simulation(
         "seeded_units": len(seeded_units),
         "message": "Live flood scenario initiated. SOS reports will arrive progressively.",
     }
-
-
