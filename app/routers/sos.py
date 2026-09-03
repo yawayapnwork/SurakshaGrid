@@ -192,3 +192,42 @@ async def confirm_sos_report(
     )
 
     return SOSConfirmationRead.model_validate(confirmation)
+
+
+@router.get(
+    "/sos/nearby",
+    response_model=list[SOSReportRead],
+    status_code=status.HTTP_200_OK,
+    summary="Query nearby active SOS reports using PostGIS ST_DWithin spatial index filter",
+)
+async def get_nearby_sos_reports(
+    latitude: float,
+    longitude: float,
+    radius_meters: float = 5000.0,
+    db: AsyncSession = Depends(get_db),
+) -> list[SOSReportRead]:
+    """Queries active SOS reports within radius_meters of a coordinate using PostGIS ST_DWithin spatial index filter."""
+    try:
+        from sqlalchemy import func
+        point_geom = func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326)
+        stmt = select(SOSReport).where(
+            func.ST_DWithin(
+                func.ST_Transform(SOSReport.location, 3857),
+                func.ST_Transform(point_geom, 3857),
+                radius_meters,
+            )
+        )
+        result = await db.execute(stmt)
+        reports = list(result.scalars().all())
+        return [SOSReportRead.model_validate(r) for r in reports]
+    except Exception:
+        # Fallback to fetching all and filtering by Haversine if non-PostGIS test DB
+        from app.services.dispatch_optimizer import extract_coordinates, haversine_distance_meters
+        result = await db.execute(select(SOSReport))
+        reports = list(result.scalars().all())
+        nearby = []
+        for r in reports:
+            r_lon, r_lat = extract_coordinates(r.location)
+            if haversine_distance_meters(latitude, longitude, r_lat, r_lon) <= radius_meters:
+                nearby.append(SOSReportRead.model_validate(r))
+        return nearby

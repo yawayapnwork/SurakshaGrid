@@ -21,7 +21,7 @@ class RescueUnit(Base):
         nullable=False,
     )
     current_location: Mapped[str] = mapped_column(
-        Geometry(geometry_type="POINT", srid=4326, spatial_index=False),
+        Geometry(geometry_type="POINT", srid=4326, spatial_index=True),
         nullable=False,
     )
     status: Mapped[RescueUnitStatus] = mapped_column(

@@ -17,7 +17,7 @@ class SOSReport(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     location: Mapped[str] = mapped_column(
-        Geometry(geometry_type="POINT", srid=4326, spatial_index=False),
+        Geometry(geometry_type="POINT", srid=4326, spatial_index=True),
         nullable=False,
     )
     status: Mapped[SOSStatus] = mapped_column(

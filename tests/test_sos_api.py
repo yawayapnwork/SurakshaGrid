@@ -145,3 +145,38 @@ async def test_confirm_sos_report_not_found(mock_db):
     app.dependency_overrides.clear()
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_nearby_sos_reports(mock_db):
+    report_id = uuid.uuid4()
+    mock_report = SOSReport(
+        id=report_id,
+        location="SRID=4326;POINT(80.2707 13.0827)",
+        status=SOSStatus.PENDING,
+        severity=SOSSeverity.HIGH,
+        trust_score=1,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.all.return_value = [mock_report]
+    mock_db.execute.return_value = mock_result
+
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.get("/api/v1/sos/nearby?latitude=13.0827&longitude=80.2707&radius_meters=3000")
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) == 1
+    assert data[0]["id"] == str(report_id)
