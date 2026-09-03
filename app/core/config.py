@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     JWT_SECRET: str = Field(..., min_length=32)
     OSRM_BASE_URL: AnyUrl
 
+    CLOUDINARY_CLOUD_NAME: str | None = Field(default=None)
+    CLOUDINARY_API_KEY: str | None = Field(default=None)
+    CLOUDINARY_API_SECRET: str | None = Field(default=None)
+
     ENVIRONMENT: str = Field(default="production")
 
     @field_validator("CORS_ORIGINS", mode="before")

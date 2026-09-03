@@ -7,13 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.core.config import get_settings
 from app.db.session import engine
+from app.routers.sos import router as sos_router
+from app.routers.ws import router as ws_router
+from app.services.ws_manager import ws_manager
 
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    await ws_manager.start_redis_listener()
     yield
+    await ws_manager.stop()
     await engine.dispose()
 
 
@@ -33,3 +38,6 @@ app.add_middleware(
 )
 
 app.include_router(health_router)
+app.include_router(sos_router, prefix="/api/v1")
+app.include_router(ws_router)
+

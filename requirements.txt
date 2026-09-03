@@ -8,3 +8,6 @@ pydantic>=2.9,<3.0
 pydantic-settings>=2.6,<3.0
 redis>=5.2,<6.0
 python-dotenv>=1.0,<2.0
+opencv-python-headless>=4.10,<5.1
+cloudinary>=1.40,<2.0
+
