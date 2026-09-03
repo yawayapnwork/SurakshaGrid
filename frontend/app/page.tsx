@@ -196,7 +196,11 @@ export default function DashboardPage() {
         setSosReports((prev) =>
           prev.map((r) => (r.id === data.sos_id ? { ...r, status: 'ASSIGNED' } : r))
         );
+      } else if (event === 'SIMULATION_COMPLETE') {
+        setIsTriggering(false);
+        showToast(data.message || 'Live flood scenario completed: All SOS reports spawned!', 'success');
       } else if (event === 'SCENARIO_RESET') {
+        setIsTriggering(false);
         setSosReports([]);
         setDispatchAssignments([]);
         setRescueUnits([]);
@@ -218,14 +222,18 @@ export default function DashboardPage() {
     try {
       const result = await triggerSimulationScenario();
       showToast(
-        `Scenario Initiated: ${result.seeded_units} Rescue Units & ${result.seeded_reports} SOS Reports Loaded!`,
+        result.message || `Scenario Initiated: ${result.seeded_units} Rescue Units Seeded! SOS reports arriving progressively...`,
         'success'
       );
       playTwoToneEmergencyAlert(isMuted);
+
+      // Safety fallback timer (~100s) to guarantee isTriggering clears even if WS connection drops
+      setTimeout(() => {
+        setIsTriggering(false);
+      }, 100000);
     } catch (err) {
       console.error('Failed to trigger live simulation scenario:', err);
       showToast('Failed to trigger simulation scenario', 'info');
-    } finally {
       setIsTriggering(false);
     }
   };

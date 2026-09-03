@@ -290,7 +290,17 @@ async def run_staggered_simulation(sim_id: str) -> None:
                     },
                 )
 
-        logger.info(f"Completed background staggered SOS simulation spawner {sim_id}.")
+        if _active_sim_id == sim_id:
+            logger.info(f"Completed background staggered SOS simulation spawner {sim_id}.")
+            await ws_manager.publish(
+                "SIMULATION_COMPLETE",
+                {
+                    "sim_id": sim_id,
+                    "status": "completed",
+                    "total_reports_spawned": len(sos_reports_data),
+                    "message": "Live flood scenario simulation completed. All SOS reports spawned.",
+                },
+            )
     finally:
         if _active_sim_id == sim_id:
             _active_sim_id = None
