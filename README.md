@@ -2,13 +2,18 @@
 
 Production backend for a flood response coordination platform: FastAPI + SQLAlchemy 2.0 (async) + asyncpg + PostGIS (ST_DWithin spatial indexing & nearby SOS lookups) on managed PostgreSQL, deployed as a Render Web Service.
 
-## Stack
+## Architecture & Core Features
 
-- **Framework & Validation**: FastAPI, Pydantic v2 / pydantic-settings
-- **Database & ORM**: PostgreSQL with PostGIS (via GeoAlchemy2), SQLAlchemy 2.0 async ORM, asyncpg driver
-- **Spatial Indexing & Queries**: PostGIS GiST spatial indexing (`ix_sos_reports_location`, `ix_rescue_units_current_location`) powering `ST_DWithin` radius filtering for nearby SOS report lookups & spatial distance routing calculations
-- **Computer Vision & Optimization**: OpenCV (water evidence confidence scoring), SciPy (Hungarian algorithm dispatch optimizer)
-- **Migrations & Caching**: Alembic migrations, Redis async client (3s TTL analytics caching & rate limiting)
+- **Server-Side Auth Proxy**: Next.js API routes act as a secure server-side auth proxy holding officer credentials (`ADMIN_USERNAME` / `ADMIN_PASSWORD_PLAIN` or environment variables). JWT tokens are handled strictly server-to-server; the client browser never receives or stores administrative tokens directly.
+- **3-Tier Dispatch Optimizer**: High-efficiency unit assignment engine using SciPy's Hungarian algorithm (`scipy.optimize.linear_sum_assignment`) with a robust 3-tier travel time/ETA calculation engine:
+  1. **Tier 1 (OSRM Table Service)**: Real road network routing and travel duration matrices via Open Source Routing Machine.
+  2. **Tier 2 (Batched PostGIS Geodesic Distance)**: `ST_Distance` over `geography` types for fast, accurate spherical Earth surface distance calculations on PostgreSQL.
+  3. **Tier 3 (Haversine Formula)**: Pure mathematical fallback calculation if external services and spatial DB queries are unreachable.
+- **Spatial Indexing & Radius Filtering**: PostGIS GiST spatial indexing (`ix_sos_reports_location`, `ix_rescue_units_current_location`) powering `ST_DWithin` radius filtering for fast nearby SOS report lookups.
+- **Computer Vision & Verification**: OpenCV water evidence confidence scoring analyzing flooded visual content.
+- **Citizen SOS Reporting & QR Code Flow**: Dedicated public citizen interface at `/report` allowing citizens to submit flood emergency reports with GPS location, photo verification, and voice transcripts. The officer command dashboard includes a live QR code link for instant mobile access during field testing or live demos.
+- **Staggered Live Scenario Simulation**: Background task spawner delivering 12 realistic SOS reports with staggered timing over ~40–90 seconds via Redis-backed cross-worker session synchronization and real-time WebSocket broadcasts.
+- **Caching & Rate Limiting**: Redis async client with 3s TTL operational metrics caching and IP rate limiting.
 
 ## Key API Endpoints
 
@@ -18,12 +23,12 @@ Production backend for a flood response coordination platform: FastAPI + SQLAlch
 | `POST` | `/api/v1/auth/login` | Officer JWT authentication (`ADMIN_USERNAME` / `ADMIN_PASSWORD_PLAIN`) |
 | `GET` | `/api/v1/risk-scores/simulate` | Dynamic What-If flood risk grid simulator by rainfall intensity (`?rainfall=75`) |
 | `GET` | `/api/v1/flood-zones/simulate` | Live flood zone extent simulator returning GeoJSON `FeatureCollection` polygons (`?rainfall=50`) |
-| `POST` | `/api/v1/simulation/trigger` | Triggers live staggered flood scenario generator (progressive SOS delivery over timeline) |
-| `POST` | `/api/v1/simulation/reset` | Resets simulation state & re-seeds clean rescue unit baselines |
+| `POST` | `/api/v1/simulation/trigger` | Resets demo state, seeds 7 rescue units, and schedules background staggered SOS report delivery (~40–90s) |
+| `POST` | `/api/v1/simulation/reset` | Resets simulation state & clears demo tables across all workers |
 | `POST` | `/api/v1/sos` | Citizen SOS flood report submission with OpenCV photo verification |
-| `GET` | `/api/v1/sos/nearby` | Spatial query for nearby active SOS reports via PostGIS `ST_DWithin` & GiST index |
+| `GET` | `/api/v1/sos/nearby` | Spatial query for nearby active SOS reports via PostGIS `ST_DWithin` & GiST index (`?lat=13.08&lon=80.27&radius_meters=5000`) |
 | `POST` | `/api/v1/sos/{id}/confirm` | Citizen/field confirmation to escalate trust score |
-| `POST` | `/api/v1/dispatch/run` | SciPy Hungarian algorithm optimal rescue unit assignment |
+| `POST` | `/api/v1/dispatch/run` | SciPy Hungarian algorithm optimal rescue unit assignment using 3-tier ETA calculation |
 | `GET` | `/api/v1/analytics/live-stats` | Aggregated operational metrics (cached in Redis for 3s) |
 | `GET` | `/api/v1/replay/timeline` | Incident history timeline replay |
 
@@ -35,7 +40,7 @@ python -m venv .venv
 pip install -r requirements.txt
 cp .env.example .env        # fill in DATABASE_URL, REDIS_URL, JWT_SECRET, OSRM_BASE_URL
 alembic upgrade head
-python scripts/seed_db.py   # seed initial rescue units, SOS reports & genesis event log
+python scripts/seed_db.py   # seed initial rescue units, baseline reports & genesis event log
 uvicorn app.main:app --reload
 ```
 
@@ -59,9 +64,9 @@ python scripts/seed_db.py --force-reset
 ```
 
 > [!IMPORTANT]
-> **Live Demo Rehearsal Note**: When triggering a flood event via `POST /api/v1/simulation/trigger`, flood-zone expansion and SOS report delivery occur **live and progressively over background tasks** rather than instantly. 
-> - Reports arrive sequentially over ~50–60 seconds (with realistic delays of 0s, 4s, 5s between reports).
-> - Presenters and reviewers rehearsing the demo should **wait ~60 seconds after triggering the flood event for the full incident scenario to unfold** before running dispatch optimization or viewing final operational metrics.
+> **Live Demo Rehearsal Note**: When triggering a flood event via `POST /api/v1/simulation/trigger`, SOS reports are spawned **live and progressively over background tasks** rather than in a bulk seed. 
+> - Reports arrive sequentially over ~40–90 seconds with realistic staggered delays between reports.
+> - Presenters and reviewers rehearsing the demo should **wait ~40–90 seconds after triggering the flood event for the full incident scenario to unfold** before running dispatch optimization or viewing final operational metrics.
 
 ## Project Layout
 
@@ -73,7 +78,7 @@ app/
     models/                # SQLAlchemy ORM models (sos_reports, rescue_units, sos_confirmations, event_log)
     schemas/               # Pydantic request/response schemas
     routers/               # FastAPI route handlers (sos, simulation, flood_zones, dispatch, risk, analytics, replay, auth)
-    services/              # CV service (OpenCV), dispatch optimizer (SciPy), WebSocket manager
+    services/              # CV service (OpenCV), 3-tier dispatch optimizer (SciPy + OSRM + PostGIS), WebSocket manager
 scripts/
     seed_db.py             # Async database seeder script with spatial index validation & --force-reset flag
     smoke_test.py          # E2E production smoke test runner (tests flood zones, auth, CV, dispatch, progressive polling)
