@@ -10,6 +10,7 @@ import { ReplayScrubber } from '@/components/ReplayScrubber';
 import { ExportAARModal } from '@/components/ExportAARModal';
 import { playTwoToneEmergencyAlert } from '@/components/AudioAlertManager';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useDemoTour } from '@/hooks/useDemoTour';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import {
   fetchLiveAnalyticsStats,
@@ -333,6 +334,19 @@ export default function DashboardPage() {
     ? dispatchAssignments.reduce((acc, a) => acc + a.eta_seconds / 60, 0) / dispatchAssignments.length
     : 0;
 
+  // Guided Demo Tour Orchestrator (PRD §8 Automated Judging Runner)
+  const demoTour = useDemoTour({
+    setRainfall,
+    triggerFloodScenario: handleTriggerFloodScenario,
+    runDispatch: handleRunDispatch,
+    setSelectedRiskCell,
+    toggleReplayMode: handleToggleReplayMode,
+    selectReplayIndex: handleSelectReplayEventIndex,
+    setSosReports,
+    riskGrid,
+    showToast,
+  });
+
   return (
     <main className="w-full h-screen overflow-hidden flex flex-col relative bg-slate-950 font-sans">
       {/* Non-Blocking Toast Notification */}
@@ -370,6 +384,7 @@ export default function DashboardPage() {
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
         onOpenAARModal={() => setIsAARModalOpen(true)}
+        demoState={demoTour}
       />
 
       {/* 2. Central Interactive Map with Error Boundary */}
