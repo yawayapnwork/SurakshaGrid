@@ -259,7 +259,41 @@ async def trigger_simulation(
     # Commit all seeded DB entries
     await db.commit()
 
-    # 4. Broadcast created reports via WebSocket
+    # 4. Generate Synthetic Crowd Verification Confirmations (3 to 5 confirmations for high-severity reports)
+    high_urgency_reports = [
+        r for r in seeded_reports
+        if r.severity in (SOSSeverity.CRITICAL_TRAPPED, SOSSeverity.HIGH)
+    ]
+    # Generate 4 synthetic confirmations across the high-urgency reports
+    seeded_confirmations: list[SOSConfirmation] = []
+    for idx, report in enumerate(high_urgency_reports[:4]):
+        report.trust_score += 1
+        conf_id = uuid.uuid4()
+        conf_time = report.created_at + timedelta(minutes=1)
+
+        confirmation = SOSConfirmation(
+            id=conf_id,
+            sos_id=report.id,
+            confirmed_at=conf_time,
+        )
+        db.add(confirmation)
+        seeded_confirmations.append(confirmation)
+
+        sev_str = report.severity.value if hasattr(report.severity, "value") else str(report.severity)
+        conf_event = EventLog(
+            event_type="SOS_CONFIRMED",
+            payload={
+                "sos_id": str(report.id),
+                "trust_score": report.trust_score,
+                "confirmation_id": str(conf_id),
+            },
+            occurred_at=conf_time,
+        )
+        db.add(conf_event)
+
+    await db.commit()
+
+    # 5. Broadcast created reports & crowd confirmations via WebSocket
     for report in seeded_reports:
         clean_wkt = str(report.location).split(";")[-1].replace("POINT(", "").replace(")", "").strip()
         parts = clean_wkt.split()
@@ -281,11 +315,32 @@ async def trigger_simulation(
             },
         )
 
-    logger.info(f"Triggered live simulation: seeded {len(seeded_units)} units and {len(seeded_reports)} reports")
+    for conf in seeded_confirmations:
+        target_report = next((r for r in seeded_reports if r.id == conf.sos_id), None)
+        if target_report:
+            sev_str = target_report.severity.value if hasattr(target_report.severity, "value") else str(target_report.severity)
+            status_str = target_report.status.value if hasattr(target_report.status, "value") else str(target_report.status)
+            await ws_manager.publish(
+                "SOS_CONFIRMED",
+                {
+                    "sos_id": str(target_report.id),
+                    "trust_score": target_report.trust_score,
+                    "severity": sev_str,
+                    "status": status_str,
+                    "confirmation_id": str(conf.id),
+                },
+            )
+
+    logger.info(
+        f"Triggered live simulation: seeded {len(seeded_units)} units, "
+        f"{len(seeded_reports)} reports, and {len(seeded_confirmations)} crowd confirmations"
+    )
 
     return {
         "status": "success",
         "seeded_units": len(seeded_units),
         "seeded_reports": len(seeded_reports),
+        "seeded_confirmations": len(seeded_confirmations),
         "message": "Live scenario initiated successfully!",
     }
+
