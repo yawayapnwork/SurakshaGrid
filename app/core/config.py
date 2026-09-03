@@ -1,0 +1,51 @@
+from functools import lru_cache
+
+from typing import Annotated
+
+from pydantic import AnyUrl, Field, field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Strictly validated runtime configuration, loaded from environment variables."""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="forbid",
+    )
+
+    DATABASE_URL: str = Field(..., min_length=1)
+    REDIS_URL: str = Field(..., min_length=1)
+    CORS_ORIGINS: Annotated[list[str], NoDecode] = Field(default_factory=list)
+    JWT_SECRET: str = Field(..., min_length=32)
+    OSRM_BASE_URL: AnyUrl
+
+    ENVIRONMENT: str = Field(default="production")
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, value: object) -> list[str]:
+        """Accept a comma-separated string (as set on Render) or a JSON/native list."""
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [origin.strip() for origin in value.split(",") if origin.strip()]
+        if isinstance(value, list):
+            return [str(origin).strip() for origin in value if str(origin).strip()]
+        raise ValueError("CORS_ORIGINS must be a comma-separated string or a list of strings")
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def _require_asyncpg_driver(cls, value: str) -> str:
+        if not value.startswith("postgresql+asyncpg://"):
+            raise ValueError(
+                "DATABASE_URL must use the 'postgresql+asyncpg://' driver for async SQLAlchemy"
+            )
+        return value
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()  # type: ignore[call-arg]

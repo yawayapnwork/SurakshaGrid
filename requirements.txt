@@ -1,0 +1,10 @@
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.32,<0.33
+sqlalchemy[asyncio]>=2.0,<2.1
+asyncpg>=0.30,<0.31
+alembic>=1.14,<1.15
+geoalchemy2>=0.16,<0.17
+pydantic>=2.9,<3.0
+pydantic-settings>=2.6,<3.0
+redis>=5.2,<6.0
+python-dotenv>=1.0,<2.0
