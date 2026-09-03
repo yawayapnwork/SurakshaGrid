@@ -133,6 +133,8 @@ async def test_optimize_rescue_dispatch_empty():
 
 @pytest.mark.asyncio
 async def test_dispatch_api_endpoint():
+    from app.core.deps import get_current_officer
+
     mock_db = AsyncMock()
     mock_result_empty = MagicMock()
     mock_result_empty.scalars.return_value.all.return_value = []
@@ -142,6 +144,7 @@ async def test_dispatch_api_endpoint():
         yield mock_db
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_officer] = lambda: {"sub": "admin", "role": "officer"}
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         resp = await ac.post("/api/v1/dispatch/optimize")
@@ -150,3 +153,4 @@ async def test_dispatch_api_endpoint():
 
     assert resp.status_code == status.HTTP_200_OK
     assert resp.json() == []
+

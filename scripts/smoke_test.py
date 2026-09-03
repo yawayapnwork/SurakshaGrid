@@ -39,8 +39,23 @@ def run_smoke_test(base_url: str) -> None:
         assert health_data.get("status") == "ok", f"Unexpected health response: {health_data}"
         print(f"   ✅ Health Check Passed: {health_data}\n")
 
-        # Step 2: Simulate rainfall at 75% via /api/v1/risk-scores/simulate?rainfall=75
-        print("2️⃣ Testing What-If Risk Simulator (/api/v1/risk-scores/simulate?rainfall=75)...")
+        # Step 2: Authenticate Admin/Officer via /api/v1/auth/login
+        print("2️⃣ Authenticating Officer Credentials (/api/v1/auth/login)...")
+        admin_username = os.environ.get("ADMIN_USERNAME", "admin")
+        admin_password = os.environ.get("ADMIN_PASSWORD", "SurakshaAdmin2026!")
+        login_resp = client.post(
+            f"{base_url}/api/v1/auth/login",
+            json={"username": admin_username, "password": admin_password},
+        )
+        assert login_resp.status_code == 200, f"Auth login failed with status {login_resp.status_code}: {login_resp.text}"
+        auth_data = login_resp.json()
+        token = auth_data.get("access_token")
+        assert token, "Access token missing in login response"
+        auth_headers = {"Authorization": f"Bearer {token}"}
+        print("   ✅ Auth Login Passed: JWT Bearer Access Token acquired\n")
+
+        # Step 3: Simulate rainfall at 75% via /api/v1/risk-scores/simulate?rainfall=75
+        print("3️⃣ Testing What-If Risk Simulator (/api/v1/risk-scores/simulate?rainfall=75)...")
         risk_resp = client.get(f"{base_url}/api/v1/risk-scores/simulate?rainfall=75")
         assert risk_resp.status_code == 200, f"Risk simulation failed with status {risk_resp.status_code}: {risk_resp.text}"
         risk_data = risk_resp.json()
@@ -51,8 +66,8 @@ def run_smoke_test(base_url: str) -> None:
         assert abs(rainfall_impact - 0.75) < 1e-4, f"Expected rainfall_impact 0.75, got {rainfall_impact}"
         print(f"   ✅ Risk Simulator Passed: {len(features)} risk grid cells returned (Rainfall Impact: {rainfall_impact})\n")
 
-        # Step 3: Post SOS report with synthetic water image
-        print("3️⃣ Testing SOS Report Submission with OpenCV Photo Evidence (/api/v1/sos)...")
+        # Step 4: Post SOS report with synthetic water image (Public Endpoint)
+        print("4️⃣ Testing SOS Report Submission with OpenCV Photo Evidence (/api/v1/sos)...")
         image_bytes = create_synthetic_water_image_bytes()
         sos_payload = {
             "latitude": "13.0827",
@@ -70,14 +85,14 @@ def run_smoke_test(base_url: str) -> None:
         visual_confidence = sos_data.get("visual_confidence_score")
         print(f"   ✅ SOS Created Successfully! ID: {sos_id}")
 
-        # Step 4: Verify visual_confidence_score > 0
+        # Step 5: Verify visual_confidence_score > 0
         assert visual_confidence is not None, "visual_confidence_score should not be None"
         assert visual_confidence > 0, f"Expected visual_confidence_score > 0, got {visual_confidence}"
         print(f"   ✅ OpenCV Water Verification Passed: Visual Confidence Score = {visual_confidence * 100:.1f}%\n")
 
-        # Step 5: Call /api/v1/dispatch/run (and /api/v1/dispatch/optimize)
-        print("5️⃣ Testing SciPy Hungarian Dispatch Optimizer (/api/v1/dispatch/run)...")
-        dispatch_resp = client.post(f"{base_url}/api/v1/dispatch/run")
+        # Step 6: Call guarded /api/v1/dispatch/run endpoint with Bearer token
+        print("6️⃣ Testing SciPy Hungarian Dispatch Optimizer (/api/v1/dispatch/run)...")
+        dispatch_resp = client.post(f"{base_url}/api/v1/dispatch/run", headers=auth_headers)
         assert dispatch_resp.status_code == 200, f"Dispatch optimizer failed with status {dispatch_resp.status_code}: {dispatch_resp.text}"
         assignments = dispatch_resp.json()
         assert isinstance(assignments, list), "Expected list response from dispatch optimizer"

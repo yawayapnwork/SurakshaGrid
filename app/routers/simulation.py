@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, status
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.deps import get_current_officer
 from app.db.session import get_db
 from app.models.enums import RescueUnitStatus, RescueUnitType, SOSSeverity, SOSStatus
 from app.models.event_log import EventLog
@@ -43,7 +44,10 @@ async def reset_demo_state(db: AsyncSession) -> None:
     status_code=status.HTTP_200_OK,
     summary="Reset demo state and clear test SOS reports and units",
 )
-async def reset_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, str]:
+async def reset_simulation(
+    db: AsyncSession = Depends(get_db),
+    officer: dict = Depends(get_current_officer),
+) -> dict[str, str]:
     """Clears all demo SOS reports and rescue units from PostgreSQL."""
     await reset_demo_state(db)
     return {"status": "success", "message": "Demo state reset successfully"}
@@ -56,6 +60,7 @@ async def reset_simulation(db: AsyncSession = Depends(get_db)) -> dict[str, str]
 )
 async def trigger_simulation(
     db: AsyncSession = Depends(get_db),
+    officer: dict = Depends(get_current_officer),
 ) -> dict[str, str | int]:
     """Clears demo state, seeds 7 rescue units, generates 12 realistic SOS reports with staggered timestamps
 
