@@ -17,6 +17,7 @@ import {
   fetchReplayEvents,
   fetchSimulatedFloodZones,
   fetchSimulatedRiskScores,
+  loginDemoOfficer,
   resetSimulationScenario,
   triggerOptimizeDispatch,
   triggerSimulationScenario,
@@ -62,6 +63,13 @@ export default function DashboardPage() {
   // 2. Replay Mode State
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [replayEvents, setReplayEvents] = useState<EventLog[]>([]);
+
+  // Auto-login demo officer once on mount for seamless hackathon judging
+  useEffect(() => {
+    loginDemoOfficer().catch((err) => {
+      console.warn('Auto demo officer login initial attempt:', err);
+    });
+  }, []);
 
   // Load sound mute preference from localStorage on client mount
   useEffect(() => {
