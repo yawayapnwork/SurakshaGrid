@@ -1,24 +1,46 @@
 services:
+  # 1. FastAPI Web Service
   - type: web
     name: surakshagrid-api
     runtime: python
     plan: starter
     region: singapore
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2"
     healthCheckPath: /healthz
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: surakshagrid-db
+          property: connectionString
       - key: REDIS_URL
-        sync: false
+        fromService:
+          type: redis
+          name: surakshagrid-redis
+          property: connectionString
       - key: CORS_ORIGINS
-        sync: false
+        value: "http://localhost:3000,https://surakshagrid.vercel.app"
       - key: JWT_SECRET
         generateValue: true
       - key: OSRM_BASE_URL
-        sync: false
+        value: "http://router.project-osrm.org"
       - key: ENVIRONMENT
         value: production
       - key: PYTHON_VERSION
         value: 3.11.9
+
+  # 2. Redis Pub/Sub Cache Service
+  - type: redis
+    name: surakshagrid-redis
+    plan: starter
+    region: singapore
+    maxmemoryPolicy: allkeys-lru
+
+databases:
+  # 3. Managed PostgreSQL Database with PostGIS
+  - name: surakshagrid-db
+    plan: starter
+    region: singapore
+    databaseName: surakshagrid
+    user: suraksha_admin
+    postgis: true

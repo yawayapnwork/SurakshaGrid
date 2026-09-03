@@ -14,6 +14,12 @@ router = APIRouter(tags=["dispatch"])
     status_code=status.HTTP_200_OK,
     summary="Trigger Hungarian-algorithm optimal rescue unit dispatch assignment",
 )
+@router.post(
+    "/dispatch/run",
+    response_model=list[DispatchAssignment],
+    status_code=status.HTTP_200_OK,
+    summary="Alias trigger for Hungarian-algorithm optimal rescue unit dispatch assignment",
+)
 async def run_rescue_dispatch(
     db: AsyncSession = Depends(get_db),
 ) -> list[DispatchAssignment]:
