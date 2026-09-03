@@ -247,6 +247,11 @@ async def run_staggered_simulation(sim_id: str) -> None:
             conf_id = uuid.uuid4() if add_conf else None
             conf_time = created_ts + timedelta(seconds=1) if add_conf else None
 
+            active_id = await _get_active_sim_id()
+            if active_id != sim_id:
+                logger.info(f"Staggered simulation {sim_id} cancelled or superseded before DB write.")
+                return
+
             # Dedicated non-request session from AsyncSessionLocal
             async with AsyncSessionLocal() as task_db:
                 report = SOSReport(
