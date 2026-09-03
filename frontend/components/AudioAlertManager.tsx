@@ -8,14 +8,33 @@ let hasUserInteracted = false;
 // Global Web Audio API AudioContext singleton instance
 let globalAudioCtx: AudioContext | null = null;
 
+/**
+ * Safely unlocks and resumes the Web Audio API AudioContext on the first user interaction gesture.
+ */
+export function unlockAudioContext(): void {
+  hasUserInteracted = true;
+  if (typeof window === 'undefined') return;
+
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (AudioContextClass) {
+    if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
+      try {
+        globalAudioCtx = new AudioContextClass();
+      } catch (err) {
+        console.warn('Failed to initialize AudioContext on user interaction:', err);
+      }
+    }
+    if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+      globalAudioCtx.resume().catch((err) => {
+        console.warn('Failed to resume AudioContext on user interaction:', err);
+      });
+    }
+  }
+}
+
 if (typeof window !== 'undefined') {
   const registerUserInteraction = () => {
-    hasUserInteracted = true;
-
-    // Attempt to resume suspended AudioContext on user gesture
-    if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
-      globalAudioCtx.resume().catch(() => {});
-    }
+    unlockAudioContext();
 
     window.removeEventListener('pointerdown', registerUserInteraction);
     window.removeEventListener('keydown', registerUserInteraction);

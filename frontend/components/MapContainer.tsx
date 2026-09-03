@@ -81,20 +81,35 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         },
       });
 
-      // 2. Add Dispatch Routes GeoJSON Source & Line Layer
+      // 2. Add Dispatch Routes GeoJSON Source & Line Layers (Glow + Dashed Cyan Stroke)
       map.addSource('dispatch-routes-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
 
+      // Neon Cyan Glow Effect Layer underneath
       map.addLayer({
-        id: 'dispatch-routes-line',
+        id: 'dispatch-routes-glow',
         type: 'line',
         source: 'dispatch-routes-source',
         paint: {
-          'line-color': '#38bdf8',
+          'line-color': '#00f3ff',
+          'line-width': 8,
+          'line-opacity': 0.4,
+          'line-blur': 3,
+        },
+      });
+
+      // Primary Dashed Cyan Route Line Layer
+      map.addLayer({
+        id: 'dispatch-routes-layer',
+        type: 'line',
+        source: 'dispatch-routes-source',
+        paint: {
+          'line-color': '#00f3ff',
           'line-width': 3.5,
           'line-dasharray': [2, 2],
+          'line-opacity': 0.95,
         },
       });
 
@@ -150,31 +165,52 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [riskGrid]);
 
-  // Update Dispatch Routes on Map
+  // Update Dispatch Routes on Map when dispatchAssignments, sosReports, or rescueUnits change
   useEffect(() => {
     if (!mapRef.current) return;
     const routeSource = mapRef.current.getSource('dispatch-routes-source') as maplibregl.GeoJSONSource;
     if (!routeSource) return;
 
-    const routeFeatures = dispatchAssignments.map((assignment) => {
-      const sos = sosReports.find((s) => s.id === assignment.sos_id);
-      const unit = rescueUnits.find((u) => u.id === assignment.rescue_unit_id);
+    if (!dispatchAssignments || dispatchAssignments.length === 0) {
+      routeSource.setData({
+        type: 'FeatureCollection',
+        features: [],
+      });
+      return;
+    }
 
-      if (sos && unit) {
-        return {
-          type: 'Feature' as const,
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: [unit.current_location.coordinates, sos.location.coordinates],
-          },
-          properties: {
-            unit_name: assignment.unit_name,
-            eta_seconds: assignment.eta_seconds,
-          },
-        };
-      }
-      return null;
-    }).filter(Boolean);
+    const routeFeatures = dispatchAssignments
+      .map((assignment) => {
+        const sos = sosReports.find((s) => s.id === assignment.sos_id);
+        const unit = rescueUnits.find((u) => u.id === assignment.rescue_unit_id);
+
+        if (sos && unit) {
+          const uCoords = Array.isArray(unit.current_location)
+            ? unit.current_location
+            : unit.current_location?.coordinates;
+          const sCoords = Array.isArray(sos.location)
+            ? sos.location
+            : sos.location?.coordinates;
+
+          if (uCoords && sCoords && uCoords.length >= 2 && sCoords.length >= 2) {
+            return {
+              type: 'Feature' as const,
+              geometry: {
+                type: 'LineString' as const,
+                coordinates: [uCoords, sCoords],
+              },
+              properties: {
+                unit_name: assignment.unit_name,
+                eta_seconds: assignment.eta_seconds,
+                sos_id: assignment.sos_id,
+                rescue_unit_id: assignment.rescue_unit_id,
+              },
+            };
+          }
+        }
+        return null;
+      })
+      .filter(Boolean);
 
     routeSource.setData({
       type: 'FeatureCollection',
