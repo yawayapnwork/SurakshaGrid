@@ -34,3 +34,32 @@ async def test_simulate_flood_zones_expanded():
     # Confirm polygon ring expands
     coords = feature["geometry"]["coordinates"][0]
     assert len(coords) == 5
+
+
+from unittest.mock import AsyncMock, MagicMock
+from app.db.session import get_db
+
+@pytest.mark.asyncio
+async def test_simulate_flood_zones_with_sim_id():
+    mock_db = AsyncMock()
+    mock_result = MagicMock()
+    mock_result.scalars.return_value.first.return_value = None
+    mock_db.execute.return_value = mock_result
+
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.get("/api/v1/flood-zones/simulate?sim_id=test-sim-id-123&rainfall=50")
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["type"] == "FeatureCollection"
+    assert len(data["features"]) == 1
+    assert data["features"][0]["geometry"]["type"] == "Polygon"
+
+

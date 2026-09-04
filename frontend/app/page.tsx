@@ -188,6 +188,24 @@ export default function DashboardPage() {
         setSosReports((prev) =>
           prev.map((r) => (r.id === data.sos_id ? { ...r, status: 'ASSIGNED' } : r))
         );
+      } else if (event === 'ZONE_EXPANDED') {
+        if (data.geometry) {
+          const updatedFeatureCollection = {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: data.geometry,
+                properties: {
+                  rainfall: data.rainfall_intensity ?? 0,
+                  sim_id: data.sim_id,
+                  zone_id: data.zone_id,
+                },
+              },
+            ],
+          };
+          setFloodZones(updatedFeatureCollection);
+        }
       } else if (event === 'SIMULATION_COMPLETE') {
         setIsTriggering(false);
         showToast(data.message || 'Live flood scenario completed: All SOS reports spawned!', 'success');
@@ -196,6 +214,7 @@ export default function DashboardPage() {
         setSosReports([]);
         setDispatchAssignments([]);
         setRescueUnits([]);
+        setFloodZones(null);
         showToast('Scenario state reset by backend', 'info');
       }
     },

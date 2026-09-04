@@ -13,6 +13,7 @@ from app.core.deps import get_current_officer
 from app.db.session import AsyncSessionLocal, get_db
 from app.models.enums import RescueUnitStatus, RescueUnitType, SOSSeverity, SOSStatus
 from app.models.event_log import EventLog
+from app.models.flood_zone import FloodZone
 from app.models.rescue_unit import RescueUnit
 from app.models.sos_confirmation import SOSConfirmation
 from app.models.sos_report import SOSReport
@@ -21,6 +22,36 @@ from app.services.ws_manager import ws_manager
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["simulation"])
+
+
+def build_flood_zone_polygon(rainfall_intensity: float) -> tuple[str, dict]:
+    """Generates PostGIS EWKT Polygon and GeoJSON geometry dict for a given rainfall intensity (0..100)."""
+    rainfall_norm = min(max(rainfall_intensity, 0.0), 100.0)
+    buffer_deg = 0.01 + (rainfall_norm / 100.0) * 0.05
+
+    # Corridor endpoints around Chennai
+    x1, y1 = 80.15, 13.00
+    x2, y2 = 80.35, 13.10
+
+    dx = x2 - x1
+    dy = y2 - y1
+    length = (dx * dx + dy * dy) ** 0.5
+
+    nx = -dy / length
+    ny = dx / length
+
+    p1 = [round(x1 + nx * buffer_deg, 6), round(y1 + ny * buffer_deg, 6)]
+    p2 = [round(x2 + nx * buffer_deg, 6), round(y2 + ny * buffer_deg, 6)]
+    p3 = [round(x2 - nx * buffer_deg, 6), round(y2 - ny * buffer_deg, 6)]
+    p4 = [round(x1 - nx * buffer_deg, 6), round(y1 - ny * buffer_deg, 6)]
+
+    geojson_geom = {
+        "type": "Polygon",
+        "coordinates": [[p1, p2, p3, p4, p1]],
+    }
+    wkt = f"SRID=4326;POLYGON(({p1[0]} {p1[1]}, {p2[0]} {p2[1]}, {p3[0]} {p3[1]}, {p4[0]} {p4[1]}, {p1[0]} {p1[1]}))"
+    return wkt, geojson_geom
+
 
 # Redis key for cross-worker active simulation ID synchronization
 REDIS_SIM_KEY = "surakshagrid:active_sim_id"
@@ -68,6 +99,7 @@ async def reset_demo_state(db: AsyncSession) -> None:
     await db.execute(delete(SOSConfirmation))
     await db.execute(delete(SOSReport))
     await db.execute(delete(RescueUnit))
+    await db.execute(delete(FloodZone))
 
     # Log reset event
     event = EventLog(
@@ -82,7 +114,7 @@ async def reset_demo_state(db: AsyncSession) -> None:
 
 
 async def run_staggered_simulation(sim_id: str) -> None:
-    """Background task that progressively inserts and broadcasts SOS reports with real staggered timing.
+    """Background task that progressively inserts and broadcasts SOS reports & expanding flood zone polygons with real staggered timing.
 
     Uses AsyncSessionLocal to obtain dedicated non-request DB sessions. Cross-worker state is
     synchronized via Redis GET/SET checks to guard against race conditions across Uvicorn workers.
@@ -224,8 +256,16 @@ async def run_staggered_simulation(sim_id: str) -> None:
         ),
     ]
 
+    # Expanding sequence of flood zone polygon snapshots mapped by report index (index -> rainfall_intensity)
+    flood_zone_sequence: dict[int, float] = {
+        0: 25.0,   # Initial flood surge extent
+        3: 50.0,   # Moderate flood zone expansion
+        6: 75.0,   # Severe flood inundation extent
+        9: 100.0,  # Maximum flood catastrophe extent
+    }
+
     try:
-        for lon, lat, sev, photo_url, conf, trust, transcript, delay_sec, add_conf in sos_reports_data:
+        for idx, (lon, lat, sev, photo_url, conf, trust, transcript, delay_sec, add_conf) in enumerate(sos_reports_data):
             active_id = await _get_active_sim_id()
             if active_id != sim_id:
                 logger.info(f"Staggered simulation {sim_id} cancelled or superseded.")
@@ -329,6 +369,48 @@ async def run_staggered_simulation(sim_id: str) -> None:
                         "severity": sev_str,
                         "status": SOSStatus.PENDING.value,
                         "confirmation_id": str(conf_id),
+                    },
+                )
+
+            # Insert expanding flood zone polygon snapshot if scheduled at this step
+            if idx in flood_zone_sequence:
+                rainfall_val = flood_zone_sequence[idx]
+                fz_wkt, fz_geojson = build_flood_zone_polygon(rainfall_val)
+                fz_id = uuid.uuid4()
+
+                async with AsyncSessionLocal() as task_db:
+                    flood_zone = FloodZone(
+                        id=fz_id,
+                        geometry=fz_wkt,
+                        rainfall_intensity=rainfall_val,
+                        sim_id=sim_id,
+                        created_at=created_ts,
+                    )
+                    task_db.add(flood_zone)
+
+                    fz_event = EventLog(
+                        event_type="ZONE_EXPANDED",
+                        payload={
+                            "zone_id": str(fz_id),
+                            "sim_id": sim_id,
+                            "rainfall_intensity": rainfall_val,
+                            "geometry": fz_geojson,
+                            "created_at": created_ts.isoformat(),
+                        },
+                        occurred_at=created_ts,
+                    )
+                    task_db.add(fz_event)
+                    await task_db.commit()
+
+                # Broadcast ZONE_EXPANDED WebSocket notification
+                await ws_manager.publish(
+                    "ZONE_EXPANDED",
+                    {
+                        "zone_id": str(fz_id),
+                        "sim_id": sim_id,
+                        "rainfall_intensity": rainfall_val,
+                        "geometry": fz_geojson,
+                        "created_at": created_ts.isoformat(),
                     },
                 )
 
