@@ -44,6 +44,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+async def root() -> dict[str, str]:
+    return {
+        "name": "SurakshaGrid API",
+        "version": "0.1.0",
+        "docs": "/docs",
+        "health": "/healthz",
+    }
+
+
 app.include_router(health_router)
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(sos_router, prefix="/api/v1")
