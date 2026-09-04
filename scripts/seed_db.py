@@ -88,13 +88,15 @@ async def seed_database(force_reset: bool = False) -> None:
             await db.commit()
             logger.info("✅ Database tables cleared successfully.")
 
-        # Check if rescue_units table is already populated
-        res = await db.execute(select(func.count()).select_from(RescueUnit))
-        existing_unit_count = res.scalar_one()
+        # Check if rescue_units or sos_reports tables are already populated
+        res_units = await db.execute(select(func.count()).select_from(RescueUnit))
+        existing_unit_count = res_units.scalar_one()
+        res_reports = await db.execute(select(func.count()).select_from(SOSReport))
+        existing_report_count = res_reports.scalar_one()
 
-        if existing_unit_count > 0 and not force_reset:
+        if (existing_unit_count > 0 or existing_report_count > 0) and not force_reset:
             logger.info(
-                f"ℹ️  Database is already seeded with {existing_unit_count} rescue units. "
+                f"ℹ️  Database is already seeded with {existing_unit_count} rescue units and {existing_report_count} SOS reports. "
                 "Skipping seeding (use --force-reset to overwrite)."
             )
             await verify_spatial_indexes_and_geometries(db)
