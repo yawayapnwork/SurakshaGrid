@@ -81,9 +81,9 @@ async def test_trigger_simulation_background_staggered_inserts():
         data = response.json()
         assert data["status"] == "started"
 
-        # 2. Assert background task used AsyncSessionLocal to insert reports & commit 12 times
+        # 2. Assert background task used AsyncSessionLocal to insert reports & flood zones (12 SOS + 4 ZONE_EXPANDED = 16 commits)
         assert mock_task_db.add.called
-        assert mock_task_db.commit.call_count == 12
+        assert mock_task_db.commit.call_count == 16
         assert mock_pub.called
 
 

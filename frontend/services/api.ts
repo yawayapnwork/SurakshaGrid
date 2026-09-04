@@ -46,11 +46,13 @@ export async function fetchReplayEvents(since?: string): Promise<EventLog[]> {
   return res.json();
 }
 
+// Note: Must stay in sync with backend POST /api/v1/sos multipart form fields (latitude, longitude, severity, voice_transcript, image)
 export async function createSOSReport(data: {
   latitude: number;
   longitude: number;
   severity: string;
   voice_transcript?: string;
+  image?: Blob | File;
 }): Promise<SOSReport> {
   const formData = new FormData();
   formData.append('latitude', data.latitude.toString());
@@ -59,13 +61,21 @@ export async function createSOSReport(data: {
   if (data.voice_transcript) {
     formData.append('voice_transcript', data.voice_transcript);
   }
+  if (data.image) {
+    if (data.image instanceof File) {
+      formData.append('image', data.image);
+    } else {
+      formData.append('image', data.image, 'standing_water.jpg');
+    }
+  }
 
   const res = await fetch(`${API_BASE_URL}/api/v1/sos`, {
     method: 'POST',
     body: formData,
   });
   if (!res.ok) {
-    throw new Error(`Failed to create SOS report: ${res.statusText}`);
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to create SOS report: ${res.statusText}`);
   }
   return res.json();
 }

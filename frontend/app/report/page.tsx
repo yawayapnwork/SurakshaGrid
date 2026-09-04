@@ -6,7 +6,7 @@ import { AlertTriangle, CheckCircle2, Crosshair, MapPin, Send, ShieldAlert, Spar
 import { VoiceToTextInput } from '@/components/VoiceToTextInput';
 import { ImageCompressorInput } from '@/components/ImageCompressorInput';
 import { ConfirmNearbyModal } from '@/components/ConfirmNearbyModal';
-import { fetchNearbySOSReports } from '@/services/api';
+import { createSOSReport, fetchNearbySOSReports } from '@/services/api';
 import { SOSReport, SOSSeverity } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
@@ -67,7 +67,7 @@ export default function CitizenReportPage() {
       .catch((err) => console.error('Error fetching nearby SOS reports:', err));
   }, [latitude, longitude]);
 
-  // Submit SOS Report to backend POST /api/v1/sos
+  // Submit SOS Report to backend POST /api/v1/sos via shared createSOSReport service
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (latitude === null || longitude === null) {
@@ -79,28 +79,14 @@ export default function CitizenReportPage() {
     setErrorMessage(null);
 
     try {
-      const formData = new FormData();
-      formData.append('latitude', latitude.toString());
-      formData.append('longitude', longitude.toString());
-      formData.append('severity', severity);
-      if (voiceTranscript) {
-        formData.append('voice_transcript', voiceTranscript);
-      }
-      if (compressedImage) {
-        formData.append('image', compressedImage, 'standing_water.jpg');
-      }
-
-      const res = await fetch(`${API_BASE_URL}/api/v1/sos`, {
-        method: 'POST',
-        body: formData,
+      const reportData = await createSOSReport({
+        latitude,
+        longitude,
+        severity,
+        voice_transcript: voiceTranscript || undefined,
+        image: compressedImage || undefined,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Server returned status ${res.status}`);
-      }
-
-      const reportData: SOSReport = await res.json();
       setSubmittedReport(reportData);
 
       // Add to nearby reports for display
