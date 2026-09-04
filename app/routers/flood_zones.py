@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 
 from app.core.config import get_settings
+from app.core.geo_constants import WATER_CORRIDOR_LINE, build_flood_zone_polygon
 from app.db.session import get_db
 from app.models.flood_zone import FloodZone
-from app.routers.simulation import build_flood_zone_polygon
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

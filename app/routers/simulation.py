@@ -17,41 +17,13 @@ from app.models.event_log import EventLog
 from app.models.flood_zone import FloodZone
 from app.models.rescue_unit import RescueUnit
 from app.models.sos_confirmation import SOSConfirmation
+from app.core.geo_constants import WATER_CORRIDOR_LINE, build_flood_zone_polygon
 from app.models.sos_report import SOSReport
 from app.services.ws_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["simulation"])
-
-
-def build_flood_zone_polygon(rainfall_intensity: float) -> tuple[str, dict]:
-    """Generates PostGIS EWKT Polygon and GeoJSON geometry dict for a given rainfall intensity (0..100)."""
-    rainfall_norm = min(max(rainfall_intensity, 0.0), 100.0)
-    buffer_deg = 0.01 + (rainfall_norm / 100.0) * 0.05
-
-    # Corridor endpoints around Chennai
-    x1, y1 = 80.15, 13.00
-    x2, y2 = 80.35, 13.10
-
-    dx = x2 - x1
-    dy = y2 - y1
-    length = (dx * dx + dy * dy) ** 0.5
-
-    nx = -dy / length
-    ny = dx / length
-
-    p1 = [round(x1 + nx * buffer_deg, 6), round(y1 + ny * buffer_deg, 6)]
-    p2 = [round(x2 + nx * buffer_deg, 6), round(y2 + ny * buffer_deg, 6)]
-    p3 = [round(x2 - nx * buffer_deg, 6), round(y2 - ny * buffer_deg, 6)]
-    p4 = [round(x1 - nx * buffer_deg, 6), round(y1 - ny * buffer_deg, 6)]
-
-    geojson_geom = {
-        "type": "Polygon",
-        "coordinates": [[p1, p2, p3, p4, p1]],
-    }
-    wkt = f"SRID=4326;POLYGON(({p1[0]} {p1[1]}, {p2[0]} {p2[1]}, {p3[0]} {p3[1]}, {p4[0]} {p4[1]}, {p1[0]} {p1[1]}))"
-    return wkt, geojson_geom
 
 
 # Redis key for cross-worker active simulation ID synchronization

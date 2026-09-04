@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 
 from app.core.config import get_settings
+from app.core.geo_constants import distance_to_water_corridor
 from app.db.session import get_db
 from app.models.enums import SOSStatus
 from app.models.sos_report import SOSReport
@@ -119,8 +120,8 @@ async def simulate_risk_scores(
             center_lat = (c_min_lat + c_max_lat) / 2.0
 
             # 4. Itemized explainable score calculations
-            # a) Flood proximity score (simulated water corridor line y = 13.05 + 0.5 * (x - 80.25))
-            dist_to_water_line = abs(center_lat - 13.05 - 0.5 * (center_lon - 80.25)) / 0.15
+            # a) Flood proximity score (using shared water corridor line from geo_constants)
+            dist_to_water_line = distance_to_water_corridor(center_lon, center_lat) / 0.15
             flood_proximity = round(max(0.0, 1.0 - min(dist_to_water_line, 1.0)), 4)
 
             # b) Elevation drop score (lowland hazard near coast / southern basin)
