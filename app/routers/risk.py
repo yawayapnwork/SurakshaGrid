@@ -1,9 +1,11 @@
 import json
 import logging
 import math
-from typing import Annotated
+import uuid
+from datetime import datetime, timezone
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
@@ -12,7 +14,9 @@ from app.core.config import get_settings
 from app.core.geo_constants import distance_to_water_corridor
 from app.db.session import get_db
 from app.models.enums import SOSStatus
+from app.models.live_rainfall_reading import LiveRainfallReading
 from app.models.sos_report import SOSReport
+from app.schemas.live_rainfall import LiveRainfallCreate, LiveRainfallRead
 from app.schemas.risk import (
     RiskBreakdown,
     RiskFeatureProperties,
@@ -21,6 +25,7 @@ from app.schemas.risk import (
     RiskPolygonGeometry,
 )
 from app.services.dispatch_optimizer import extract_coordinates
+from app.services.ws_manager import ws_manager
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -42,6 +47,50 @@ async def get_redis_client() -> aioredis.Redis | None:
     return None
 
 
+@router.post(
+    "/risk-scores/live-rainfall",
+    response_model=LiveRainfallRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Ingest live rainfall intensity reading from external sensors/APIs (n8n/OpenWeatherMap)",
+)
+async def create_live_rainfall_reading(
+    payload: LiveRainfallCreate,
+    x_n8n_secret: Annotated[str | None, Header(alias="X-N8N-Secret")] = None,
+    db: AsyncSession = Depends(get_db),
+) -> LiveRainfallRead:
+    """Authenticates shared secret header, persists live rainfall reading to DB, and broadcasts WebSocket update."""
+    if not x_n8n_secret or x_n8n_secret != settings.N8N_INGESTION_SECRET:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing X-N8N-Secret ingestion header",
+        )
+
+    reading = LiveRainfallReading(
+        id=uuid.uuid4(),
+        timestamp=datetime.now(timezone.utc),
+        rainfall_intensity=payload.rainfall_intensity,
+        raw_mm=payload.raw_mm,
+        source=payload.source,
+    )
+    db.add(reading)
+    await db.commit()
+    await db.refresh(reading)
+
+    # Broadcast real-time WebSocket notification to all connected clients
+    await ws_manager.publish(
+        "LIVE_RAINFALL_UPDATED",
+        {
+            "id": str(reading.id),
+            "timestamp": reading.timestamp.isoformat() if reading.timestamp else None,
+            "rainfall_intensity": reading.rainfall_intensity,
+            "raw_mm": reading.raw_mm,
+            "source": reading.source,
+        },
+    )
+
+    return LiveRainfallRead.model_validate(reading)
+
+
 @router.get(
     "/risk-scores/simulate",
     response_model=RiskGridCollection,
@@ -57,6 +106,10 @@ async def simulate_risk_scores(
             le=100.0,
         ),
     ] = 0.0,
+    mode: Annotated[
+        Literal["simulated", "live"],
+        Query(description="Mode of operation: 'simulated' (uses slider parameter) or 'live' (uses latest ingested reading)"),
+    ] = "simulated",
     sim_id: Annotated[
         str | None,
         Query(description="Optional active simulation ID to isolate risk density metrics"),
@@ -68,8 +121,17 @@ async def simulate_risk_scores(
     factoring rainfall, elevation drop, flood proximity, and active SOS report density,
     and returns a GeoJSON FeatureCollection of risk grid cells. Cached in Redis for 3s.
     """
+    effective_rainfall = rainfall
+
+    if mode == "live":
+        live_stmt = select(LiveRainfallReading).order_by(LiveRainfallReading.timestamp.desc()).limit(1)
+        live_res = await db.execute(live_stmt)
+        latest_reading = live_res.scalar_one_or_none()
+        if latest_reading:
+            effective_rainfall = latest_reading.rainfall_intensity
+
     redis_client = await get_redis_client()
-    cache_key = f"{CACHE_KEY_PREFIX}:{round(rainfall, 2)}:{sim_id or 'none'}"
+    cache_key = f"{CACHE_KEY_PREFIX}:{mode}:{round(effective_rainfall, 2)}:{sim_id or 'none'}"
 
     if redis_client:
         try:
@@ -111,7 +173,7 @@ async def simulate_risk_scores(
     lon_step = (max_lon - min_lon) / grid_size
     lat_step = (max_lat - min_lat) / grid_size
 
-    rainfall_impact = round(min(max(rainfall / 100.0, 0.0), 1.0), 4)
+    rainfall_impact = round(min(max(effective_rainfall / 100.0, 0.0), 1.0), 4)
 
     features: list[RiskGridFeature] = []
 

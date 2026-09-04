@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = Field(default="admin")
     ADMIN_PASSWORD: str = Field(..., min_length=12, description="Bcrypt hash of the admin/dispatcher password")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60)
+    N8N_INGESTION_SECRET: str = Field(default="surakshagrid-n8n-ingest-secret")
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

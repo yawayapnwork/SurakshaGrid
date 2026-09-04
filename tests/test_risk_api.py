@@ -121,6 +121,91 @@ async def test_simulate_risk_scores_redis_cached():
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["features"][0]["properties"]["risk_score"] == 0.88
-    mock_redis.get.assert_called_once_with("risk:simulate:50.0:none")
+    mock_redis.get.assert_called_once_with("risk:simulate:simulated:50.0:none")
     mock_redis.aclose.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_create_live_rainfall_reading_success():
+    mock_db = AsyncMock()
+    mock_db.add = MagicMock()
+    mock_db.commit = AsyncMock()
+    mock_db.refresh = AsyncMock()
+
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    with patch("app.routers.risk.ws_manager.publish", new_callable=AsyncMock) as mock_ws_pub:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.post(
+                "/api/v1/risk-scores/live-rainfall",
+                headers={"X-N8N-Secret": "surakshagrid-n8n-ingest-secret"},
+                json={
+                    "rainfall_intensity": 85.5,
+                    "raw_mm": 42.0,
+                    "source": "openweathermap",
+                },
+            )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["rainfall_intensity"] == 85.5
+    assert data["raw_mm"] == 42.0
+    assert data["source"] == "openweathermap"
+    assert mock_db.commit.called
+    assert mock_ws_pub.called
+
+
+@pytest.mark.asyncio
+async def test_create_live_rainfall_reading_unauthorized():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        # Missing header
+        res_missing = await ac.post(
+            "/api/v1/risk-scores/live-rainfall",
+            json={"rainfall_intensity": 50.0, "raw_mm": 20.0, "source": "test"},
+        )
+        # Invalid header
+        res_invalid = await ac.post(
+            "/api/v1/risk-scores/live-rainfall",
+            headers={"X-N8N-Secret": "wrong-secret"},
+            json={"rainfall_intensity": 50.0, "raw_mm": 20.0, "source": "test"},
+        )
+
+    assert res_missing.status_code == status.HTTP_401_UNAUTHORIZED
+    assert res_invalid.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+@pytest.mark.asyncio
+async def test_simulate_risk_scores_live_mode():
+    mock_db = AsyncMock()
+    mock_reading = MagicMock()
+    mock_reading.rainfall_intensity = 65.0
+
+    mock_result_reading = MagicMock()
+    mock_result_reading.scalar_one_or_none.return_value = mock_reading
+
+    mock_result_reports = MagicMock()
+    mock_result_reports.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [mock_result_reading, mock_result_reports]
+
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    with patch("app.routers.risk.get_redis_client", return_value=None):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.get("/api/v1/risk-scores/simulate?mode=live")
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["features"][0]["properties"]["breakdown"]["rainfall_impact"] == 0.65
+
 
