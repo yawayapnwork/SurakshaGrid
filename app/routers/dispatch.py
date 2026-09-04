@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_officer
@@ -23,9 +25,13 @@ router = APIRouter(tags=["dispatch"])
 )
 async def run_rescue_dispatch(
     db: AsyncSession = Depends(get_db),
+    sim_id: Annotated[
+        str | None,
+        Query(description="Optional active simulation ID to isolate dispatch scope"),
+    ] = None,
     officer: dict = Depends(get_current_officer),
 ) -> list[DispatchAssignment]:
     """Optimizes dispatch matching between available rescue units and pending SOS reports."""
-    assignments = await optimize_rescue_dispatch(db)
+    assignments = await optimize_rescue_dispatch(db, sim_id=sim_id)
     return assignments
 

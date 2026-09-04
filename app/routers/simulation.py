@@ -65,27 +65,44 @@ async def _set_active_sim_id(sim_id: str | None) -> None:
         logger.warning(f"Failed to update active_sim_id in Redis ({exc}). Updated in-memory state fallback.")
 
 
-async def reset_demo_state(db: AsyncSession) -> None:
-    """Safely resets demo tables in PostgreSQL while preserving schema."""
+async def reset_demo_state(db: AsyncSession, sim_id: str | None = None) -> None:
+    """Safely resets demo tables in PostgreSQL while preserving schema, optionally scoped by sim_id."""
     await _set_active_sim_id(None)  # Cancel any ongoing background staggered simulation across workers
 
-    await db.execute(delete(DispatchAssignmentModel))
-    await db.execute(delete(SOSConfirmation))
-    await db.execute(delete(SOSReport))
-    await db.execute(delete(RescueUnit))
-    await db.execute(delete(FloodZone))
+    if sim_id:
+        # Delete scoped assignments, confirmations, reports, units, and flood zones
+        report_ids_stmt = select(SOSReport.id).where(SOSReport.sim_id == sim_id)
+        unit_ids_stmt = select(RescueUnit.id).where(RescueUnit.sim_id == sim_id)
 
+        await db.execute(
+            delete(DispatchAssignmentModel).where(
+                (DispatchAssignmentModel.sos_id.in_(report_ids_stmt))
+                | (DispatchAssignmentModel.rescue_unit_id.in_(unit_ids_stmt))
+            )
+        )
+        await db.execute(
+            delete(SOSConfirmation).where(SOSConfirmation.sos_id.in_(report_ids_stmt))
+        )
+        await db.execute(delete(SOSReport).where(SOSReport.sim_id == sim_id))
+        await db.execute(delete(RescueUnit).where(RescueUnit.sim_id == sim_id))
+        await db.execute(delete(FloodZone).where(FloodZone.sim_id == sim_id))
+    else:
+        await db.execute(delete(DispatchAssignmentModel))
+        await db.execute(delete(SOSConfirmation))
+        await db.execute(delete(SOSReport))
+        await db.execute(delete(RescueUnit))
+        await db.execute(delete(FloodZone))
 
     # Log reset event
     event = EventLog(
         event_type="SCENARIO_RESET",
-        payload={"reset_at": datetime.now(timezone.utc).isoformat()},
+        payload={"reset_at": datetime.now(timezone.utc).isoformat(), "sim_id": sim_id},
     )
     db.add(event)
     await db.commit()
 
     # Broadcast reset to all connected WebSocket clients
-    await ws_manager.publish("SCENARIO_RESET", {"status": "cleared"})
+    await ws_manager.publish("SCENARIO_RESET", {"status": "cleared", "sim_id": sim_id})
 
 
 async def run_staggered_simulation(sim_id: str) -> None:
@@ -278,6 +295,7 @@ async def run_staggered_simulation(sim_id: str) -> None:
                     visual_confidence_score=conf,
                     trust_score=trust,
                     voice_transcript=transcript,
+                    sim_id=sim_id,
                     created_at=created_ts,
                 )
                 task_db.add(report)
@@ -484,6 +502,7 @@ async def trigger_simulation(
             unit_type=u_type,
             current_location=loc_wkt,
             status=RescueUnitStatus.AVAILABLE,
+            sim_id=sim_id,
         )
         db.add(unit)
         seeded_units.append(unit)
@@ -497,6 +516,7 @@ async def trigger_simulation(
 
     return {
         "status": "started",
+        "sim_id": sim_id,
         "seeded_units": len(seeded_units),
         "message": "Live flood scenario initiated. SOS reports will arrive progressively.",
     }

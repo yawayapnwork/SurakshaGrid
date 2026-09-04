@@ -34,6 +34,7 @@ async def create_sos_report(
     severity: Annotated[SOSSeverity, Form(description="Severity level of the emergency")],
     voice_transcript: Annotated[str | None, Form(description="Optional voice transcript")] = None,
     image: Annotated[UploadFile | None, File(description="Optional uploaded photo evidence")] = None,
+    sim_id: Annotated[str | None, Form(description="Optional active simulation ID")] = None,
     db: AsyncSession = Depends(get_db),
 ) -> SOSReportRead:
     """Accepts citizen SOS multipart form data, executes OpenCV water verification in a thread pool,
@@ -78,6 +79,7 @@ async def create_sos_report(
         visual_confidence_score=visual_confidence_score,
         trust_score=0,
         voice_transcript=voice_transcript,
+        sim_id=sim_id,
     )
     db.add(report)
     await db.flush()
@@ -204,6 +206,7 @@ async def get_nearby_sos_reports(
     latitude: float,
     longitude: float,
     radius_meters: float = 5000.0,
+    sim_id: Annotated[str | None, Query(description="Optional active simulation ID filter")] = None,
     db: AsyncSession = Depends(get_db),
 ) -> list[SOSReportRead]:
     """Queries active SOS reports within radius_meters of a coordinate using PostGIS ST_DWithin spatial index filter."""
@@ -218,13 +221,18 @@ async def get_nearby_sos_reports(
                 radius_meters,
             )
         )
+        if sim_id:
+            stmt = stmt.where(SOSReport.sim_id == sim_id)
         result = await db.execute(stmt)
         reports = list(result.scalars().all())
         return [SOSReportRead.model_validate(r) for r in reports]
     except Exception:
         # Fallback to fetching all and filtering by Haversine if non-PostGIS test DB
         from app.services.dispatch_optimizer import extract_coordinates, haversine_distance_meters
-        result = await db.execute(select(SOSReport))
+        stmt = select(SOSReport)
+        if sim_id:
+            stmt = stmt.where(SOSReport.sim_id == sim_id)
+        result = await db.execute(stmt)
         reports = list(result.scalars().all())
         nearby = []
         for r in reports:

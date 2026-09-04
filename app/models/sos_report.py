@@ -33,10 +33,12 @@ class SOSReport(Base):
     visual_confidence_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     trust_score: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     voice_transcript: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sim_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
     __table_args__ = (
         Index("ix_sos_reports_location", "location", postgresql_using="gist"),
+        Index("ix_sos_reports_sim_id", "sim_id"),
     )

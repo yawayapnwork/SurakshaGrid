@@ -63,11 +63,18 @@ export default function DashboardPage() {
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [replayEvents, setReplayEvents] = useState<EventLog[]>([]);
 
-  // Load sound mute preference from localStorage on client mount
+  // Active Simulation ID State (persisted in sessionStorage for multi-tenant isolation)
+  const [activeSimId, setActiveSimId] = useState<string | null>(null);
+
+  // Load sound mute preference and active sim_id on client mount
   useEffect(() => {
     const savedMute = localStorage.getItem('surakshagrid_muted');
     if (savedMute !== null) {
       setIsMuted(savedMute === 'true');
+    }
+    const savedSimId = sessionStorage.getItem('surakshagrid_sim_id');
+    if (savedSimId) {
+      setActiveSimId(savedSimId);
     }
   }, []);
 
@@ -90,8 +97,8 @@ export default function DashboardPage() {
   useEffect(() => {
     let isSubscribed = true;
     Promise.all([
-      fetchSimulatedRiskScores(debouncedRainfall),
-      fetchSimulatedFloodZones(debouncedRainfall),
+      fetchSimulatedRiskScores(debouncedRainfall, activeSimId || undefined),
+      fetchSimulatedFloodZones(debouncedRainfall, activeSimId || undefined),
     ])
       .then(([riskData, floodData]) => {
         if (isSubscribed) {
@@ -104,13 +111,13 @@ export default function DashboardPage() {
     return () => {
       isSubscribed = false;
     };
-  }, [debouncedRainfall]);
+  }, [debouncedRainfall, activeSimId]);
 
   // Periodic polling (every 3s) for live analytics aggregator metrics
   useEffect(() => {
     let isSubscribed = true;
     const fetchAnalytics = () => {
-      fetchLiveAnalyticsStats()
+      fetchLiveAnalyticsStats(activeSimId || undefined)
         .then((data) => {
           if (isSubscribed) setAnalyticsStats(data);
         })
@@ -124,7 +131,7 @@ export default function DashboardPage() {
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [activeSimId]);
 
   // Periodic timer (every 10s) to update elapsed time visual state machine
   useEffect(() => {
@@ -232,6 +239,10 @@ export default function DashboardPage() {
     setIsTriggering(true);
     try {
       const result = await triggerSimulationScenario();
+      if (result.sim_id) {
+        setActiveSimId(result.sim_id);
+        sessionStorage.setItem('surakshagrid_sim_id', result.sim_id);
+      }
       showToast(
         result.message || `Scenario Initiated: ${result.seeded_units} Rescue Units Seeded! SOS reports arriving progressively...`,
         'success'
@@ -253,7 +264,9 @@ export default function DashboardPage() {
   const handleResetScenario = async () => {
     setIsResetting(true);
     try {
-      await resetSimulationScenario();
+      await resetSimulationScenario(activeSimId || undefined);
+      setActiveSimId(null);
+      sessionStorage.removeItem('surakshagrid_sim_id');
       setSosReports([]);
       setDispatchAssignments([]);
       setRescueUnits([]);
@@ -269,7 +282,7 @@ export default function DashboardPage() {
   const handleRunDispatch = async () => {
     setIsDispatching(true);
     try {
-      const assignments = await triggerOptimizeDispatch();
+      const assignments = await triggerOptimizeDispatch(activeSimId || undefined);
       setDispatchAssignments(assignments);
 
       if (assignments.length > 0) {
@@ -301,7 +314,7 @@ export default function DashboardPage() {
     setIsReplayMode(active);
     if (active) {
       try {
-        const events = await fetchReplayEvents();
+        const events = await fetchReplayEvents(undefined, activeSimId || undefined);
         setReplayEvents(events);
         showToast('Digital Twin Replay Mode Activated', 'info');
       } catch (err) {

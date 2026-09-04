@@ -41,6 +41,7 @@ async def test_trigger_simulation_api():
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["status"] == "started"
+        assert "sim_id" in data
         assert data["seeded_units"] == 7
         assert mock_db.commit.called
 

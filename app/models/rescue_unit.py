@@ -29,7 +29,9 @@ class RescueUnit(Base):
         nullable=False,
         server_default=RescueUnitStatus.AVAILABLE.value,
     )
+    sim_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     __table_args__ = (
         Index("ix_rescue_units_current_location", "current_location", postgresql_using="gist"),
+        Index("ix_rescue_units_sim_id", "sim_id"),
     )

@@ -57,6 +57,10 @@ async def simulate_risk_scores(
             le=100.0,
         ),
     ] = 0.0,
+    sim_id: Annotated[
+        str | None,
+        Query(description="Optional active simulation ID to isolate risk density metrics"),
+    ] = None,
     db: AsyncSession = Depends(get_db),
 ) -> RiskGridCollection:
     """Ingests simulated rainfall intensity parameter, evaluates an explainable risk formula
@@ -65,7 +69,7 @@ async def simulate_risk_scores(
     and returns a GeoJSON FeatureCollection of risk grid cells. Cached in Redis for 3s.
     """
     redis_client = await get_redis_client()
-    cache_key = f"{CACHE_KEY_PREFIX}:{round(rainfall, 2)}"
+    cache_key = f"{CACHE_KEY_PREFIX}:{round(rainfall, 2)}:{sim_id or 'none'}"
 
     if redis_client:
         try:
@@ -78,6 +82,9 @@ async def simulate_risk_scores(
 
     # 1. Fetch active/pending SOS reports to compute report density
     stmt = select(SOSReport).where(SOSReport.status.in_([SOSStatus.PENDING, SOSStatus.ASSIGNED]))
+    if sim_id:
+        stmt = stmt.where(SOSReport.sim_id == sim_id)
+
     result = await db.execute(stmt)
     active_reports = list(result.scalars().all())
 

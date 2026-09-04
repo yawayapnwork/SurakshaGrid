@@ -30,6 +30,7 @@ class RescueUnitRead(BaseModel):
     unit_type: RescueUnitType
     current_location: GeoPoint
     status: RescueUnitStatus
+    sim_id: str | None = None
 
     @field_validator("current_location", mode="before")
     @classmethod

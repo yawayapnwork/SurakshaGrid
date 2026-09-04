@@ -35,6 +35,7 @@ class SOSReportRead(BaseModel):
     visual_confidence_score: float | None
     trust_score: int
     voice_transcript: str | None
+    sim_id: str | None = None
     created_at: datetime
 
     @field_validator("location", mode="before")

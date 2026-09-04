@@ -121,6 +121,6 @@ async def test_simulate_risk_scores_redis_cached():
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["features"][0]["properties"]["risk_score"] == 0.88
-    mock_redis.get.assert_called_once_with("risk:simulate:50.0")
+    mock_redis.get.assert_called_once_with("risk:simulate:50.0:none")
     mock_redis.aclose.assert_called_once()
 

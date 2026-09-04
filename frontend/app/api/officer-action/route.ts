@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { action } = body;
+    const { action, sim_id } = body;
 
     const apiBaseUrl = (
       process.env.NEXT_PUBLIC_API_URL ||
@@ -74,6 +74,10 @@ export async function POST(request: Request) {
       endpointPath = '/api/v1/dispatch/optimize';
     } else {
       return NextResponse.json({ error: 'Invalid officer action' }, { status: 400 });
+    }
+
+    if (sim_id) {
+      endpointPath += `?sim_id=${encodeURIComponent(sim_id)}`;
     }
 
     let token = await getOfficerToken(apiBaseUrl);

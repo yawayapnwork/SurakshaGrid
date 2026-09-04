@@ -168,18 +168,24 @@ async def fetch_osrm_duration_matrix(
     return None
 
 
-async def optimize_rescue_dispatch(db: AsyncSession) -> list[DispatchAssignment]:
+async def optimize_rescue_dispatch(
+    db: AsyncSession, sim_id: str | None = None
+) -> list[DispatchAssignment]:
     """Queries pending SOS reports and available rescue units, computes OSRM/PostGIS/Haversine cost matrix,
 
     solves optimal assignments via Hungarian algorithm, updates DB states, logs events, and broadcasts via WS.
     """
     # 1. Fetch pending SOS reports
     sos_stmt = select(SOSReport).where(SOSReport.status == SOSStatus.PENDING).order_by(SOSReport.created_at.asc())
+    if sim_id:
+        sos_stmt = sos_stmt.where(SOSReport.sim_id == sim_id)
     sos_result = await db.execute(sos_stmt)
     pending_reports = list(sos_result.scalars().all())
 
     # 2. Fetch available rescue units
     unit_stmt = select(RescueUnit).where(RescueUnit.status == RescueUnitStatus.AVAILABLE)
+    if sim_id:
+        unit_stmt = unit_stmt.where(RescueUnit.sim_id == sim_id)
     unit_result = await db.execute(unit_stmt)
     available_units = list(unit_result.scalars().all())
 
