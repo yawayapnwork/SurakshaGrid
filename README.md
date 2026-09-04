@@ -68,6 +68,17 @@ python scripts/seed_db.py --force-reset
 > - Reports arrive sequentially over ~40–90 seconds with realistic staggered delays between reports.
 > - Presenters and reviewers rehearsing the demo should **wait ~40–90 seconds after triggering the flood event for the full incident scenario to unfold** before running dispatch optimization or viewing final operational metrics.
 
+### Automated 7-Step Guided Demo Tour
+
+The command dashboard includes an automated **Guided Demo Tour** (`frontend/hooks/useDemoTour.ts`) triggered via the "Start Guided Demo" button in the UI header. It auto-plays a 7-step interactive walkthrough demonstrating key platform capabilities:
+1. **Baseline Monitoring**: Validates 0% rainfall baseline stats.
+2. **What-If Risk Simulation**: Programmatically slides rainfall intensity to 75mm/h and re-colors risk grid cells.
+3. **Scenario Generator**: Triggers live flood simulation (7 rescue units, 12 staggered reports, alert siren).
+4. **OpenCV Water Verification**: Displays photo-verified SOS report with 96.5% visual confidence score.
+5. **Hungarian Dispatch**: Runs SciPy dispatch optimizer and auto-fits camera bounds to optimal rescue routes.
+6. **Explainable Risk AI**: Selects a high-risk cell polygon and displays breakdown analytics.
+7. **Digital Twin Time Travel**: Opens historical incident replay scrubber and steps backward across timeline.
+
 ## Project Layout
 
 ```

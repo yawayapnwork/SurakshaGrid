@@ -69,6 +69,12 @@ interface UseDemoTourProps {
   showToast: (text: string, type?: 'success' | 'info') => void;
 }
 
+/**
+ * Custom React hook managing an interactive, automated 7-step guided demo tour
+ * across the SurakshaGrid command dashboard. Programmatically executes rainfall
+ * risk simulations, progressive flood scenario generation, dispatch optimization,
+ * explainable risk cell inspection, and incident replay scrubbing.
+ */
 export function useDemoTour({
   setRainfall,
   triggerFloodScenario,
@@ -114,7 +120,7 @@ export function useDemoTour({
         setIsRunning(false);
         setIsPaused(false);
         setElapsedMs(TOTAL_DEMO_DURATION_MS);
-        showToast('🎉 Guided Demo Completed! 8/8 PRD §8 Judging Steps Executed.', 'success');
+        showToast('🎉 Guided Demo Completed! All 7 Interactive Tour Steps Executed.', 'success');
         return;
       }
 
