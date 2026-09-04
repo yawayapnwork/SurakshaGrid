@@ -42,8 +42,12 @@ export async function POST(request: Request) {
     const cookieHeader = request.headers.get('cookie') || '';
     const hasOfficerCookie = cookieHeader.includes('officer_session=');
 
+    // The client (services/api.ts) always sends whatever NEXT_PUBLIC_OFFICER_SESSION_KEY
+    // was baked into its build. Check against that same variable — a separate
+    // OFFICER_SESSION_SECRET name here would silently diverge from what the client can
+    // ever send, since NEXT_PUBLIC_ vars are already public in the client bundle anyway.
     const expectedSessionToken =
-      process.env.OFFICER_SESSION_SECRET || 'surakshagrid-officer-active-session';
+      process.env.NEXT_PUBLIC_OFFICER_SESSION_KEY || 'surakshagrid-officer-active-session';
 
     const isAuthorizedHeader = officerSessionHeader === expectedSessionToken;
     const isAuthorizedCookie = hasOfficerCookie;
