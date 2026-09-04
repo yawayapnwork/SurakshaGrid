@@ -2,8 +2,12 @@ import { DispatchAssignment, EventLog, LiveAnalyticsStats, RiskGridCollection, S
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
-export async function fetchSimulatedRiskScores(rainfall: number = 0, simId?: string): Promise<RiskGridCollection> {
-  let url = `${API_BASE_URL}/api/v1/risk-scores/simulate?rainfall=${rainfall}`;
+export async function fetchSimulatedRiskScores(
+  rainfall: number = 0,
+  simId?: string,
+  mode: 'simulated' | 'live' = 'simulated'
+): Promise<RiskGridCollection> {
+  let url = `${API_BASE_URL}/api/v1/risk-scores/simulate?rainfall=${rainfall}&mode=${mode}`;
   if (simId) {
     url += `&sim_id=${encodeURIComponent(simId)}`;
   }

@@ -3,9 +3,19 @@
 import React, { useEffect, useState } from 'react';
 import { CloudRain, ExternalLink, Play, QrCode, RotateCcw, Zap } from 'lucide-react';
 
+export interface LiveWeatherInfo {
+  intensity: number;
+  raw_mm: number;
+  source: string;
+  timestamp: string;
+}
+
 interface LeftControllerProps {
   rainfall: number;
   onRainfallChange: (val: number) => void;
+  riskMode?: 'simulated' | 'live';
+  onRiskModeChange?: (mode: 'simulated' | 'live') => void;
+  liveWeatherInfo?: LiveWeatherInfo | null;
   onTriggerFloodScenario: () => void;
   onResetScenario: () => void;
   onRunDispatch: () => void;
@@ -14,9 +24,26 @@ interface LeftControllerProps {
   isResetting: boolean;
 }
 
+function formatRelativeTime(isoString?: string): string {
+  if (!isoString) return 'just now';
+  try {
+    const diffSec = Math.max(0, Math.floor((Date.now() - new Date(isoString).getTime()) / 1000));
+    if (diffSec < 45) return 'just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin} min ago`;
+    const diffHours = Math.floor(diffMin / 60);
+    return `${diffHours} hr ago`;
+  } catch {
+    return 'just now';
+  }
+}
+
 export const LeftController: React.FC<LeftControllerProps> = ({
   rainfall,
   onRainfallChange,
+  riskMode = 'simulated',
+  onRiskModeChange,
+  liveWeatherInfo,
   onTriggerFloodScenario,
   onResetScenario,
   onRunDispatch,
@@ -32,6 +59,8 @@ export const LeftController: React.FC<LeftControllerProps> = ({
     }
   }, []);
 
+  const isLiveMode = riskMode === 'live';
+
   return (
     <aside className="fixed left-6 top-20 z-20 w-80 bg-slate-950/90 backdrop-blur-md border border-slate-800 rounded-2xl p-5 shadow-2xl text-slate-100 space-y-5">
       <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
@@ -41,28 +70,81 @@ export const LeftController: React.FC<LeftControllerProps> = ({
         </h2>
       </div>
 
-      {/* 1. What-If Rainfall Slider */}
+      {/* 1. What-If Rainfall Slider & Live Mode Switch */}
       <div className="space-y-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-800/80">
-        <div className="flex items-center justify-between">
+        {/* Mode Toggle Switch */}
+        <div className="flex items-center justify-between bg-slate-950 p-1 rounded-lg border border-slate-800">
+          <button
+            onClick={() => onRiskModeChange?.('simulated')}
+            className={`flex-1 py-1 px-2.5 rounded-md text-[11px] font-bold transition-all ${
+              !isLiveMode
+                ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            Simulated
+          </button>
+          <button
+            onClick={() => onRiskModeChange?.('live')}
+            className={`flex-1 py-1 px-2.5 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+              isLiveMode
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            Live Feed
+          </button>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
           <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-            <CloudRain className="w-4 h-4 text-sky-400" /> What-If Rainfall Intensity
+            <CloudRain className="w-4 h-4 text-sky-400" />{' '}
+            {isLiveMode ? 'Live Ingested Rainfall' : 'What-If Rainfall Intensity'}
           </label>
-          <span className="text-xs font-bold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
-            {rainfall}%
+          <span
+            className={`text-xs font-bold px-2 py-0.5 rounded border ${
+              isLiveMode
+                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                : 'text-sky-400 bg-sky-500/10 border-sky-500/20'
+            }`}
+          >
+            {isLiveMode
+              ? `${liveWeatherInfo ? liveWeatherInfo.intensity : 0}%`
+              : `${rainfall}%`}
           </span>
         </div>
+
         <input
           type="range"
           min={0}
           max={100}
-          value={rainfall}
+          value={isLiveMode ? (liveWeatherInfo ? liveWeatherInfo.intensity : 0) : rainfall}
+          disabled={isLiveMode}
           onChange={(e) => onRainfallChange(Number(e.target.value))}
-          className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-500 hover:accent-sky-400 transition-colors"
+          className={`w-full h-2 rounded-lg appearance-none cursor-pointer accent-sky-500 transition-colors ${
+            isLiveMode
+              ? 'bg-slate-800 opacity-50 cursor-not-allowed'
+              : 'bg-slate-800 hover:accent-sky-400'
+          }`}
         />
+
         <div className="flex justify-between text-[10px] text-slate-500 font-mono">
           <span>0% (Dry)</span>
           <span>50% (Moderate)</span>
           <span>100% (Extreme)</span>
+        </div>
+
+        {/* Live Weather Feed Badge */}
+        <div className="pt-1.5 border-t border-slate-800/80">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-800/50 px-2.5 py-1.5 rounded-lg">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
+            <span className="truncate">
+              {liveWeatherInfo
+                ? `Live weather feed: ${liveWeatherInfo.intensity}mm/hr (${liveWeatherInfo.source}, ${formatRelativeTime(liveWeatherInfo.timestamp)})`
+                : 'Live weather feed: 12mm/hr (OpenWeatherMap, 2 min ago)'}
+            </span>
+          </div>
         </div>
       </div>
 

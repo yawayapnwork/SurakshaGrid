@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { TopStatsBar } from '@/components/TopStatsBar';
-import { LeftController } from '@/components/LeftController';
+import { LeftController, LiveWeatherInfo } from '@/components/LeftController';
 import { RightDispatchQueue } from '@/components/RightDispatchQueue';
 import { RiskCardModal } from '@/components/RiskCardModal';
 import { ReplayScrubber } from '@/components/ReplayScrubber';
@@ -36,6 +36,9 @@ export default function DashboardPage() {
   // 1. Dashboard State
   const [rainfall, setRainfall] = useState<number>(0);
   const debouncedRainfall = useDebounce(rainfall, 250);
+
+  const [riskMode, setRiskMode] = useState<'simulated' | 'live'>('simulated');
+  const [liveWeatherInfo, setLiveWeatherInfo] = useState<LiveWeatherInfo | null>(null);
 
   const [riskGrid, setRiskGrid] = useState<RiskGridCollection | null>(null);
   const [floodZones, setFloodZones] = useState<any | null>(null);
@@ -97,7 +100,7 @@ export default function DashboardPage() {
   useEffect(() => {
     let isSubscribed = true;
     Promise.all([
-      fetchSimulatedRiskScores(debouncedRainfall, activeSimId || undefined),
+      fetchSimulatedRiskScores(debouncedRainfall, activeSimId || undefined, riskMode),
       fetchSimulatedFloodZones(debouncedRainfall, activeSimId || undefined),
     ])
       .then(([riskData, floodData]) => {
@@ -111,7 +114,7 @@ export default function DashboardPage() {
     return () => {
       isSubscribed = false;
     };
-  }, [debouncedRainfall, activeSimId]);
+  }, [debouncedRainfall, activeSimId, riskMode, liveWeatherInfo]);
 
   // Periodic polling (every 3s) for live analytics aggregator metrics
   useEffect(() => {
@@ -148,7 +151,16 @@ export default function DashboardPage() {
 
       const { event, data } = msg;
 
-      if (event === 'SOS_CREATED') {
+      if (event === 'LIVE_RAINFALL_UPDATED') {
+        const info: LiveWeatherInfo = {
+          intensity: data.rainfall_intensity,
+          raw_mm: data.raw_mm,
+          source: data.source || 'OpenWeatherMap',
+          timestamp: data.timestamp || new Date().toISOString(),
+        };
+        setLiveWeatherInfo(info);
+        showToast(`Live weather update: ${data.rainfall_intensity}mm/hr (${data.source || 'OpenWeatherMap'})`, 'info');
+      } else if (event === 'SOS_CREATED') {
         const newReport: SOSReport = {
           id: data.sos_id,
           location: data.location || { type: 'Point', coordinates: [80.27, 13.08] },
@@ -471,6 +483,9 @@ export default function DashboardPage() {
       <LeftController
         rainfall={rainfall}
         onRainfallChange={setRainfall}
+        riskMode={riskMode}
+        onRiskModeChange={setRiskMode}
+        liveWeatherInfo={liveWeatherInfo}
         onTriggerFloodScenario={handleTriggerFloodScenario}
         onResetScenario={handleResetScenario}
         onRunDispatch={handleRunDispatch}
