@@ -187,8 +187,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   useEffect(() => {
     if (!mapRef.current) return;
     const source = mapRef.current.getSource('flood-zone-source') as maplibregl.GeoJSONSource;
-    if (source && floodZones) {
-      source.setData(floodZones);
+    if (source) {
+      source.setData(floodZones || { type: 'FeatureCollection', features: [] });
     }
   }, [floodZones]);
 

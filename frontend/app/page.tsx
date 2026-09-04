@@ -319,6 +319,7 @@ export default function DashboardPage() {
 
     const reconstructedSos: Map<string, SOSReport> = new Map();
     const reconstructedDispatches: DispatchAssignment[] = [];
+    let latestZonePayload: any = null;
 
     historicalEvents.forEach((evt) => {
       const p = evt.payload;
@@ -349,11 +350,32 @@ export default function DashboardPage() {
           cost: p.cost || 5.0,
           assigned_at: evt.occurred_at,
         });
+      } else if (evt.event_type === 'ZONE_EXPANDED') {
+        latestZonePayload = p;
       }
     });
 
     setSosReports(Array.from(reconstructedSos.values()));
     setDispatchAssignments(reconstructedDispatches);
+
+    if (latestZonePayload && latestZonePayload.geometry) {
+      setFloodZones({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: latestZonePayload.geometry,
+            properties: {
+              rainfall: latestZonePayload.rainfall_intensity ?? 0,
+              sim_id: latestZonePayload.sim_id,
+              zone_id: latestZonePayload.zone_id,
+            },
+          },
+        ],
+      });
+    } else {
+      setFloodZones(null);
+    }
   };
 
   // Derived Top Stats (prefer live analytics stats if available)
