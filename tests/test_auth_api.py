@@ -13,7 +13,7 @@ async def test_auth_login_success():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.post(
             "/api/v1/auth/login",
-            json={"username": settings.ADMIN_USERNAME, "password": "SurakshaGrid2026!"},
+            json={"username": settings.ADMIN_USERNAME, "password": "test-password-123"},
         )
 
     assert response.status_code == status.HTTP_200_OK
@@ -27,8 +27,9 @@ async def test_auth_login_form_success():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         response = await ac.post(
             "/api/v1/auth/login",
-            data={"username": settings.ADMIN_USERNAME, "password": "SurakshaGrid2026!"},
+            data={"username": settings.ADMIN_USERNAME, "password": "test-password-123"},
         )
+
 
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
