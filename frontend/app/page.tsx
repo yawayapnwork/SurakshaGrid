@@ -428,21 +428,21 @@ export default function DashboardPage() {
   });
 
   return (
-    <main className="w-full h-screen overflow-hidden flex flex-col relative bg-slate-950 font-sans">
+    <main className="w-full h-screen overflow-hidden flex flex-col relative bg-[#F8FAFC] font-sans">
       {/* Non-Blocking Toast Notification */}
       {toastMessage && (
         <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 animate-bounce">
           <div
-            className={`px-4 py-2.5 rounded-full border shadow-2xl backdrop-blur-md flex items-center gap-2 text-xs font-bold ${
+            className={`px-4 py-2.5 rounded-full border shadow-lg shadow-slate-900/10 backdrop-blur-md flex items-center gap-2 text-xs font-bold ${
               toastMessage.type === 'success'
-                ? 'bg-emerald-950/90 text-emerald-300 border-emerald-500/50'
-                : 'bg-sky-950/90 text-sky-300 border-sky-500/50'
+                ? 'bg-emerald-50/95 text-emerald-700 border-emerald-200'
+                : 'bg-sky-50/95 text-sky-700 border-sky-200'
             }`}
           >
             {toastMessage.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
+              <CheckCircle className="w-4 h-4 text-emerald-600" />
             ) : (
-              <Info className="w-4 h-4 text-sky-400" />
+              <Info className="w-4 h-4 text-sky-600" />
             )}
             <span>{toastMessage.text}</span>
             <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-75">
