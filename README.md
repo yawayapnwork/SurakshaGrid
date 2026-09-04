@@ -89,3 +89,11 @@ render.yaml              # Render Web Service deployment blueprint
 ## Deployment (Render)
 
 `render.yaml` defines a web service that runs `alembic upgrade head && python -m scripts.seed_db` before starting `uvicorn`. Set `DATABASE_URL`, `REDIS_URL`, `CORS_ORIGINS`, and `OSRM_BASE_URL` as environment variables in the Render dashboard (or via `render.yaml` env var groups); `JWT_SECRET` is auto-generated.
+
+> [!NOTE]
+> **Render Hosting Cost Breakdown**: `render.yaml` configures the `starter` plan for all three managed components:
+> - **Web Service** (`starter` tier): ~$7/month
+> - **Managed PostgreSQL + PostGIS** (`starter` tier): ~$7/month
+> - **Managed Redis** (`starter` tier): ~$10/month
+> 
+> **Total combined cost**: **~$24/month**. If deploying on a budget, you can adjust individual service plans (e.g. `free` or standard PostgreSQL/Redis instances) in `render.yaml` or through the Render dashboard.
