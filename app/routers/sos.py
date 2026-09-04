@@ -16,6 +16,7 @@ from app.schemas.sos_confirmation import SOSConfirmationRead
 from app.schemas.sos_report import SOSReportRead
 from app.services.cloudinary_service import upload_image_to_cloudinary
 from app.services.cv_service import estimate_water_confidence
+from app.services.webhook_dispatcher import dispatch_sos_webhook
 from app.services.ws_manager import ws_manager
 
 router = APIRouter(tags=["sos"])
@@ -148,6 +149,16 @@ async def create_sos_report(
         },
     )
 
+    if severity == SOSSeverity.CRITICAL_TRAPPED or severity_str == "CRITICAL_TRAPPED":
+        await dispatch_sos_webhook(
+            sos_id=str(report.id),
+            severity=severity_str,
+            latitude=latitude,
+            longitude=longitude,
+            trust_score=report.trust_score,
+            created_at=report.created_at,
+        )
+
     return SOSReportRead.model_validate(report)
 
 
@@ -214,6 +225,21 @@ async def confirm_sos_report(
             "confirmation_id": str(confirmation.id),
         },
     )
+
+    if report.trust_score >= 3:
+        from app.services.dispatch_optimizer import extract_coordinates
+        try:
+            lon, lat = extract_coordinates(report.location)
+        except Exception:
+            lon, lat = 0.0, 0.0
+        await dispatch_sos_webhook(
+            sos_id=str(report.id),
+            severity=severity_str,
+            latitude=lat,
+            longitude=lon,
+            trust_score=report.trust_score,
+            created_at=report.created_at,
+        )
 
     return SOSConfirmationRead.model_validate(confirmation)
 

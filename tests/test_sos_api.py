@@ -242,3 +242,105 @@ async def test_create_sos_report_oversized_image(mock_db):
     data = response.json()
     assert "exceeds maximum allowed size" in data["detail"]
 
+
+@pytest.mark.asyncio
+async def test_webhook_dispatcher_service():
+    from app.services.webhook_dispatcher import dispatch_sos_webhook
+
+    # Test 1: No webhook URL configured
+    with patch("app.services.webhook_dispatcher.settings.N8N_SOS_WEBHOOK_URL", new=None):
+        res_none = await dispatch_sos_webhook("sos-123", "CRITICAL_TRAPPED", 13.08, 80.27, 1)
+        assert res_none is False
+
+    # Test 2: Successful HTTP 200 dispatch
+    mock_resp = MagicMock()
+    mock_resp.is_success = True
+
+    mock_client_instance = AsyncMock()
+    mock_client_instance.post.return_value = mock_resp
+
+    mock_client_cls = MagicMock(return_value=mock_client_instance)
+    mock_client_cls.__aenter__ = AsyncMock(return_value=mock_client_instance)
+    mock_client_cls.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("app.services.webhook_dispatcher.settings.N8N_SOS_WEBHOOK_URL", new="http://test-webhook.org/sos"):
+        with patch("httpx.AsyncClient", return_value=mock_client_cls):
+            res_success = await dispatch_sos_webhook("sos-123", "CRITICAL_TRAPPED", 13.08, 80.27, 1)
+            assert res_success is True
+
+    # Test 3: Exception / timeout handling (non-blocking)
+    mock_fail_client = AsyncMock()
+    mock_fail_client.post.side_effect = Exception("Connection timeout")
+
+    mock_fail_cls = MagicMock(return_value=mock_fail_client)
+    mock_fail_cls.__aenter__ = AsyncMock(return_value=mock_fail_client)
+    mock_fail_cls.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("app.services.webhook_dispatcher.settings.N8N_SOS_WEBHOOK_URL", new="http://test-webhook.org/sos"):
+        with patch("httpx.AsyncClient", return_value=mock_fail_cls):
+            res_fail = await dispatch_sos_webhook("sos-123", "CRITICAL_TRAPPED", 13.08, 80.27, 1)
+            assert res_fail is False
+
+
+@pytest.mark.asyncio
+async def test_create_sos_report_critical_dispatches_webhook(mock_db):
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    with patch("app.routers.sos.dispatch_sos_webhook", new_callable=AsyncMock) as mock_dispatch:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as ac:
+            response = await ac.post(
+                "/api/v1/sos",
+                data={
+                    "latitude": "13.0827",
+                    "longitude": "80.2707",
+                    "severity": "CRITICAL_TRAPPED",
+                },
+            )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert mock_dispatch.called
+    assert mock_dispatch.call_args.kwargs["severity"] == "CRITICAL_TRAPPED"
+
+
+@pytest.mark.asyncio
+async def test_confirm_sos_report_trust_threshold_dispatches_webhook(mock_db):
+    report_id = uuid.uuid4()
+    mock_report = SOSReport(
+        id=report_id,
+        location="SRID=4326;POINT(80.2707 13.0827)",
+        status=SOSStatus.PENDING,
+        severity=SOSSeverity.HIGH,
+        trust_score=2,  # Increments to 3 upon confirmation
+        created_at=datetime.now(timezone.utc),
+    )
+
+    mock_result = MagicMock()
+    mock_result.scalar_one_or_none.return_value = mock_report
+    mock_db.execute.return_value = mock_result
+
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    with patch("app.routers.sos.dispatch_sos_webhook", new_callable=AsyncMock) as mock_dispatch:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as ac:
+            response = await ac.post(f"/api/v1/sos/{report_id}/confirm")
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_report.trust_score == 3
+    assert mock_dispatch.called
+    assert mock_dispatch.call_args.kwargs["trust_score"] == 3
+
+
