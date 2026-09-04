@@ -1,5 +1,6 @@
 import logging
 import math
+import uuid
 from datetime import datetime, timezone
 from typing import Any
 
@@ -11,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.models.dispatch_assignment import DispatchAssignmentModel
 from app.models.enums import RescueUnitStatus, SOSSeverity, SOSStatus
 from app.models.event_log import EventLog
 from app.models.rescue_unit import RescueUnit
@@ -238,6 +240,18 @@ async def optimize_rescue_dispatch(db: AsyncSession) -> list[DispatchAssignment]
             assigned_at=now,
         )
         assignments.append(assignment)
+
+        # Persist assignment row in dispatch_assignments table
+        persisted_assignment = DispatchAssignmentModel(
+            id=uuid.uuid4(),
+            sos_id=report.id,
+            rescue_unit_id=unit.id,
+            unit_name=unit.name,
+            eta_seconds=eta_sec,
+            cost=cost_val,
+            assigned_at=now,
+        )
+        db.add(persisted_assignment)
 
         # Log event in event_log table
         event_payload = {

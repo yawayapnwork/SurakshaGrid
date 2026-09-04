@@ -12,10 +12,18 @@ from app.main import app
 async def test_get_live_analytics_api():
     mock_db = AsyncMock()
 
-    # Mock DB query result scalar
-    mock_result = MagicMock()
-    mock_result.scalar.return_value = 5
-    mock_db.execute.return_value = mock_result
+    def mock_execute_side_effect(stmt, *args, **kwargs):
+        stmt_str = str(stmt)
+        res = MagicMock()
+        if "avg(" in stmt_str:
+            res.scalar.return_value = 270.0  # 4.5 minutes
+        elif "ST_Area" in stmt_str or "st_area" in stmt_str or "coalesce" in stmt_str:
+            res.scalar.return_value = 42.5  # 42.5 km2
+        else:
+            res.scalar.return_value = 5
+        return res
+
+    mock_db.execute.side_effect = mock_execute_side_effect
 
     async def override_get_db():
         yield mock_db
@@ -36,3 +44,4 @@ async def test_get_live_analytics_api():
         assert data["dispatched_units_count"] == 5
         assert data["available_units_count"] == 5
         assert data["avg_eta_minutes"] == 4.5
+

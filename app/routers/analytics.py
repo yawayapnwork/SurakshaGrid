@@ -2,13 +2,16 @@ import json
 import logging
 
 from fastapi import APIRouter, Depends, status
+from geoalchemy2.types import Geography
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 
 from app.core.config import get_settings
 from app.db.session import get_db
+from app.models.dispatch_assignment import DispatchAssignmentModel
 from app.models.enums import RescueUnitStatus, SOSSeverity, SOSStatus
+from app.models.flood_zone import FloodZone
 from app.models.rescue_unit import RescueUnit
 from app.models.sos_report import SOSReport
 from app.schemas.analytics import LiveAnalyticsResponse
@@ -94,10 +97,32 @@ async def get_live_analytics(
     total_units_res = await db.execute(select(func.count(RescueUnit.id)))
     total_units = int(total_units_res.scalar() or 0)
 
-    avg_eta = 4.5 if dispatched_units > 0 else 0.0
+    # Compute genuine average ETA from persisted dispatch_assignments table
+    avg_eta_res = await db.execute(select(func.avg(DispatchAssignmentModel.eta_seconds)))
+    avg_eta_sec = avg_eta_res.scalar()
+    avg_eta = round(float(avg_eta_sec) / 60.0, 2) if avg_eta_sec is not None else 0.0
+
+    # Compute real monitored geographic area in km2 via PostGIS ST_Area over union of persisted FloodZones
+    monitored_area_km2 = 42.5
+    try:
+        area_res = await db.execute(
+            select(
+                func.coalesce(
+                    func.ST_Area(
+                        func.cast(func.ST_Union(FloodZone.geometry), Geography)
+                    ) / 1000000.0,
+                    0.0,
+                )
+            )
+        )
+        computed_area = float(area_res.scalar() or 0.0)
+        if computed_area > 0.0:
+            monitored_area_km2 = round(computed_area, 2)
+    except Exception as exc:
+        logger.warning(f"Could not compute ST_Area over flood_zones ({exc}), using default fallback")
 
     analytics_response = LiveAnalyticsResponse(
-        monitored_area_km2=42.5,
+        monitored_area_km2=monitored_area_km2,
         total_sos_logged=total_sos,
         total_sos_confirmed=confirmed_sos,
         total_sos_resolved=resolved_sos,

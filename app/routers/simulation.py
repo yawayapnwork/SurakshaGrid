@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.deps import get_current_officer
 from app.db.session import AsyncSessionLocal, get_db
+from app.models.dispatch_assignment import DispatchAssignmentModel
 from app.models.enums import RescueUnitStatus, RescueUnitType, SOSSeverity, SOSStatus
 from app.models.event_log import EventLog
 from app.models.flood_zone import FloodZone
@@ -96,10 +97,12 @@ async def reset_demo_state(db: AsyncSession) -> None:
     """Safely resets demo tables in PostgreSQL while preserving schema."""
     await _set_active_sim_id(None)  # Cancel any ongoing background staggered simulation across workers
 
+    await db.execute(delete(DispatchAssignmentModel))
     await db.execute(delete(SOSConfirmation))
     await db.execute(delete(SOSReport))
     await db.execute(delete(RescueUnit))
     await db.execute(delete(FloodZone))
+
 
     # Log reset event
     event = EventLog(
