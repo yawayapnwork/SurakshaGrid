@@ -1,4 +1,5 @@
-from unittest.mock import AsyncMock, MagicMock
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import status
@@ -20,8 +21,9 @@ async def test_simulate_risk_scores_default():
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        response = await ac.get("/api/v1/risk-scores/simulate?rainfall=0.0")
+    with patch("app.routers.risk.get_redis_client", return_value=None):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.get("/api/v1/risk-scores/simulate?rainfall=0.0")
 
     app.dependency_overrides.clear()
 
@@ -57,9 +59,10 @@ async def test_simulate_risk_scores_high_rainfall():
 
     app.dependency_overrides[get_db] = override_get_db
 
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res_low = await ac.get("/api/v1/risk-scores/simulate?rainfall=10.0")
-        res_high = await ac.get("/api/v1/risk-scores/simulate?rainfall=90.0")
+    with patch("app.routers.risk.get_redis_client", return_value=None):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res_low = await ac.get("/api/v1/risk-scores/simulate?rainfall=10.0")
+            res_high = await ac.get("/api/v1/risk-scores/simulate?rainfall=90.0")
 
     app.dependency_overrides.clear()
 
@@ -84,3 +87,40 @@ async def test_simulate_risk_scores_validation_error():
 
     assert resp_neg.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     assert resp_over.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_simulate_risk_scores_redis_cached():
+    cached_payload = json.dumps({
+        "type": "FeatureCollection",
+        "features": [{
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[80.15, 12.95], [80.19, 12.95], [80.19, 12.99], [80.15, 12.99], [80.15, 12.95]]]
+            },
+            "properties": {
+                "risk_score": 0.88,
+                "breakdown": {
+                    "rainfall_impact": 0.5,
+                    "flood_proximity": 0.9,
+                    "elevation_drop": 0.7,
+                    "report_density": 0.6
+                }
+            }
+        }]
+    })
+
+    mock_redis = AsyncMock()
+    mock_redis.get.return_value = cached_payload
+
+    with patch("app.routers.risk.get_redis_client", return_value=mock_redis):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            response = await ac.get("/api/v1/risk-scores/simulate?rainfall=50.0")
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["features"][0]["properties"]["risk_score"] == 0.88
+    mock_redis.get.assert_called_once_with("risk:simulate:50.0")
+    mock_redis.aclose.assert_called_once()
+

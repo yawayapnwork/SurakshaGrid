@@ -1,10 +1,14 @@
+import json
+import logging
 import math
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as aioredis
 
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.enums import SOSStatus
 from app.models.sos_report import SOSReport
@@ -17,7 +21,24 @@ from app.schemas.risk import (
 )
 from app.services.dispatch_optimizer import extract_coordinates
 
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
 router = APIRouter(tags=["risk"])
+
+CACHE_KEY_PREFIX = "risk:simulate"
+CACHE_TTL_SECONDS = 3
+
+
+async def get_redis_client() -> aioredis.Redis | None:
+    """Returns async Redis client if available."""
+    try:
+        if settings.REDIS_URL:
+            client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            return client
+    except Exception as exc:
+        logger.warning(f"Redis connection failed: {exc}")
+    return None
 
 
 @router.get(
@@ -40,8 +61,20 @@ async def simulate_risk_scores(
     """Ingests simulated rainfall intensity parameter, evaluates an explainable risk formula
 
     factoring rainfall, elevation drop, flood proximity, and active SOS report density,
-    and returns a GeoJSON FeatureCollection of risk grid cells.
+    and returns a GeoJSON FeatureCollection of risk grid cells. Cached in Redis for 3s.
     """
+    redis_client = await get_redis_client()
+    cache_key = f"{CACHE_KEY_PREFIX}:{round(rainfall, 2)}"
+
+    if redis_client:
+        try:
+            cached_data = await redis_client.get(cache_key)
+            if cached_data:
+                await redis_client.aclose()
+                return RiskGridCollection(**json.loads(cached_data))
+        except Exception as exc:
+            logger.warning(f"Redis cache read error: {exc}")
+
     # 1. Fetch active/pending SOS reports to compute report density
     stmt = select(SOSReport).where(SOSReport.status.in_([SOSStatus.PENDING, SOSStatus.ASSIGNED]))
     result = await db.execute(stmt)
@@ -136,4 +169,14 @@ async def simulate_risk_scores(
             )
             features.append(feature)
 
-    return RiskGridCollection(type="FeatureCollection", features=features)
+    response = RiskGridCollection(type="FeatureCollection", features=features)
+
+    if redis_client:
+        try:
+            await redis_client.setex(cache_key, CACHE_TTL_SECONDS, response.model_dump_json())
+            await redis_client.aclose()
+        except Exception as exc:
+            logger.warning(f"Redis cache write error: {exc}")
+
+    return response
+

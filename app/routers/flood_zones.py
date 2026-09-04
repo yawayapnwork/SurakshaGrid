@@ -1,15 +1,36 @@
+import json
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
 from geoalchemy2.shape import to_shape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import redis.asyncio as aioredis
 
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.flood_zone import FloodZone
 from app.routers.simulation import build_flood_zone_polygon
 
+logger = logging.getLogger(__name__)
+settings = get_settings()
+
 router = APIRouter(tags=["flood-zones"])
+
+CACHE_KEY_PREFIX = "flood_zones:simulate"
+CACHE_TTL_SECONDS = 3
+
+
+async def get_redis_client() -> aioredis.Redis | None:
+    """Returns async Redis client if available."""
+    try:
+        if settings.REDIS_URL:
+            client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
+            return client
+    except Exception as exc:
+        logger.warning(f"Redis connection failed: {exc}")
+    return None
 
 
 @router.get(
@@ -33,8 +54,22 @@ async def simulate_flood_zones(
     ] = None,
 ) -> dict:
     """Reads the latest persisted flood zone polygon for an active sim_id or rainfall intensity,
-    or falls back to generating the matching polygon buffer representation.
+    or falls back to generating the matching polygon buffer representation. Cached in Redis for 3s.
     """
+    redis_client = await get_redis_client()
+    cache_key = f"{CACHE_KEY_PREFIX}:{round(rainfall, 2)}:{sim_id or 'none'}"
+
+    if redis_client:
+        try:
+            cached_data = await redis_client.get(cache_key)
+            if cached_data:
+                await redis_client.aclose()
+                return json.loads(cached_data)
+        except Exception as exc:
+            logger.warning(f"Redis cache read error: {exc}")
+
+    result_data = None
+
     # 1. Try fetching latest persisted FloodZone record for sim_id
     if sim_id:
         stmt = select(FloodZone).where(FloodZone.sim_id == sim_id).order_by(FloodZone.created_at.desc())
@@ -44,7 +79,7 @@ async def simulate_flood_zones(
             try:
                 shape = to_shape(latest_zone.geometry)
                 coords = [[[round(pt[0], 6), round(pt[1], 6)] for pt in shape.exterior.coords]]
-                return {
+                result_data = {
                     "type": "FeatureCollection",
                     "features": [
                         {
@@ -65,20 +100,31 @@ async def simulate_flood_zones(
                 pass
 
     # 2. Fall back to shared polygon calculation formula
-    _, geojson_geom = build_flood_zone_polygon(rainfall)
-    buffer_deg = 0.01 + (min(max(rainfall, 0.0), 100.0) / 100.0) * 0.05
+    if not result_data:
+        _, geojson_geom = build_flood_zone_polygon(rainfall)
+        buffer_deg = 0.01 + (min(max(rainfall, 0.0), 100.0) / 100.0) * 0.05
 
-    return {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "geometry": geojson_geom,
-                "properties": {
-                    "rainfall": round(rainfall, 2),
-                    "buffer_degrees": round(buffer_deg, 6),
-                },
-            }
-        ],
-    }
+        result_data = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "geometry": geojson_geom,
+                    "properties": {
+                        "rainfall": round(rainfall, 2),
+                        "buffer_degrees": round(buffer_deg, 6),
+                    },
+                }
+            ],
+        }
+
+    if redis_client:
+        try:
+            await redis_client.setex(cache_key, CACHE_TTL_SECONDS, json.dumps(result_data))
+            await redis_client.aclose()
+        except Exception as exc:
+            logger.warning(f"Redis cache write error: {exc}")
+
+    return result_data
+
 
