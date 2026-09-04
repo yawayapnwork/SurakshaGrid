@@ -64,11 +64,11 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
     <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 text-slate-900 px-6 py-3 flex flex-wrap items-center justify-between gap-3 z-30 relative">
       {/* Brand Title & Live Status */}
       <div className="flex items-center gap-3">
-        <div className="bg-indigo-600 text-white p-2 rounded-xl shadow-sm shadow-indigo-600/20">
+        <div className="bg-slate-900 text-white p-2 rounded-xl">
           <ShieldCheck className="w-5 h-5" />
         </div>
         <div>
-          <h1 className="font-bold text-[15px] tracking-tight text-slate-900 flex items-center gap-2">
+          <h1 className="font-semibold text-[15px] tracking-tight text-slate-900 flex items-center gap-2">
             SurakshaGrid
             <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold border border-slate-200/80">
               v1.0
@@ -80,15 +80,15 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
 
       {/* Stats Counter Grid */}
       <div className="flex items-center gap-2.5 text-sm">
-        <StatCard icon={<Activity className="w-4 h-4 text-emerald-600" />} iconClass="bg-emerald-50" label="Monitored Area">
+        <StatCard icon={<Activity className="w-4 h-4 text-slate-500" />} iconClass="bg-slate-100" label="Monitored Area">
           {monitoredAreaKm2} km²
         </StatCard>
 
-        <StatCard icon={<AlertTriangle className="w-4 h-4 text-amber-600" />} iconClass="bg-amber-50" label="Active SOS">
+        <StatCard icon={<AlertTriangle className="w-4 h-4 text-slate-500" />} iconClass="bg-slate-100" label="Active SOS">
           {activeSosCount} {criticalCount > 0 && <span className="text-red-600 font-semibold">({criticalCount} critical)</span>}
         </StatCard>
 
-        <StatCard icon={<Navigation className="w-4 h-4 text-indigo-600" />} iconClass="bg-indigo-50" label="Dispatched Units">
+        <StatCard icon={<Navigation className="w-4 h-4 text-slate-500" />} iconClass="bg-slate-100" label="Dispatched Units">
           {dispatchedUnitsCount} Units
         </StatCard>
 
@@ -110,7 +110,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
                 </div>
                 <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mt-1">
                   <div
-                    className="h-full bg-indigo-600 transition-all duration-300 rounded-full"
+                    className="h-full bg-slate-900 transition-all duration-300 rounded-full"
                     style={{ width: `${demoState.progressPercent}%` }}
                   />
                 </div>
@@ -146,7 +146,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
               className={ghostBtn}
               title="Run 60s Automated Hackathon Judging Script (PRD §8)"
             >
-              <Play className="w-3.5 h-3.5 text-indigo-600 fill-indigo-600" />
+              <Play className="w-3.5 h-3.5 text-slate-700 fill-slate-700" />
               <span>Run 60s Demo</span>
             </button>
           )
@@ -194,8 +194,8 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
         <div className="w-px h-5 bg-slate-200 mx-0.5" />
 
         {isReplayMode ? (
-          <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200/70">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
+          <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
             Replay Mode
           </span>
         ) : (

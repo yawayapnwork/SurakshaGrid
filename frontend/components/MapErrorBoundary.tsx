@@ -46,7 +46,7 @@ export class MapErrorBoundary extends Component<Props, State> {
             </div>
             <button
               onClick={this.handleReload}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-b from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center justify-center gap-2 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
             >
               <RefreshCw className="w-4 h-4" />
               Reload Map Canvas

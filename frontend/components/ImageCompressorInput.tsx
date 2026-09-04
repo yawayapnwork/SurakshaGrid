@@ -54,27 +54,25 @@ export const ImageCompressorInput: React.FC<ImageCompressorInputProps> = ({ onIm
 
   return (
     <div className="space-y-2">
-      <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-        <Camera className="w-4 h-4 text-sky-400" /> Photo Evidence (Standing Water / Flood)
+      <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+        <Camera className="w-4 h-4 text-slate-400" /> Photo Evidence (Standing Water / Flood)
       </label>
 
       {previewUrl ? (
-        <div className="relative bg-slate-900 border border-slate-800 rounded-xl p-3 flex items-center gap-4">
+        <div className="relative bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-4">
           <img
             src={previewUrl}
             alt="Flood evidence preview"
-            className="w-20 h-20 object-cover rounded-lg border border-slate-700 shadow"
+            className="w-20 h-20 object-cover rounded-lg border border-slate-200"
           />
           <div className="flex-1 space-y-1">
-            <span className="text-xs font-bold text-slate-200 block">Photo Attached</span>
+            <span className="text-xs font-semibold text-slate-900 block">Photo Attached</span>
             {isCompressing ? (
-              <span className="text-[11px] text-amber-400 animate-pulse block">
-                Compressing photo on client...
-              </span>
+              <span className="text-[11px] text-slate-500 block">Compressing photo on client...</span>
             ) : (
-              <div className="text-[11px] text-slate-400 space-y-0.5 font-mono">
+              <div className="text-[11px] text-slate-500 space-y-0.5">
                 <div>Original: {originalSizeKb} KB</div>
-                <div className="text-emerald-400 font-semibold">
+                <div className="text-emerald-600 font-medium">
                   Compressed: {compressedSizeKb} KB ({Math.round((1 - (compressedSizeKb || 0) / (originalSizeKb || 1)) * 100)}% smaller)
                 </div>
               </div>
@@ -83,19 +81,17 @@ export const ImageCompressorInput: React.FC<ImageCompressorInputProps> = ({ onIm
           <button
             type="button"
             onClick={handleRemoveImage}
-            className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 transition-colors"
+            className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
       ) : (
-        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-800 hover:border-sky-500/50 rounded-xl cursor-pointer bg-slate-900/60 hover:bg-slate-900 transition-all text-slate-400 hover:text-slate-200">
+        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-slate-200 hover:border-slate-300 rounded-xl cursor-pointer bg-slate-50/60 hover:bg-slate-50 transition-all text-slate-500 hover:text-slate-700">
           <div className="flex flex-col items-center justify-center pt-5 pb-6">
-            <UploadCloud className="w-7 h-7 text-sky-400 mb-1" />
-            <p className="text-xs font-semibold">
-              Tap to snap or upload flood photo
-            </p>
-            <p className="text-[10px] text-slate-500 mt-0.5">
+            <UploadCloud className="w-6 h-6 text-slate-400 mb-1" />
+            <p className="text-xs font-semibold">Tap to snap or upload flood photo</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
               Auto-compressed client-side for fast emergency transmission
             </p>
           </div>

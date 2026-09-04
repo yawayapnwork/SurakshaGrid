@@ -455,18 +455,18 @@ export default function DashboardPage() {
       <div className="relative flex-1 min-h-0">
         {/* Non-Blocking Toast Notification */}
         {toastMessage && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
             <div
-              className={`px-4 py-2.5 rounded-full border shadow-lg shadow-slate-900/10 backdrop-blur-md flex items-center gap-2 text-xs font-bold ${
+              className={`px-4 py-2.5 rounded-xl border shadow-sm backdrop-blur-md flex items-center gap-2 text-xs font-semibold ${
                 toastMessage.type === 'success'
                   ? 'bg-emerald-50/95 text-emerald-700 border-emerald-200'
-                  : 'bg-sky-50/95 text-sky-700 border-sky-200'
+                  : 'bg-white/95 text-slate-700 border-slate-200'
               }`}
             >
               {toastMessage.type === 'success' ? (
                 <CheckCircle className="w-4 h-4 text-emerald-600" />
               ) : (
-                <Info className="w-4 h-4 text-sky-600" />
+                <Info className="w-4 h-4 text-slate-400" />
               )}
               <span>{toastMessage.text}</span>
               <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-75">

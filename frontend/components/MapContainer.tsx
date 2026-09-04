@@ -99,35 +99,26 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         },
       });
 
-      // 2. Add Dispatch Routes GeoJSON Source & Line Layers (Glow + Dashed Cyan Stroke)
+      // 2. Add Dispatch Routes GeoJSON Source & Line Layer
       map.addSource('dispatch-routes-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
 
-      // Neon Cyan Glow Effect Layer underneath
-      map.addLayer({
-        id: 'dispatch-routes-glow',
-        type: 'line',
-        source: 'dispatch-routes-source',
-        paint: {
-          'line-color': '#00f3ff',
-          'line-width': 8,
-          'line-opacity': 0.4,
-          'line-blur': 3,
-        },
-      });
-
-      // Primary Dashed Cyan Route Line Layer
+      // Dashed route line indicating an active unit-to-incident assignment
       map.addLayer({
         id: 'dispatch-routes-layer',
         type: 'line',
         source: 'dispatch-routes-source',
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
         paint: {
-          'line-color': '#00f3ff',
-          'line-width': 3.5,
-          'line-dasharray': [2, 2],
-          'line-opacity': 0.95,
+          'line-color': '#0f172a',
+          'line-width': 3,
+          'line-dasharray': [1, 1.5],
+          'line-opacity': 0.9,
         },
       });
 
@@ -268,25 +259,22 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       const createdAtMs = new Date(report.created_at).getTime();
       const elapsedMins = Math.max(0, (now - createdAtMs) / (1000 * 60));
 
-      let bgColor = 'bg-amber-400'; // < 2 mins: Yellow (#FACC15)
-      let border = 'border-amber-200';
-      let isRadarPing = false;
+      let bgColor = 'bg-amber-400'; // < 2 mins
+      let isCritical = false;
 
       if (report.severity === 'CRITICAL_TRAPPED' || elapsedMins >= 5.0) {
-        // > 5 mins or CRITICAL_TRAPPED: Pulsing Red (#EF4444) ring with radar ping animation
+        // > 5 mins or CRITICAL_TRAPPED: highest urgency
         bgColor = 'bg-red-600';
-        border = 'border-red-300';
-        isRadarPing = true;
+        isCritical = true;
       } else if (elapsedMins >= 2.0 || report.severity === 'HIGH') {
-        // 2 to 5 mins: Orange (#FB923C)
+        // 2 to 5 mins
         bgColor = 'bg-orange-500';
-        border = 'border-orange-200';
       }
 
       el.innerHTML = `
-        ${isRadarPing ? '<div class="absolute w-10 h-10 rounded-full bg-red-500 animate-ping opacity-75"></div>' : ''}
-        <div class="relative w-7 h-7 rounded-full ${bgColor} border-2 ${border} flex items-center justify-center text-[10px] font-black text-slate-950 shadow-xl">
-          SOS
+        ${isCritical ? '<div class="absolute w-7 h-7 rounded-full bg-red-500 animate-ping opacity-40"></div>' : ''}
+        <div class="relative w-6 h-6 rounded-full ${bgColor} border-2 border-white flex items-center justify-center text-[9px] font-bold text-white shadow-md">
+          !
         </div>
       `;
 
@@ -298,7 +286,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           new maplibregl.Popup({ offset: 15 }).setHTML(`
             <div class="p-2 text-slate-900 font-sans">
               <div class="flex items-center justify-between gap-2">
-                <span class="font-bold text-xs uppercase ${isRadarPing ? 'text-red-600 font-extrabold' : 'text-slate-800'}">
+                <span class="font-semibold text-xs ${isCritical ? 'text-red-700' : 'text-slate-800'}">
                   ${report.severity}
                 </span>
                 <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
@@ -322,8 +310,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       const el = document.createElement('div');
       el.className = 'relative flex items-center justify-center cursor-pointer';
       el.innerHTML = `
-        <div class="w-7.5 h-7.5 rounded-lg bg-sky-600 border-2 border-sky-300 flex items-center justify-center text-xs shadow-lg text-white font-bold">
-          🚁
+        <div class="w-6 h-6 rounded-md bg-slate-900 border-2 border-white flex items-center justify-center shadow-md">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
         </div>
       `;
 
@@ -332,7 +320,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         .setPopup(
           new maplibregl.Popup({ offset: 15 }).setHTML(`
             <div class="p-2 text-slate-900 font-sans">
-              <div class="font-bold text-xs text-sky-700">${unit.name}</div>
+              <div class="font-semibold text-xs text-slate-800">${unit.name}</div>
               <div class="text-[11px] text-slate-600">Type: ${unit.unit_type}</div>
               <div class="text-[11px] text-slate-600">Status: ${unit.status}</div>
             </div>

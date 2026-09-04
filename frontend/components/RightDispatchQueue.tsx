@@ -18,8 +18,8 @@ export const RightDispatchQueue: React.FC<RightDispatchQueueProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
-            <Navigation className="w-3.5 h-3.5 text-indigo-600" />
+          <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+            <Navigation className="w-3.5 h-3.5 text-slate-600" />
           </div>
           <div>
             <h2 className="font-semibold text-[13px] text-slate-900 tracking-tight">Live Dispatch Queue</h2>
@@ -52,7 +52,7 @@ export const RightDispatchQueue: React.FC<RightDispatchQueueProps> = ({
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-900 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5 text-indigo-600" /> {item.unit_name}
+                    <Shield className="w-3.5 h-3.5 text-slate-400" /> {item.unit_name}
                   </span>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 flex items-center gap-1">
                     <Clock className="w-3 h-3" /> ETA {etaMins}m
@@ -61,12 +61,12 @@ export const RightDispatchQueue: React.FC<RightDispatchQueueProps> = ({
 
                 <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
                   <span>Incident: {item.sos_id.slice(0, 8)}…</span>
-                  <span className="text-emerald-600 font-semibold">Cost {item.cost.toFixed(2)}</span>
+                  <span className="text-slate-700 font-semibold">Cost {item.cost.toFixed(2)}</span>
                 </div>
 
                 <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1.5 border-t border-slate-100">
                   <span>{new Date(item.assigned_at).toLocaleTimeString()}</span>
-                  <span className="text-indigo-600 group-hover:underline">Route Preview &rarr;</span>
+                  <span className="text-slate-500 group-hover:text-slate-900 group-hover:underline">Route Preview &rarr;</span>
                 </div>
               </div>
             );

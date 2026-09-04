@@ -64,8 +64,8 @@ export const LeftController: React.FC<LeftControllerProps> = ({
   return (
     <aside className="absolute left-6 top-6 z-20 w-80 max-h-[calc(100%-3rem)] overflow-y-auto custom-scrollbar bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm text-slate-900 space-y-5">
       <div className="flex items-center gap-2 border-b border-slate-100 pb-3.5">
-        <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
-          <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+        <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+          <Sliders className="w-3.5 h-3.5 text-slate-600" />
         </div>
         <div>
           <h2 className="font-semibold text-[13px] text-slate-900 tracking-tight">Scenario Controls</h2>
@@ -168,10 +168,10 @@ export const LeftController: React.FC<LeftControllerProps> = ({
       <button
         onClick={onRunDispatch}
         disabled={isDispatching}
-        className="w-full py-3 px-4 rounded-xl bg-gradient-to-b from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 text-white font-semibold text-[13px] tracking-wide flex items-center justify-center gap-2 transition-all duration-150 shadow-md shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
+        className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[13px] tracking-wide flex items-center justify-center gap-2 transition-all duration-150 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
       >
-        <Play className={`w-4 h-4 fill-current ${isDispatching ? 'animate-pulse' : ''}`} />
-        {isDispatching ? 'Running Hungarian Matcher…' : 'Run Rescue Dispatch'}
+        <Play className="w-4 h-4 fill-current" />
+        {isDispatching ? 'Solving dispatch assignment…' : 'Run Rescue Dispatch'}
       </button>
 
       {/* 4. Citizen SOS QR Code & Live Mobile Reporting Link */}
@@ -195,7 +195,7 @@ export const LeftController: React.FC<LeftControllerProps> = ({
           href="/report"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
+          className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:underline"
         >
           Open Citizen SOS Form <ExternalLink className="w-3 h-3" />
         </a>

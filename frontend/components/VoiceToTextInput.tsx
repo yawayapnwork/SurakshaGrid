@@ -139,21 +139,21 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-          <Volume2 className="w-4 h-4 text-sky-400" /> Emergency Description (Voice or Text)
+        <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+          <Volume2 className="w-4 h-4 text-slate-400" /> Emergency Description (Voice or Text)
         </label>
 
         {/* Language Selector */}
-        <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
           <Globe className="w-3.5 h-3.5 text-slate-400" />
           <select
             value={selectedLang}
             onChange={(e) => setSelectedLang(e.target.value)}
             disabled={isListening}
-            className="bg-transparent text-[11px] font-semibold text-sky-300 focus:outline-none cursor-pointer"
+            className="bg-transparent text-[11px] font-semibold text-slate-700 focus:outline-none cursor-pointer"
           >
             {SUPPORTED_LANGUAGES.map((lang) => (
-              <option key={lang.code} value={lang.code} className="bg-slate-900 text-slate-200">
+              <option key={lang.code} value={lang.code}>
                 {lang.label}
               </option>
             ))}
@@ -168,7 +168,7 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="Describe your situation or tap the microphone to speak in your language..."
-          className="w-full bg-slate-900/90 border border-slate-800 focus:border-sky-500 rounded-xl p-3 pr-12 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500 transition-all resize-none"
+          className="w-full bg-white border border-slate-200 focus:border-slate-400 rounded-xl p-3 pr-12 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-400 transition-all resize-none"
         />
 
         {isSupported && (
@@ -178,30 +178,26 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
             title={isListening ? 'Stop Recording' : 'Start Voice Input'}
             className={`absolute right-3 top-3 p-2 rounded-lg transition-all ${
               isListening
-                ? 'bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse'
-                : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                ? 'bg-red-50 text-red-600 border border-red-200'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-500'
             }`}
           >
-            {isListening ? (
-              <MicOff className="w-4 h-4 text-red-400" />
-            ) : (
-              <Mic className="w-4 h-4 text-sky-400" />
-            )}
+            {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
           </button>
         )}
       </div>
 
       {/* Error Message Banner */}
       {errorMessage && (
-        <div className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
-          <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+        <div className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
           <span>{errorMessage}</span>
         </div>
       )}
 
       {isListening && !errorMessage && (
-        <div className="flex items-center gap-2 text-xs text-red-400 font-semibold animate-pulse px-1">
-          <span className="w-2 h-2 rounded-full bg-red-500" />
+        <div className="flex items-center gap-2 text-xs text-slate-600 font-medium px-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
           Listening ({SUPPORTED_LANGUAGES.find((l) => l.code === selectedLang)?.label})... Speak clearly.
         </div>
       )}

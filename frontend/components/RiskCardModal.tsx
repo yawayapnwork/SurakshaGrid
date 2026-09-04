@@ -30,7 +30,7 @@ export const RiskCardModal: React.FC<RiskCardModalProps> = ({ properties, onClos
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/70">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4.5 h-4.5 text-indigo-600" />
+            <AlertCircle className="w-4.5 h-4.5 text-slate-500" />
             <h3 className="font-semibold text-[15px] text-slate-900 tracking-tight">Explainable Risk Analysis</h3>
           </div>
           <button
@@ -46,93 +46,43 @@ export const RiskCardModal: React.FC<RiskCardModalProps> = ({ properties, onClos
           {/* Main Score Banner */}
           <div className="flex items-center justify-between bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div>
-              <span className="text-xs text-[#475569] uppercase font-semibold tracking-wider block">
+              <span className="text-xs text-slate-500 uppercase font-semibold tracking-wider block">
                 Composite Risk Score
               </span>
-              <span className="text-3xl font-black text-[#0F172A]">{scorePct}%</span>
+              <span className="text-3xl font-semibold text-slate-900">{scorePct}%</span>
             </div>
-            <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${badge.color}`}>
+            <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${badge.color}`}>
               {badge.label}
             </span>
           </div>
 
           {/* Breakdown Progress Bars */}
           <div className="space-y-4">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#475569]">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               Factor Breakdown
             </h4>
 
-            {/* Rainfall Impact */}
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="flex items-center gap-1.5 text-slate-600">
-                  <CloudRain className="w-4 h-4 text-sky-600" /> Rainfall Impact
-                </span>
-                <span className="font-bold text-sky-600">
-                  {Math.round(breakdown.rainfall_impact * 100)}%
-                </span>
+            {[
+              { icon: CloudRain, label: 'Rainfall Impact', value: breakdown.rainfall_impact },
+              { icon: Droplets, label: 'Flood Corridor Proximity', value: breakdown.flood_proximity },
+              { icon: Mountain, label: 'Low Terrain / Elevation Drop', value: breakdown.elevation_drop },
+              { icon: Users, label: 'SOS Report Density', value: breakdown.report_density },
+            ].map(({ icon: Icon, label, value }) => (
+              <div key={label}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="flex items-center gap-1.5 text-slate-600">
+                    <Icon className="w-4 h-4 text-slate-400" /> {label}
+                  </span>
+                  <span className="font-semibold text-slate-900">{Math.round(value * 100)}%</span>
+                </div>
+                <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-slate-900 h-full transition-all duration-500"
+                    style={{ width: `${value * 100}%` }}
+                  />
+                </div>
               </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-sky-500 h-full transition-all duration-500"
-                  style={{ width: `${breakdown.rainfall_impact * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Flood Proximity */}
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="flex items-center gap-1.5 text-slate-600">
-                  <Droplets className="w-4 h-4 text-cyan-600" /> Flood Corridor Proximity
-                </span>
-                <span className="font-bold text-cyan-600">
-                  {Math.round(breakdown.flood_proximity * 100)}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-cyan-500 h-full transition-all duration-500"
-                  style={{ width: `${breakdown.flood_proximity * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Elevation Drop */}
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="flex items-center gap-1.5 text-slate-600">
-                  <Mountain className="w-4 h-4 text-emerald-600" /> Low Terrain / Elevation Drop
-                </span>
-                <span className="font-bold text-emerald-600">
-                  {Math.round(breakdown.elevation_drop * 100)}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-full transition-all duration-500"
-                  style={{ width: `${breakdown.elevation_drop * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Active Report Density */}
-            <div>
-              <div className="flex justify-between text-xs mb-1">
-                <span className="flex items-center gap-1.5 text-slate-600">
-                  <Users className="w-4 h-4 text-amber-600" /> SOS Report Density
-                </span>
-                <span className="font-bold text-amber-600">
-                  {Math.round(breakdown.report_density * 100)}%
-                </span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-amber-500 h-full transition-all duration-500"
-                  style={{ width: `${breakdown.report_density * 100}%` }}
-                />
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 

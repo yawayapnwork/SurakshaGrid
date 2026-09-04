@@ -105,7 +105,7 @@ ${
       <div className="bg-white border border-slate-200/80 rounded-2xl max-w-2xl w-full p-6 text-slate-900 shadow-lg space-y-5 max-h-[85vh] flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2 text-indigo-600">
+          <div className="flex items-center gap-2 text-slate-500">
             <FileText className="w-4.5 h-4.5" />
             <h3 className="font-semibold text-[15px] text-slate-900 tracking-tight">Incident After-Action Report (AAR)</h3>
           </div>
@@ -134,7 +134,7 @@ ${
 
           <button
             onClick={handleDownload}
-            className="px-4 py-2 rounded-lg bg-gradient-to-b from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 text-white font-semibold text-xs flex items-center gap-2 transition-all shadow-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
+            className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center gap-2 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
           >
             <Download className="w-4 h-4" />
             Download Report (.md)
