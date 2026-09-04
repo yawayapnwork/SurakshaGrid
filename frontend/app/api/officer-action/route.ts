@@ -10,7 +10,11 @@ async function getOfficerToken(apiBaseUrl: string): Promise<string> {
   }
 
   const username = process.env.ADMIN_USERNAME || 'admin';
-  const password = process.env.ADMIN_PASSWORD_PLAIN || 'SurakshaGrid2026!';
+  const password = process.env.ADMIN_PASSWORD_PLAIN;
+
+  if (!password) {
+    throw new Error('ADMIN_PASSWORD_PLAIN environment variable is not configured on the server');
+  }
 
   const res = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
     method: 'POST',
@@ -32,6 +36,25 @@ async function getOfficerToken(apiBaseUrl: string): Promise<string> {
 
 export async function POST(request: Request) {
   try {
+    // Access control layer: Require X-Officer-Session header or officer_session cookie
+    const officerSessionHeader =
+      request.headers.get('X-Officer-Session') || request.headers.get('x-officer-session');
+    const cookieHeader = request.headers.get('cookie') || '';
+    const hasOfficerCookie = cookieHeader.includes('officer_session=');
+
+    const expectedSessionToken =
+      process.env.OFFICER_SESSION_SECRET || 'surakshagrid-officer-active-session';
+
+    const isAuthorizedHeader = officerSessionHeader === expectedSessionToken;
+    const isAuthorizedCookie = hasOfficerCookie;
+
+    if (!isAuthorizedHeader && !isAuthorizedCookie) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Missing or invalid officer session header or cookie' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     const { action } = body;
 

@@ -3,7 +3,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 import redis.asyncio as aioredis
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -350,6 +350,19 @@ async def run_staggered_simulation(sim_id: str) -> None:
             await _set_active_sim_id(None)
 
 
+"""
+INTENDED ACCESS CONTROL & ENVIRONMENT DEPLOYMENT MODEL FOR SIMULATION ENDPOINTS:
+- /api/v1/simulation/reset and /api/v1/simulation/trigger are live hackathon demo orchestration
+  and testing endpoints.
+- In PRODUCTION deployments (ENVIRONMENT == "production"), these endpoints are strictly disabled
+  and return HTTP 403 Forbidden to prevent unauthorized resetting or synthetic data spawner pollution
+  by external visitors.
+- In non-production environments (ENVIRONMENT != "production"), these endpoints are guarded by OAuth2
+  JWT Bearer authentication (get_current_officer dependency) ensuring only authenticated dispatchers
+  or frontend proxy handlers can invoke demo scenario state changes.
+"""
+
+
 @router.post(
     "/simulation/reset",
     status_code=status.HTTP_200_OK,
@@ -359,7 +372,14 @@ async def reset_simulation(
     db: AsyncSession = Depends(get_db),
     officer: dict = Depends(get_current_officer),
 ) -> dict[str, str]:
-    """Clears all demo SOS reports and rescue units from PostgreSQL."""
+    """Clears all demo SOS reports and rescue units from PostgreSQL (disabled in production)."""
+    settings = get_settings()
+    if settings.ENVIRONMENT.lower() == "production":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Simulation endpoints are disabled in production environments",
+        )
+
     await reset_demo_state(db)
     return {"status": "success", "message": "Demo state reset successfully"}
 
@@ -374,7 +394,14 @@ async def trigger_simulation(
     db: AsyncSession = Depends(get_db),
     officer: dict = Depends(get_current_officer),
 ) -> dict[str, str | int]:
-    """Clears demo state, seeds 7 rescue units immediately, and schedules background staggered SOS report delivery."""
+    """Clears demo state, seeds 7 rescue units immediately, and schedules background staggered SOS report delivery (disabled in production)."""
+    settings = get_settings()
+    if settings.ENVIRONMENT.lower() == "production":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Simulation endpoints are disabled in production environments",
+        )
+
     # 1. Reset existing demo state across all workers via Redis
     await reset_demo_state(db)
 

@@ -18,10 +18,15 @@ export async function fetchSimulatedFloodZones(rainfall: number = 0): Promise<an
   return res.json();
 }
 
+const OFFICER_SESSION_HEADERS = {
+  'Content-Type': 'application/json',
+  'X-Officer-Session': process.env.NEXT_PUBLIC_OFFICER_SESSION_KEY || 'surakshagrid-officer-active-session',
+};
+
 export async function triggerOptimizeDispatch(): Promise<DispatchAssignment[]> {
   const res = await fetch('/api/officer-action', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: OFFICER_SESSION_HEADERS,
     body: JSON.stringify({ action: 'optimize' }),
   });
   if (!res.ok) {
@@ -73,7 +78,7 @@ export async function triggerSimulationScenario(): Promise<{
 }> {
   const res = await fetch('/api/officer-action', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: OFFICER_SESSION_HEADERS,
     body: JSON.stringify({ action: 'trigger' }),
   });
   if (!res.ok) {
@@ -88,7 +93,7 @@ export async function resetSimulationScenario(): Promise<{
 }> {
   const res = await fetch('/api/officer-action', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: OFFICER_SESSION_HEADERS,
     body: JSON.stringify({ action: 'reset' }),
   });
   if (!res.ok) {

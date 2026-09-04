@@ -144,3 +144,28 @@ async def test_reset_simulation_api():
         assert data["status"] == "success"
         assert mock_db.commit.called
         assert mock_pub.called
+
+
+@pytest.mark.asyncio
+async def test_simulation_endpoints_forbidden_in_production():
+    mock_db = AsyncMock()
+
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_officer] = lambda: {"sub": "admin", "role": "officer"}
+
+    class MockProdSettings:
+        ENVIRONMENT = "production"
+
+    with patch("app.routers.simulation.get_settings", return_value=MockProdSettings()):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+            res_trigger = await ac.post("/api/v1/simulation/trigger")
+            res_reset = await ac.post("/api/v1/simulation/reset")
+
+    app.dependency_overrides.clear()
+
+    assert res_trigger.status_code == status.HTTP_403_FORBIDDEN
+    assert res_reset.status_code == status.HTTP_403_FORBIDDEN
+
