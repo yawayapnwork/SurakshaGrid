@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 interface WebSocketMessage {
   event: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
 }
 
 interface UseWebSocketOptions {
@@ -25,7 +25,6 @@ export function useWebSocket({
         wsRef.current.close();
         wsRef.current = null;
       }
-      setIsConnected(false);
       return;
     }
 
@@ -79,5 +78,5 @@ export function useWebSocket({
     };
   }, [url, enabled, onMessage]);
 
-  return { isConnected };
+  return { isConnected: enabled && isConnected };
 }

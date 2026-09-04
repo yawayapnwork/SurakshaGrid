@@ -21,7 +21,7 @@ import {
   triggerOptimizeDispatch,
   triggerSimulationScenario,
 } from '@/services/api';
-import { DispatchAssignment, EventLog, LiveAnalyticsStats, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
+import { DispatchAssignment, EventLog, EventPayload, FloodZoneCollection, LiveAnalyticsStats, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
 import { CheckCircle, Info, X } from 'lucide-react';
 
 import { MapErrorBoundary } from '@/components/MapErrorBoundary';
@@ -41,7 +41,7 @@ export default function DashboardPage() {
   const [liveWeatherInfo, setLiveWeatherInfo] = useState<LiveWeatherInfo | null>(null);
 
   const [riskGrid, setRiskGrid] = useState<RiskGridCollection | null>(null);
-  const [floodZones, setFloodZones] = useState<any | null>(null);
+  const [floodZones, setFloodZones] = useState<FloodZoneCollection | null>(null);
   const [sosReports, setSosReports] = useState<SOSReport[]>([]);
   const [rescueUnits, setRescueUnits] = useState<RescueUnit[]>([]);
   const [dispatchAssignments, setDispatchAssignments] = useState<DispatchAssignment[]>([]);
@@ -69,10 +69,13 @@ export default function DashboardPage() {
   // Active Simulation ID State (persisted in sessionStorage for multi-tenant isolation)
   const [activeSimId, setActiveSimId] = useState<string | null>(null);
 
-  // Load sound mute preference and active sim_id on client mount
+  // Load sound mute preference and active sim_id on client mount.
+  // localStorage/sessionStorage don't exist during SSR, so this can only run
+  // client-side after mount — an effect is the correct (unavoidable) place.
   useEffect(() => {
     const savedMute = localStorage.getItem('surakshagrid_muted');
     if (savedMute !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from browser-only storage, no render-time alternative
       setIsMuted(savedMute === 'true');
     }
     const savedSimId = sessionStorage.getItem('surakshagrid_sim_id');
@@ -146,15 +149,15 @@ export default function DashboardPage() {
 
   // 4. WebSocket Message Handler
   const handleWebSocketMessage = useCallback(
-    (msg: { event: string; data: Record<string, any> }) => {
+    (msg: { event: string; data: EventPayload }) => {
       if (isReplayMode) return; // Pause live WebSocket updates in replay mode
 
       const { event, data } = msg;
 
       if (event === 'LIVE_RAINFALL_UPDATED') {
         const info: LiveWeatherInfo = {
-          intensity: data.rainfall_intensity,
-          raw_mm: data.raw_mm,
+          intensity: data.rainfall_intensity ?? 0,
+          raw_mm: data.raw_mm ?? 0,
           source: data.source || 'OpenWeatherMap',
           timestamp: data.timestamp || new Date().toISOString(),
         };
@@ -162,7 +165,7 @@ export default function DashboardPage() {
         showToast(`Live weather update: ${data.rainfall_intensity}mm/hr (${data.source || 'OpenWeatherMap'})`, 'info');
       } else if (event === 'SOS_CREATED') {
         const newReport: SOSReport = {
-          id: data.sos_id,
+          id: data.sos_id ?? '',
           location: data.location || { type: 'Point', coordinates: [80.27, 13.08] },
           status: data.status || 'PENDING',
           severity: data.severity || 'HIGH',
@@ -184,15 +187,15 @@ export default function DashboardPage() {
         }
       } else if (event === 'SOS_CONFIRMED') {
         setSosReports((prev) =>
-          prev.map((r) => (r.id === data.sos_id ? { ...r, trust_score: data.trust_score } : r))
+          prev.map((r) => (r.id === data.sos_id ? { ...r, trust_score: data.trust_score ?? r.trust_score } : r))
         );
       } else if (event === 'UNIT_DISPATCHED') {
         const assignment: DispatchAssignment = {
-          sos_id: data.sos_id,
-          rescue_unit_id: data.rescue_unit_id,
-          unit_name: data.unit_name,
-          eta_seconds: data.eta_seconds,
-          cost: data.cost,
+          sos_id: data.sos_id ?? '',
+          rescue_unit_id: data.rescue_unit_id ?? '',
+          unit_name: data.unit_name || 'Rescue Unit',
+          eta_seconds: data.eta_seconds ?? 300,
+          cost: data.cost ?? 5.0,
           assigned_at: data.assigned_at || new Date().toISOString(),
         };
 
@@ -209,7 +212,7 @@ export default function DashboardPage() {
         );
       } else if (event === 'ZONE_EXPANDED') {
         if (data.geometry) {
-          const updatedFeatureCollection = {
+          const updatedFeatureCollection: FloodZoneCollection = {
             type: 'FeatureCollection',
             features: [
               {
@@ -344,13 +347,14 @@ export default function DashboardPage() {
 
     const reconstructedSos: Map<string, SOSReport> = new Map();
     const reconstructedDispatches: DispatchAssignment[] = [];
-    let latestZonePayload: any = null;
+    let latestZonePayload: EventPayload | null = null;
 
-    historicalEvents.forEach((evt) => {
+    for (const evt of historicalEvents) {
       const p = evt.payload;
       if (evt.event_type === 'SOS_CREATED') {
-        reconstructedSos.set(p.sos_id, {
-          id: p.sos_id,
+        const sosId = p.sos_id ?? '';
+        reconstructedSos.set(sosId, {
+          id: sosId,
           location: { type: 'Point', coordinates: [p.longitude || 80.27, p.latitude || 13.08] },
           status: 'PENDING',
           severity: p.severity || 'HIGH',
@@ -358,18 +362,18 @@ export default function DashboardPage() {
           created_at: evt.occurred_at,
         });
       } else if (evt.event_type === 'SOS_CONFIRMED') {
-        const existing = reconstructedSos.get(p.sos_id);
+        const existing = reconstructedSos.get(p.sos_id ?? '');
         if (existing) {
-          existing.trust_score = p.trust_score;
+          existing.trust_score = p.trust_score ?? existing.trust_score;
         }
       } else if (evt.event_type === 'UNIT_DISPATCHED') {
-        const existing = reconstructedSos.get(p.sos_id);
+        const existing = reconstructedSos.get(p.sos_id ?? '');
         if (existing) {
           existing.status = 'ASSIGNED';
         }
         reconstructedDispatches.push({
-          sos_id: p.sos_id,
-          rescue_unit_id: p.rescue_unit_id,
+          sos_id: p.sos_id ?? '',
+          rescue_unit_id: p.rescue_unit_id ?? '',
           unit_name: p.unit_name || 'Rescue Unit',
           eta_seconds: p.eta_seconds || 300,
           cost: p.cost || 5.0,
@@ -378,13 +382,13 @@ export default function DashboardPage() {
       } else if (evt.event_type === 'ZONE_EXPANDED') {
         latestZonePayload = p;
       }
-    });
+    }
 
     setSosReports(Array.from(reconstructedSos.values()));
     setDispatchAssignments(reconstructedDispatches);
 
     if (latestZonePayload && latestZonePayload.geometry) {
-      setFloodZones({
+      const reconstructedFloodZones: FloodZoneCollection = {
         type: 'FeatureCollection',
         features: [
           {
@@ -397,7 +401,8 @@ export default function DashboardPage() {
             },
           },
         ],
-      });
+      };
+      setFloodZones(reconstructedFloodZones);
     } else {
       setFloodZones(null);
     }

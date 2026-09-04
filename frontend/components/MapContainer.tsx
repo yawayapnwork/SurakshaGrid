@@ -3,11 +3,11 @@
 import React, { useEffect, useRef } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { DispatchAssignment, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
+import { DispatchAssignment, FloodZoneCollection, RescueUnit, RiskBreakdown, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
 
 interface MapContainerProps {
   riskGrid: RiskGridCollection | null;
-  floodZones?: any | null;
+  floodZones?: FloodZoneCollection | null;
   sosReports: SOSReport[];
   rescueUnits: RescueUnit[];
   dispatchAssignments: DispatchAssignment[];
@@ -134,15 +134,18 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       // 3. Risk Grid Polygon Click Listener for Explainable Risk Card
       map.on('click', 'risk-grid-fill', (e: maplibregl.MapLayerMouseEvent) => {
         if (e.features && e.features.length > 0) {
-          const props = e.features[0].properties as any;
+          const props = e.features[0].properties as Record<string, unknown> | null;
           if (props) {
-            let breakdown = props.breakdown;
-            if (typeof breakdown === 'string') {
+            let breakdown: RiskBreakdown | undefined;
+            const rawBreakdown = props.breakdown;
+            if (typeof rawBreakdown === 'string') {
               try {
-                breakdown = JSON.parse(breakdown);
+                breakdown = JSON.parse(rawBreakdown);
               } catch (err) {
                 console.error('Failed to parse breakdown JSON:', err);
               }
+            } else if (rawBreakdown && typeof rawBreakdown === 'object') {
+              breakdown = rawBreakdown as RiskBreakdown;
             }
             onSelectRiskCell({
               risk_score: Number(props.risk_score),
@@ -237,11 +240,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         }
         return null;
       })
-      .filter(Boolean);
+      .filter((f): f is NonNullable<typeof f> => f !== null);
 
     routeSource.setData({
       type: 'FeatureCollection',
-      features: routeFeatures as any,
+      features: routeFeatures,
     });
   }, [dispatchAssignments, sosReports, rescueUnits]);
 

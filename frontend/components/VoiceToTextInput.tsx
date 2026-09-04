@@ -8,6 +8,43 @@ interface VoiceToTextInputProps {
   onChange: (val: string) => void;
 }
 
+// Minimal shape of the non-standard (vendor-prefixed) Web Speech API — not in lib.dom.d.ts.
+interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+}
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternativeLike;
+}
+interface SpeechRecognitionResultListLike {
+  length: number;
+  [index: number]: SpeechRecognitionResultLike;
+}
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: SpeechRecognitionResultListLike;
+}
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+interface SpeechRecognitionLike {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+interface SpeechRecognitionConstructorLike {
+  new (): SpeechRecognitionLike;
+}
+interface WindowWithSpeechRecognition extends Window {
+  SpeechRecognition?: SpeechRecognitionConstructorLike;
+  webkitSpeechRecognition?: SpeechRecognitionConstructorLike;
+}
+
 const SUPPORTED_LANGUAGES = [
   { code: 'hi-IN', label: 'Hindi (हिंदी)' },
   { code: 'en-IN', label: 'English (India)' },
@@ -22,13 +59,14 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
   const [isSupported, setIsSupported] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   useEffect(() => {
-    const SpeechRecognitionClass =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const win = window as WindowWithSpeechRecognition;
+    const SpeechRecognitionClass = win.SpeechRecognition || win.webkitSpeechRecognition;
 
     if (!SpeechRecognitionClass) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reporting unsupported browser capability, no render-time alternative
       setIsSupported(false);
       return;
     }
@@ -38,14 +76,10 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
     recognition.interimResults = true;
     recognition.lang = selectedLang;
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       let currentTranscript = '';
       for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) {
-          currentTranscript += event.results[i][0].transcript;
-        } else {
-          currentTranscript += event.results[i][0].transcript;
-        }
+        currentTranscript += event.results[i][0].transcript;
       }
       if (currentTranscript) {
         onChange(value ? `${value} ${currentTranscript}` : currentTranscript);
@@ -53,7 +87,7 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
       }
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
       console.warn('Speech recognition error:', event.error);
       setIsListening(false);
       if (event.error === 'not-allowed' || event.error === 'permission-denied') {
@@ -75,7 +109,7 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
-        } catch (e) {
+        } catch {
           // ignore
         }
       }
@@ -94,7 +128,7 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
         recognitionRef.current.lang = selectedLang;
         recognitionRef.current.start();
         setIsListening(true);
-      } catch (err: any) {
+      } catch (err) {
         console.error('Failed to start speech recognition:', err);
         setErrorMessage('Microphone permission or browser speech error.');
         setIsListening(false);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Camera, Image as ImageIcon, Trash2, UploadCloud } from 'lucide-react';
+import { Camera, Trash2, UploadCloud } from 'lucide-react';
 import { compressImage } from '@/utils/imageCompression';
 
 interface ImageCompressorInputProps {

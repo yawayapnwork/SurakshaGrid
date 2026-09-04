@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
+// Safari/older browsers exposed the Web Audio API under a vendor prefix.
+interface WindowWithWebkitAudio extends Window {
+  webkitAudioContext?: typeof AudioContext;
+}
+
 // Global state tracking whether the user has interacted with the document
 let hasUserInteracted = false;
 
@@ -15,7 +20,7 @@ export function unlockAudioContext(): void {
   hasUserInteracted = true;
   if (typeof window === 'undefined') return;
 
-  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  const AudioContextClass = window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext;
   if (AudioContextClass) {
     if (!globalAudioCtx || globalAudioCtx.state === 'closed') {
       try {
@@ -96,7 +101,7 @@ export function playTwoToneEmergencyAlert(isMuted = false): void {
   // SSR guard
   if (typeof window === 'undefined') return;
 
-  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  const AudioContextClass = window.AudioContext || (window as WindowWithWebkitAudio).webkitAudioContext;
 
   if (!AudioContextClass) {
     playFallbackAudio(isMuted);
@@ -152,8 +157,9 @@ export function playTwoToneEmergencyAlert(isMuted = false): void {
     gain2.connect(ctx.destination);
     osc2.start(ctx.currentTime + 0.2);
     osc2.stop(ctx.currentTime + 0.65);
-  } catch (err: any) {
-    if (err?.name === 'NotAllowedError' || err?.name === 'InvalidStateError') {
+  } catch (err) {
+    const name = err instanceof DOMException ? err.name : undefined;
+    if (name === 'NotAllowedError' || name === 'InvalidStateError') {
       console.warn('Web Audio API blocked by browser autoplay policy, falling back to static audio (/alert.mp3):', err);
       playFallbackAudio(isMuted);
     } else {

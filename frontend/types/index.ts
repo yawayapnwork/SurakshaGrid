@@ -1,3 +1,5 @@
+import type { Geometry } from 'geojson';
+
 export type SOSSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL_TRAPPED';
 export type SOSStatus = 'PENDING' | 'ASSIGNED' | 'RESOLVED';
 export type RescueUnitType = 'BOAT' | 'AMBULANCE' | 'DRONE';
@@ -63,10 +65,55 @@ export interface RiskGridCollection {
   features: RiskGridFeature[];
 }
 
+export interface FloodZoneFeature {
+  type: 'Feature';
+  geometry: Geometry;
+  properties: {
+    rainfall: number;
+    sim_id?: string | null;
+    zone_id?: string | null;
+  };
+}
+
+export interface FloodZoneCollection {
+  type: 'FeatureCollection';
+  features: FloodZoneFeature[];
+}
+
+/** Heterogeneous shape of backend event-log/WebSocket payloads. Each event
+ * type (SOS_CREATED, UNIT_DISPATCHED, ZONE_EXPANDED, ...) only populates a
+ * subset of these fields — consumers read the ones relevant to the event. */
+export interface EventPayload {
+  sos_id?: string;
+  rescue_unit_id?: string;
+  unit_name?: string;
+  eta_seconds?: number;
+  cost?: number;
+  assigned_at?: string;
+  latitude?: number;
+  longitude?: number;
+  location?: GeoPoint;
+  status?: SOSStatus;
+  severity?: SOSSeverity;
+  photo_url?: string;
+  visual_confidence_score?: number;
+  trust_score?: number;
+  voice_transcript?: string;
+  created_at?: string;
+  rainfall_intensity?: number;
+  raw_mm?: number;
+  source?: string;
+  timestamp?: string;
+  geometry?: FloodZoneFeature['geometry'];
+  sim_id?: string;
+  zone_id?: string;
+  message?: string;
+}
+
 export interface EventLog {
   id: string;
   event_type: string;
-  payload: Record<string, any>;
+  payload: EventPayload;
   occurred_at: string;
 }
 

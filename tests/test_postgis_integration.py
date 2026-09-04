@@ -183,7 +183,6 @@ async def test_postgis_st_area_union_spatial_query(postgres_session: AsyncSessio
 
     fz = FloodZone(
         id=uuid.uuid4(),
-        severity=SOSSeverity.CRITICAL_TRAPPED,
         geometry="SRID=4326;POLYGON((80.15 12.95, 80.19 12.95, 80.19 12.99, 80.15 12.99, 80.15 12.95))",
         sim_id=test_sim_id,
     )

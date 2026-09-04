@@ -20,11 +20,17 @@ export const ReplayScrubber: React.FC<ReplayScrubberProps> = ({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  useEffect(() => {
+  // Jump the scrubber to the latest event whenever a new `events` array arrives.
+  // Adjusted directly during render (React's recommended pattern for deriving
+  // state from a prop change) rather than in an effect, since this is a pure
+  // response to a prop change, not a sync with an external system.
+  const [prevEvents, setPrevEvents] = useState(events);
+  if (events !== prevEvents) {
+    setPrevEvents(events);
     if (events.length > 0) {
       setCurrentIndex(events.length - 1);
     }
-  }, [events]);
+  }
 
   useEffect(() => {
     let timer: NodeJS.Timeout;

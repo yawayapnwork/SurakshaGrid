@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle2, ShieldAlert, ThumbsUp } from 'lucide-react';
+import { CheckCircle2, ShieldAlert, ThumbsUp } from 'lucide-react';
 import { SOSReport } from '@/types';
 
 interface ConfirmNearbyModalProps {

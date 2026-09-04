@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, Crosshair, MapPin, Send, ShieldAlert, Sparkles } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, MapPin, Send, ShieldAlert, Sparkles } from 'lucide-react';
 import { VoiceToTextInput } from '@/components/VoiceToTextInput';
 import { ImageCompressorInput } from '@/components/ImageCompressorInput';
 import { ConfirmNearbyModal } from '@/components/ConfirmNearbyModal';
 import { createSOSReport, fetchNearbySOSReports } from '@/services/api';
 import { SOSReport, SOSSeverity } from '@/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 export default function CitizenReportPage() {
   // 1. Location State
@@ -34,6 +34,7 @@ export default function CitizenReportPage() {
   // Auto-trigger Geolocation capture on page load
   useEffect(() => {
     if (!navigator.geolocation) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reporting unsupported browser capability, no render-time alternative
       setGeoStatus('Browser geolocation is not supported');
       // Default to Chennai coordinates
       setLatitude(13.0827);
@@ -91,9 +92,10 @@ export default function CitizenReportPage() {
 
       // Add to nearby reports for display
       setNearbyReports((prev) => [reportData, ...prev]);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Submission error:', err);
-      setErrorMessage(err.message || 'Failed to submit report. Please try again.');
+      const message = err instanceof Error ? err.message : 'Failed to submit report. Please try again.';
+      setErrorMessage(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -54,9 +54,9 @@ export const LeftController: React.FC<LeftControllerProps> = ({
   const [reportUrl, setReportUrl] = useState<string>('http://localhost:3000/report');
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setReportUrl(`${window.location.origin}/report`);
-    }
+    // window.location is unavailable during SSR; this must run client-side after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from browser-only origin, no render-time alternative
+    setReportUrl(`${window.location.origin}/report`);
   }, []);
 
   const isLiveMode = riskMode === 'live';

@@ -1,6 +1,8 @@
-import { DispatchAssignment, EventLog, LiveAnalyticsStats, RiskGridCollection, SOSReport } from '@/types';
+import { DispatchAssignment, EventLog, FloodZoneCollection, LiveAnalyticsStats, RiskGridCollection, SOSReport } from '@/types';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+).replace(/\/+$/, '');
 
 export async function fetchSimulatedRiskScores(
   rainfall: number = 0,
@@ -18,7 +20,7 @@ export async function fetchSimulatedRiskScores(
   return res.json();
 }
 
-export async function fetchSimulatedFloodZones(rainfall: number = 0, simId?: string): Promise<any> {
+export async function fetchSimulatedFloodZones(rainfall: number = 0, simId?: string): Promise<FloodZoneCollection> {
   let url = `${API_BASE_URL}/api/v1/flood-zones/simulate?rainfall=${rainfall}`;
   if (simId) {
     url += `&sim_id=${encodeURIComponent(simId)}`;

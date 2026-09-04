@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { DispatchAssignment, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
+import { RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
 
 export interface DemoStep {
   id: number;
@@ -93,6 +93,9 @@ export function useDemoTour({
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const stepStartTimeRef = useRef<number>(0);
+  // Holds the latest executeStep so the recursive setTimeout below always calls
+  // the current closure instead of referencing the function before it's declared.
+  const executeStepRef = useRef<(stepIdx: number) => Promise<void>>(async () => {});
 
   const clearTimers = useCallback(() => {
     if (timerRef.current) {
@@ -203,7 +206,7 @@ export function useDemoTour({
       // Schedule next step after step.durationMs
       stepStartTimeRef.current = Date.now();
       timerRef.current = setTimeout(() => {
-        executeStep(stepIdx + 1);
+        executeStepRef.current(stepIdx + 1);
       }, step.durationMs);
     },
     [
@@ -220,14 +223,18 @@ export function useDemoTour({
     ]
   );
 
+  useEffect(() => {
+    executeStepRef.current = executeStep;
+  }, [executeStep]);
+
   const startDemo = useCallback(() => {
     clearTimers();
     setIsRunning(true);
     setIsPaused(false);
     setCurrentStepIndex(0);
     setElapsedMs(0);
-    executeStep(0);
-  }, [clearTimers, executeStep]);
+    executeStepRef.current(0);
+  }, [clearTimers]);
 
   const pauseDemo = useCallback(() => {
     clearTimers();
