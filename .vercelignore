@@ -2,7 +2,4 @@
 .next
 .vercel
 .git
-../scratch
-../backend
-../venv
 *.log
