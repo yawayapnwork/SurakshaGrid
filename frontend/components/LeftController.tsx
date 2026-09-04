@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { CloudRain, ExternalLink, Play, QrCode, RotateCcw, Zap } from 'lucide-react';
+import { CloudRain, ExternalLink, Play, QrCode, RotateCcw, Sliders } from 'lucide-react';
 
 export interface LiveWeatherInfo {
   intensity: number;
@@ -62,23 +62,26 @@ export const LeftController: React.FC<LeftControllerProps> = ({
   const isLiveMode = riskMode === 'live';
 
   return (
-    <aside className="fixed left-6 top-20 z-20 w-80 bg-white/95 backdrop-blur-md border border-slate-200 rounded-2xl p-5 shadow-md text-slate-900 space-y-5">
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
-        <Zap className="w-5 h-5 text-amber-500" />
-        <h2 className="font-bold text-sm text-[#0F172A] tracking-wide uppercase">
-          Scenario Controls
-        </h2>
+    <aside className="absolute left-6 top-6 z-20 w-80 max-h-[calc(100%-3rem)] overflow-y-auto custom-scrollbar bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm text-slate-900 space-y-5">
+      <div className="flex items-center gap-2 border-b border-slate-100 pb-3.5">
+        <div className="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center">
+          <Sliders className="w-3.5 h-3.5 text-indigo-600" />
+        </div>
+        <div>
+          <h2 className="font-semibold text-[13px] text-slate-900 tracking-tight">Scenario Controls</h2>
+          <p className="text-[11px] text-slate-400">Configure the simulation parameters</p>
+        </div>
       </div>
 
       {/* 1. What-If Rainfall Slider & Live Mode Switch */}
-      <div className="space-y-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+      <div className="space-y-3.5 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
         {/* Mode Toggle Switch */}
-        <div className="flex items-center justify-between bg-white p-1 rounded-lg border border-slate-200">
+        <div className="flex items-center bg-slate-100 p-1 rounded-lg gap-1">
           <button
             onClick={() => onRiskModeChange?.('simulated')}
-            className={`flex-1 py-1 px-2.5 rounded-md text-[11px] font-bold transition-all ${
+            className={`flex-1 py-1.5 px-2.5 rounded-md text-[11.5px] font-semibold transition-all duration-150 ${
               !isLiveMode
-                ? 'bg-sky-50 text-sky-700 border border-sky-200 shadow-sm'
+                ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
@@ -86,29 +89,23 @@ export const LeftController: React.FC<LeftControllerProps> = ({
           </button>
           <button
             onClick={() => onRiskModeChange?.('live')}
-            className={`flex-1 py-1 px-2.5 rounded-md text-[11px] font-bold transition-all flex items-center justify-center gap-1 ${
+            className={`flex-1 py-1.5 px-2.5 rounded-md text-[11.5px] font-semibold transition-all duration-150 flex items-center justify-center gap-1.5 ${
               isLiveMode
-                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm'
+                ? 'bg-white text-slate-900 shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
             Live Feed
           </button>
         </div>
 
-        <div className="flex items-center justify-between pt-1">
-          <label className="text-xs font-semibold text-[#475569] flex items-center gap-1.5">
-            <CloudRain className="w-4 h-4 text-sky-600" />{' '}
+        <div className="flex items-center justify-between pt-0.5">
+          <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+            <CloudRain className="w-3.5 h-3.5 text-slate-400" />
             {isLiveMode ? 'Live Ingested Rainfall' : 'What-If Rainfall Intensity'}
           </label>
-          <span
-            className={`text-xs font-bold px-2 py-0.5 rounded border ${
-              isLiveMode
-                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                : 'text-sky-700 bg-sky-50 border-sky-200'
-            }`}
-          >
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-900 text-white tabular-nums">
             {isLiveMode
               ? `${liveWeatherInfo ? liveWeatherInfo.intensity : 0}%`
               : `${rainfall}%`}
@@ -122,23 +119,21 @@ export const LeftController: React.FC<LeftControllerProps> = ({
           value={isLiveMode ? (liveWeatherInfo ? liveWeatherInfo.intensity : 0) : rainfall}
           disabled={isLiveMode}
           onChange={(e) => onRainfallChange(Number(e.target.value))}
-          className={`w-full h-2 rounded-lg appearance-none cursor-pointer accent-sky-600 transition-colors ${
-            isLiveMode
-              ? 'bg-slate-200 opacity-50 cursor-not-allowed'
-              : 'bg-slate-200 hover:accent-sky-500'
+          className={`w-full h-1.5 rounded-full appearance-none cursor-pointer accent-slate-900 transition-colors ${
+            isLiveMode ? 'bg-slate-200 opacity-50 cursor-not-allowed' : 'bg-slate-200'
           }`}
         />
 
-        <div className="flex justify-between text-[10px] text-slate-400 font-mono">
-          <span>0% (Dry)</span>
-          <span>50% (Moderate)</span>
-          <span>100% (Extreme)</span>
+        <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+          <span>0% Dry</span>
+          <span>50% Moderate</span>
+          <span>100% Extreme</span>
         </div>
 
         {/* Live Weather Feed Badge */}
-        <div className="pt-1.5 border-t border-slate-200">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+        <div className="pt-2.5 border-t border-slate-200/70">
+          <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600 bg-white border border-slate-200/80 px-2.5 py-1.5 rounded-lg">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <span className="truncate">
               {liveWeatherInfo
                 ? `Live weather feed: ${liveWeatherInfo.intensity}mm/hr (${liveWeatherInfo.source}, ${formatRelativeTime(liveWeatherInfo.timestamp)})`
@@ -153,19 +148,19 @@ export const LeftController: React.FC<LeftControllerProps> = ({
         <button
           onClick={onTriggerFloodScenario}
           disabled={isTriggering || isResetting}
-          className="w-full py-2.5 px-4 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 hover:border-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1"
         >
-          <Zap className={`w-4 h-4 text-amber-600 ${isTriggering ? 'animate-spin' : ''}`} />
+          <span className={`w-1.5 h-1.5 rounded-full bg-amber-500 ${isTriggering ? 'animate-ping' : ''}`} />
           {isTriggering ? 'Scenario running…' : 'Trigger Flood Event Scenario'}
         </button>
 
         <button
           onClick={onResetScenario}
           disabled={isTriggering || isResetting}
-          className="w-full py-2 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-500 hover:text-slate-700 border border-slate-200 font-semibold text-xs flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full py-2 px-4 rounded-xl bg-transparent hover:bg-slate-50 text-slate-400 hover:text-slate-600 border border-transparent hover:border-slate-200 font-medium text-xs flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
-          {isResetting ? 'Wiping Demo State...' : 'Reset Scenario State'}
+          {isResetting ? 'Wiping demo state…' : 'Reset Scenario State'}
         </button>
       </div>
 
@@ -173,20 +168,20 @@ export const LeftController: React.FC<LeftControllerProps> = ({
       <button
         onClick={onRunDispatch}
         disabled={isDispatching}
-        className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs tracking-wider uppercase flex items-center justify-center gap-2 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-3 px-4 rounded-xl bg-gradient-to-b from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 text-white font-semibold text-[13px] tracking-wide flex items-center justify-center gap-2 transition-all duration-150 shadow-md shadow-slate-900/20 disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
       >
-        <Play className={`w-4 h-4 fill-current ${isDispatching ? 'animate-bounce' : ''}`} />
-        {isDispatching ? 'Running Hungarian Matcher...' : 'Run Rescue Dispatch'}
+        <Play className={`w-4 h-4 fill-current ${isDispatching ? 'animate-pulse' : ''}`} />
+        {isDispatching ? 'Running Hungarian Matcher…' : 'Run Rescue Dispatch'}
       </button>
 
       {/* 4. Citizen SOS QR Code & Live Mobile Reporting Link */}
-      <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
-        <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-[#0F172A]">
-          <QrCode className="w-4 h-4 text-emerald-600" />
-          <span>Scan to file a live SOS report from your phone</span>
+      <div className="space-y-2 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70 text-center">
+        <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700">
+          <QrCode className="w-3.5 h-3.5 text-slate-400" />
+          <span>Scan to file a live SOS report</span>
         </div>
         <div className="flex justify-center py-1">
-          <div className="p-1.5 bg-white rounded-lg shadow-sm border border-slate-200 inline-block">
+          <div className="p-1.5 bg-white rounded-lg shadow-xs border border-slate-200/80 inline-block">
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(reportUrl)}`}
               alt="Scan QR code to open Citizen SOS report form"
@@ -200,7 +195,7 @@ export const LeftController: React.FC<LeftControllerProps> = ({
           href="/report"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1 text-[11px] font-bold text-sky-600 hover:text-sky-700 hover:underline"
+          className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
         >
           Open Citizen SOS Form <ExternalLink className="w-3 h-3" />
         </a>

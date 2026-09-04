@@ -102,12 +102,12 @@ ${
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-white border border-slate-200 rounded-2xl max-w-2xl w-full p-6 text-slate-900 shadow-xl space-y-5 max-h-[85vh] flex flex-col">
+      <div className="bg-white border border-slate-200/80 rounded-2xl max-w-2xl w-full p-6 text-slate-900 shadow-lg space-y-5 max-h-[85vh] flex flex-col">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-          <div className="flex items-center gap-2 text-sky-600">
-            <FileText className="w-5 h-5" />
-            <h3 className="font-bold text-base text-[#0F172A]">Incident After-Action Report (AAR)</h3>
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2 text-indigo-600">
+            <FileText className="w-4.5 h-4.5" />
+            <h3 className="font-semibold text-[15px] text-slate-900 tracking-tight">Incident After-Action Report (AAR)</h3>
           </div>
           <button
             onClick={onClose}
@@ -118,7 +118,7 @@ ${
         </div>
 
         {/* Markdown Content Preview Box */}
-        <div className="flex-1 overflow-y-auto bg-slate-50 p-4 rounded-xl border border-slate-200 font-mono text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
+        <div className="flex-1 overflow-y-auto bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 font-mono text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
           {aarMarkdown}
         </div>
 
@@ -126,7 +126,7 @@ ${
         <div className="flex items-center justify-end gap-3 pt-2">
           <button
             onClick={handleCopy}
-            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-2 transition-all"
+            className="px-4 py-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
             {copied ? 'Copied to Clipboard!' : 'Copy Markdown'}
@@ -134,7 +134,7 @@ ${
 
           <button
             onClick={handleDownload}
-            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-sm"
+            className="px-4 py-2 rounded-lg bg-gradient-to-b from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 text-white font-semibold text-xs flex items-center gap-2 transition-all shadow-sm active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
           >
             <Download className="w-4 h-4" />
             Download Report (.md)

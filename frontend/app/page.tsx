@@ -428,30 +428,7 @@ export default function DashboardPage() {
   });
 
   return (
-    <main className="w-full h-screen overflow-hidden flex flex-col relative bg-[#F8FAFC] font-sans">
-      {/* Non-Blocking Toast Notification */}
-      {toastMessage && (
-        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 animate-bounce">
-          <div
-            className={`px-4 py-2.5 rounded-full border shadow-lg shadow-slate-900/10 backdrop-blur-md flex items-center gap-2 text-xs font-bold ${
-              toastMessage.type === 'success'
-                ? 'bg-emerald-50/95 text-emerald-700 border-emerald-200'
-                : 'bg-sky-50/95 text-sky-700 border-sky-200'
-            }`}
-          >
-            {toastMessage.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 text-emerald-600" />
-            ) : (
-              <Info className="w-4 h-4 text-sky-600" />
-            )}
-            <span>{toastMessage.text}</span>
-            <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-75">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      )}
-
+    <main className="w-full h-screen overflow-hidden flex flex-col bg-[#F8FAFC] font-sans">
       {/* 1. Persistent Top Stats Bar */}
       <TopStatsBar
         monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
@@ -467,35 +444,71 @@ export default function DashboardPage() {
         demoState={demoTour}
       />
 
-      {/* 2. Central Interactive Map with Error Boundary */}
-      <MapErrorBoundary>
-        <MapContainer
-          riskGrid={riskGrid}
-          floodZones={floodZones}
-          sosReports={sosReports}
-          rescueUnits={rescueUnits}
-          dispatchAssignments={dispatchAssignments}
-          onSelectRiskCell={setSelectedRiskCell}
+      {/* Map + floating panels area: panels are positioned relative to THIS
+          container (not the viewport), so header height/wrapping can never
+          push them out of place or make them overlap each other. */}
+      <div className="relative flex-1 min-h-0">
+        {/* Non-Blocking Toast Notification */}
+        {toastMessage && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-bounce">
+            <div
+              className={`px-4 py-2.5 rounded-full border shadow-lg shadow-slate-900/10 backdrop-blur-md flex items-center gap-2 text-xs font-bold ${
+                toastMessage.type === 'success'
+                  ? 'bg-emerald-50/95 text-emerald-700 border-emerald-200'
+                  : 'bg-sky-50/95 text-sky-700 border-sky-200'
+              }`}
+            >
+              {toastMessage.type === 'success' ? (
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <Info className="w-4 h-4 text-sky-600" />
+              )}
+              <span>{toastMessage.text}</span>
+              <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-75">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 2. Central Interactive Map with Error Boundary */}
+        <MapErrorBoundary>
+          <MapContainer
+            riskGrid={riskGrid}
+            floodZones={floodZones}
+            sosReports={sosReports}
+            rescueUnits={rescueUnits}
+            dispatchAssignments={dispatchAssignments}
+            onSelectRiskCell={setSelectedRiskCell}
+          />
+        </MapErrorBoundary>
+
+        {/* 3. Left Controller Drawer */}
+        <LeftController
+          rainfall={rainfall}
+          onRainfallChange={setRainfall}
+          riskMode={riskMode}
+          onRiskModeChange={setRiskMode}
+          liveWeatherInfo={liveWeatherInfo}
+          onTriggerFloodScenario={handleTriggerFloodScenario}
+          onResetScenario={handleResetScenario}
+          onRunDispatch={handleRunDispatch}
+          isDispatching={isDispatching}
+          isTriggering={isTriggering}
+          isResetting={isResetting}
         />
-      </MapErrorBoundary>
 
-      {/* 3. Left Controller Drawer */}
-      <LeftController
-        rainfall={rainfall}
-        onRainfallChange={setRainfall}
-        riskMode={riskMode}
-        onRiskModeChange={setRiskMode}
-        liveWeatherInfo={liveWeatherInfo}
-        onTriggerFloodScenario={handleTriggerFloodScenario}
-        onResetScenario={handleResetScenario}
-        onRunDispatch={handleRunDispatch}
-        isDispatching={isDispatching}
-        isTriggering={isTriggering}
-        isResetting={isResetting}
-      />
+        {/* 4. Right Live Dispatch Queue Drawer */}
+        <RightDispatchQueue assignments={dispatchAssignments} />
 
-      {/* 4. Right Live Dispatch Queue Drawer */}
-      <RightDispatchQueue assignments={dispatchAssignments} />
+        {/* 7. Replay Time-Scrubber Control */}
+        <ReplayScrubber
+          events={replayEvents}
+          isReplayMode={isReplayMode}
+          onToggleReplayMode={handleToggleReplayMode}
+          onSelectEventIndex={handleSelectReplayEventIndex}
+        />
+      </div>
 
       {/* 5. Explainable Risk Card Modal */}
       <RiskCardModal
@@ -511,14 +524,6 @@ export default function DashboardPage() {
         rescueUnits={rescueUnits}
         dispatchAssignments={dispatchAssignments}
         monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
-      />
-
-      {/* 7. Replay Time-Scrubber Control */}
-      <ReplayScrubber
-        events={replayEvents}
-        isReplayMode={isReplayMode}
-        onToggleReplayMode={handleToggleReplayMode}
-        onSelectEventIndex={handleSelectReplayEventIndex}
       />
     </main>
   );

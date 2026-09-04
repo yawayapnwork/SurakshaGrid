@@ -342,7 +342,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   }, [sosReports, rescueUnits]);
 
   return (
-    <div className="w-full h-screen relative bg-slate-100">
+    <div className="absolute inset-0 bg-slate-100">
       <div ref={mapContainerRef} className="w-full h-full" />
     </div>
   );

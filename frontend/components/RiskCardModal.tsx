@@ -26,12 +26,12 @@ export const RiskCardModal: React.FC<RiskCardModalProps> = ({ properties, onClos
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white border border-slate-200 w-full max-w-md rounded-2xl shadow-xl overflow-hidden text-slate-900 relative">
+      <div className="bg-white border border-slate-200/80 w-full max-w-md rounded-2xl shadow-lg overflow-hidden text-slate-900 relative">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/70">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-5 h-5 text-sky-600" />
-            <h3 className="font-bold text-lg text-[#0F172A]">Explainable Risk Analysis</h3>
+            <AlertCircle className="w-4.5 h-4.5 text-indigo-600" />
+            <h3 className="font-semibold text-[15px] text-slate-900 tracking-tight">Explainable Risk Analysis</h3>
           </div>
           <button
             onClick={onClose}
@@ -137,10 +137,10 @@ export const RiskCardModal: React.FC<RiskCardModalProps> = ({ properties, onClos
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/70 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition-colors"
+            className="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
           >
             Close Analysis
           </button>
