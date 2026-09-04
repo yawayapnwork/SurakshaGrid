@@ -13,3 +13,5 @@ build/
 scratch/
 *.pid
 *.log
+*.db
+*.sqlite3
