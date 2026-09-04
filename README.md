@@ -79,6 +79,10 @@ The command dashboard includes an automated **Guided Demo Tour** (`frontend/hook
 6. **Explainable Risk AI**: Selects a high-risk cell polygon and displays breakdown analytics.
 7. **Digital Twin Time Travel**: Opens historical incident replay scrubber and steps backward across timeline.
 
+## Beyond the PRD (Bonus Features)
+
+- **Incident After-Action Report (AAR) Export**: Beyond the core PRD requirements, the command dashboard includes an **Export AAR** modal (`frontend/components/ExportAARModal.tsx`). Command officers can generate, preview, copy, or download (`.md`) a structured After-Action Report summarizing incident volume, critical citizen counts, dispatched fleet assignments, average route ETAs, and key operational takeaways for post-disaster debriefs and agency auditing.
+
 ## Project Layout
 
 ```
