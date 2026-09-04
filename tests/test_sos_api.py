@@ -180,3 +180,65 @@ async def test_get_nearby_sos_reports(mock_db):
     assert isinstance(data, list)
     assert len(data) == 1
     assert data[0]["id"] == str(report_id)
+
+
+@pytest.mark.asyncio
+async def test_create_sos_report_unsupported_content_type(mock_db):
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            "/api/v1/sos",
+            data={
+                "latitude": "13.0827",
+                "longitude": "80.2707",
+                "severity": "HIGH",
+            },
+            files={
+                "image": ("malicious.exe", b"not an image", "application/x-msdownload")
+            },
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    data = response.json()
+    assert "Unsupported image format" in data["detail"]
+
+
+@pytest.mark.asyncio
+async def test_create_sos_report_oversized_image(mock_db):
+    async def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    # 9 MB oversized image payload
+    oversized_bytes = b"0" * (9 * 1024 * 1024)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as ac:
+        response = await ac.post(
+            "/api/v1/sos",
+            data={
+                "latitude": "13.0827",
+                "longitude": "80.2707",
+                "severity": "HIGH",
+            },
+            files={
+                "image": ("huge_photo.jpg", oversized_bytes, "image/jpeg")
+            },
+        )
+
+    app.dependency_overrides.clear()
+
+    assert response.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+    data = response.json()
+    assert "exceeds maximum allowed size" in data["detail"]
+

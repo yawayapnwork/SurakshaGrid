@@ -1,7 +1,7 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
@@ -19,6 +19,9 @@ from app.services.cv_service import estimate_water_confidence
 from app.services.ws_manager import ws_manager
 
 router = APIRouter(tags=["sos"])
+
+MAX_IMAGE_SIZE_BYTES = 8 * 1024 * 1024  # 8 MB limit
+ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 
 @router.post(
@@ -55,9 +58,28 @@ async def create_sos_report(
     photo_url: str | None = None
     visual_confidence_score: float | None = None
 
-    if image is not None:
+    if image is not None and image.filename:
+        content_type = (image.content_type or "").lower().strip()
+        if content_type and content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Unsupported image format '{image.content_type}'. Allowed types: image/jpeg, image/png, image/webp.",
+            )
+
+        if hasattr(image, "size") and image.size is not None and image.size > MAX_IMAGE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Uploaded image exceeds maximum allowed size of 8MB ({image.size} bytes).",
+            )
+
         image_bytes = await image.read()
         if image_bytes and len(image_bytes) > 0:
+            if len(image_bytes) > MAX_IMAGE_SIZE_BYTES:
+                raise HTTPException(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    detail=f"Uploaded image exceeds maximum allowed size of 8MB ({len(image_bytes)} bytes).",
+                )
+
             # OpenCV blocking heuristic executed via thread pool
             visual_confidence_score = await run_in_threadpool(
                 estimate_water_confidence, image_bytes
