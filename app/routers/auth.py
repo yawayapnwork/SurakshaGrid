@@ -32,34 +32,24 @@ async def login(
     request: Request,
 ) -> TokenResponse:
     """Authenticates admin/officer credentials from JSON body or OAuth2 form-data."""
-    username: str | None = None
-    password: str | None = None
-
     content_type = request.headers.get("content-type", "")
 
-    if "application/json" in content_type:
-        try:
-            body = await request.json()
-            username = body.get("username")
-            password = body.get("password")
-        except Exception:
-            pass
-    elif "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
-        try:
-            form = await request.form()
-            username = str(form.get("username", ""))
-            password = str(form.get("password", ""))
-        except Exception:
-            pass
-
-    if not username or not password:
+    if "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
+        form = await request.form()
+        username = str(form.get("username") or "")
+        password = str(form.get("password") or "")
+    else:
         try:
             body = await request.json()
             if isinstance(body, dict):
-                username = body.get("username")
-                password = body.get("password")
+                username = str(body.get("username") or "")
+                password = str(body.get("password") or "")
+            else:
+                username = ""
+                password = ""
         except Exception:
-            pass
+            username = ""
+            password = ""
 
     if not username or not password:
         raise HTTPException(
