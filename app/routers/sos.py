@@ -149,15 +149,15 @@ async def create_sos_report(
         },
     )
 
-    if severity == SOSSeverity.CRITICAL_TRAPPED or severity_str == "CRITICAL_TRAPPED":
-        await dispatch_sos_webhook(
-            sos_id=str(report.id),
-            severity=severity_str,
-            latitude=latitude,
-            longitude=longitude,
-            trust_score=report.trust_score,
-            created_at=report.created_at,
-        )
+    # Notify the configured n8n webhook (e.g. for email/SMS alerts) on every new SOS report
+    await dispatch_sos_webhook(
+        sos_id=str(report.id),
+        severity=severity_str,
+        latitude=latitude,
+        longitude=longitude,
+        trust_score=report.trust_score,
+        created_at=report.created_at,
+    )
 
     return SOSReportRead.model_validate(report)
 
