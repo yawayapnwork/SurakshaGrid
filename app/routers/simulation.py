@@ -5,8 +5,9 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 import redis.asyncio as aioredis
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 
 from app.core.config import get_settings
 from app.core.deps import get_current_officer
@@ -19,7 +20,9 @@ from app.models.rescue_unit import RescueUnit
 from app.models.sos_confirmation import SOSConfirmation
 from app.core.geo_constants import WATER_CORRIDOR_LINE, build_flood_zone_polygon
 from app.models.sos_report import SOSReport
+from app.services.webhook_dispatcher import dispatch_scenario_webhook
 from app.services.ws_manager import ws_manager
+
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +114,8 @@ async def run_staggered_simulation(sim_id: str) -> None:
     Uses AsyncSessionLocal to obtain dedicated non-request DB sessions. Cross-worker state is
     synchronized via Redis GET/SET checks to guard against race conditions across Uvicorn workers.
     """
+    start_time = datetime.now(timezone.utc)
+
     # 12 Realistic SOS Reports with staggered delays (in seconds)
     sos_reports_data = [
         # (lon, lat, severity, photo_url, visual_confidence, trust_score, transcript, delay_seconds, add_confirmation)
@@ -409,6 +414,46 @@ async def run_staggered_simulation(sim_id: str) -> None:
 
         active_id = await _get_active_sim_id()
         if active_id == sim_id:
+            completed_at = datetime.now(timezone.utc)
+            duration_seconds = round((completed_at - start_time).total_seconds(), 2)
+
+            async with AsyncSessionLocal() as task_db:
+                sos_count_res = await task_db.execute(
+                    select(func.count()).select_from(SOSReport).where(SOSReport.sim_id == sim_id)
+                )
+                total_sos_count = sos_count_res.scalar() or 0
+
+                dispatched_units_res = await task_db.execute(
+                    select(func.count()).select_from(RescueUnit).where(
+                        (RescueUnit.sim_id == sim_id) & (RescueUnit.status == RescueUnitStatus.DISPATCHED)
+                    )
+                )
+                dispatched_unit_count = dispatched_units_res.scalar() or 0
+
+                scenario_payload = {
+                    "sim_id": sim_id,
+                    "total_sos_count": total_sos_count,
+                    "dispatched_unit_count": dispatched_unit_count,
+                    "duration_seconds": duration_seconds,
+                    "completed_at": completed_at.isoformat(),
+                }
+
+                event = EventLog(
+                    event_type="SCENARIO_COMPLETE",
+                    payload=scenario_payload,
+                    occurred_at=completed_at,
+                )
+                task_db.add(event)
+                await task_db.commit()
+
+            await dispatch_scenario_webhook(
+                sim_id=sim_id,
+                total_sos_count=total_sos_count,
+                dispatched_unit_count=dispatched_unit_count,
+                duration_seconds=duration_seconds,
+                completed_at=completed_at,
+            )
+
             logger.info(f"Completed background staggered SOS simulation spawner {sim_id}.")
             await ws_manager.publish(
                 "SIMULATION_COMPLETE",

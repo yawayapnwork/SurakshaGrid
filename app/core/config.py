@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=60)
     N8N_INGESTION_SECRET: str = Field(default="surakshagrid-n8n-ingest-secret")
     N8N_SOS_WEBHOOK_URL: str | None = Field(default=None)
+    N8N_SCENARIO_WEBHOOK_URL: str | None = Field(default=None)
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

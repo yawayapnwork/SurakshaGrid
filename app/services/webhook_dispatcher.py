@@ -54,3 +54,50 @@ async def dispatch_sos_webhook(
     except Exception as exc:
         logger.warning(f"Failed to dispatch SOS webhook to {webhook_url}: {exc}")
         return False
+
+
+async def dispatch_scenario_webhook(
+    sim_id: str,
+    total_sos_count: int,
+    dispatched_unit_count: int,
+    duration_seconds: float,
+    completed_at: str | datetime | None = None,
+) -> bool:
+    """Dispatches a JSON payload summarizing scenario completion metrics to N8N_SCENARIO_WEBHOOK_URL if set.
+
+    Uses a short 3-second timeout and catches all exceptions to ensure external network issues
+    never fail or block simulation tasks.
+    """
+    webhook_url = settings.N8N_SCENARIO_WEBHOOK_URL
+    if not webhook_url:
+        return False
+
+    completed_at_str: str | None = None
+    if isinstance(completed_at, datetime):
+        completed_at_str = completed_at.isoformat()
+    elif isinstance(completed_at, str):
+        completed_at_str = completed_at
+
+    payload = {
+        "sim_id": str(sim_id),
+        "total_sos_count": int(total_sos_count),
+        "dispatched_unit_count": int(dispatched_unit_count),
+        "duration_seconds": float(duration_seconds),
+        "completed_at": completed_at_str,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            response = await client.post(webhook_url, json=payload)
+            if response.is_success:
+                logger.info(f"Successfully dispatched scenario webhook to {webhook_url} for sim_id={sim_id}")
+                return True
+            else:
+                logger.warning(
+                    f"Scenario webhook call to {webhook_url} returned HTTP {response.status_code}: {response.text[:100]}"
+                )
+                return False
+    except Exception as exc:
+        logger.warning(f"Failed to dispatch scenario webhook to {webhook_url}: {exc}")
+        return False
+
