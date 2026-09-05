@@ -23,6 +23,7 @@ from app.routers.simulation import router as simulation_router
 from app.routers.sos import router as sos_router
 from app.routers.speech_synthesis import router as speech_synthesis_router
 from app.routers.ws import router as ws_router
+from app.services.sms_service import check_twilio_configuration
 from app.services.ws_manager import ws_manager
 
 settings = get_settings()
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    check_twilio_configuration()
     await ws_manager.start_redis_listener()
     yield
     await ws_manager.stop()

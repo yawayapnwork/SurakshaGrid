@@ -70,7 +70,7 @@ function NavBar() {
           : 'bg-transparent border-b border-transparent'
       }`}
     >
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="max-w-6xl mx-auto px-6 h-[4.5rem] flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="bg-slate-900 text-white p-1.5 rounded-lg group-hover:scale-105 transition-transform duration-200">
             <ShieldCheck className="w-4.5 h-4.5" />
@@ -147,23 +147,18 @@ function NavBar() {
   );
 }
 
-function HeroPreviewCard() {
+function HeroPreviewPanel() {
   return (
-    <div className="relative mt-16 max-w-4xl mx-auto [perspective:2000px]">
-      {/* Ambient glow behind the preview */}
-      <div className="absolute -inset-x-10 -inset-y-6 bg-gradient-to-r from-sky-200/40 via-indigo-200/40 to-blue-200/40 blur-3xl rounded-[3rem] -z-10" />
+    <div className="relative [perspective:2000px]">
+      {/* Ambient glow behind the preview — this, not a bordered window frame, is what
+          separates the panel from the page background. */}
+      <div className="absolute -inset-x-6 -inset-y-10 bg-gradient-to-br from-sky-200/50 via-indigo-200/40 to-blue-200/50 blur-3xl rounded-[3rem] -z-10" />
 
-      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-2xl shadow-slate-900/10 overflow-hidden transition-transform duration-500 hover:[transform:rotateX(1.5deg)_scale(1.01)]">
-        {/* Fake browser chrome */}
-        <div className="flex items-center gap-1.5 px-4 py-3 border-b border-slate-200/80 bg-slate-50/70">
-          <span className="w-2.5 h-2.5 rounded-full bg-red-300" />
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-300" />
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-300" />
-          <span className="ml-3 text-[11px] font-medium text-slate-400">app.surakshagrid.io/command-center</span>
-        </div>
-
+      <div
+        className="relative rounded-[1.75rem] bg-white/90 backdrop-blur-sm shadow-2xl shadow-slate-900/10 ring-1 ring-slate-200/70 overflow-hidden transition-transform duration-500 [transform:rotateY(-4deg)_rotateX(2deg)] hover:[transform:rotateY(0deg)_rotateX(0deg)]"
+      >
         {/* Mini stat row */}
-        <div className="flex flex-wrap gap-2.5 px-5 py-3.5 border-b border-slate-100 bg-white">
+        <div className="flex flex-wrap gap-2.5 px-5 py-4 border-b border-slate-100 bg-white">
           {[
             { label: 'Monitored Area', value: '42.5 km²', tint: 'bg-sky-50 text-sky-600' },
             { label: 'Active SOS', value: '18', tint: 'bg-amber-50 text-amber-600' },
@@ -182,7 +177,7 @@ function HeroPreviewCard() {
         </div>
 
         {/* Fake map area */}
-        <div className="relative h-72 sm:h-80 bg-[radial-gradient(circle_at_30%_20%,#e0f2fe_0%,transparent_45%),radial-gradient(circle_at_75%_65%,#fee2e2_0%,transparent_40%),#eef2f7] overflow-hidden">
+        <div className="relative h-80 sm:h-96 lg:h-[28rem] bg-[radial-gradient(circle_at_30%_20%,#e0f2fe_0%,transparent_45%),radial-gradient(circle_at_75%_65%,#fee2e2_0%,transparent_40%),#eef2f7] overflow-hidden">
           {/* faint grid */}
           <div
             className="absolute inset-0 opacity-[0.35]"
@@ -321,9 +316,9 @@ function BentoFeatures() {
   ];
 
   return (
-    <section id="features" className="py-24 px-6 scroll-mt-20">
+    <section id="features" className="py-28 px-6 scroll-mt-20">
       <div className="max-w-6xl mx-auto">
-        <div className="max-w-xl mb-14">
+        <div className="max-w-xl mb-16">
           <span className="text-xs font-semibold uppercase tracking-wider text-blue-600">Capabilities</span>
           <h2 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
             One command center, four force multipliers.
@@ -333,7 +328,7 @@ function BentoFeatures() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 md:grid-rows-2 gap-5">
           {tiles.map((tile) => (
             <div
               key={tile.title}
@@ -370,16 +365,16 @@ function HowItWorks() {
   ];
 
   return (
-    <section id="how-it-works" className="py-24 px-6 bg-slate-50/50 border-y border-slate-200/80 scroll-mt-20">
+    <section id="how-it-works" className="py-28 px-6 bg-slate-50/50 border-y border-slate-200/80 scroll-mt-20">
       <div className="max-w-6xl mx-auto">
-        <div className="max-w-xl mb-14">
+        <div className="max-w-xl mb-16">
           <span className="text-xs font-semibold uppercase tracking-wider text-blue-600">How it works</span>
           <h2 className="mt-3 text-3xl sm:text-4xl font-bold tracking-tight text-slate-900">
             From SOS to dispatch, end to end.
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
           {steps.map((step, idx) => (
             <div key={step.title} className="relative pl-12">
               <span className="absolute left-0 top-0 w-8 h-8 rounded-lg bg-slate-900 text-white text-sm font-bold flex items-center justify-center">
@@ -397,8 +392,8 @@ function HowItWorks() {
 
 function FinalCTA() {
   return (
-    <section className="px-6 py-20">
-      <div className="relative max-w-5xl mx-auto rounded-3xl bg-slate-900 overflow-hidden px-8 py-16 sm:px-16 text-center">
+    <section className="px-6 py-28">
+      <div className="relative max-w-5xl mx-auto rounded-3xl bg-slate-900 overflow-hidden px-8 py-20 sm:px-16 text-center">
         <div className="absolute -top-24 -left-24 w-72 h-72 bg-blue-600/30 rounded-full blur-3xl" />
         <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-indigo-500/30 rounded-full blur-3xl" />
 
@@ -504,46 +499,54 @@ export const LandingPage: React.FC = () => {
     >
       <NavBar />
 
-      {/* Hero */}
-      <section className="relative px-6 pt-20 pb-8 sm:pt-28">
-        <div className="absolute inset-x-0 top-0 h-[32rem] bg-[radial-gradient(ellipse_at_top,#dbeafe_0%,transparent_60%)] -z-10" />
+      {/* Hero — split screen: value prop + CTA on the left, dashboard preview floating
+          on the right, bleeding past the content column instead of sitting in a boxed
+          mockup frame. */}
+      <section className="relative overflow-hidden px-6 pt-24 pb-20 sm:pt-32 sm:pb-28 lg:px-12 xl:px-16">
+        <div className="absolute inset-x-0 top-0 h-[40rem] bg-[radial-gradient(ellipse_at_top,#dbeafe_0%,transparent_60%)] -z-10" />
 
-        <div className="max-w-3xl mx-auto text-center">
-          <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200/80 rounded-full px-3 py-1 text-xs font-medium text-slate-600">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            Now with real-time PostGIS risk scoring
+        <div className="max-w-7xl mx-auto grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-16 lg:gap-10 items-center">
+          <div className="text-center lg:text-left">
+            <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200/80 rounded-full px-3 py-1 text-xs font-medium text-slate-600">
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              Now with real-time PostGIS risk scoring
+            </div>
+
+            <h1 className="mt-8 text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-bold tracking-tight text-slate-900 leading-[1.08]">
+              Flood response,
+              <br />
+              <span className="bg-gradient-to-r from-blue-600 to-indigo-500 bg-clip-text text-transparent">
+                orchestrated in real time.
+              </span>
+            </h1>
+
+            <p className="mt-7 text-lg text-slate-500 leading-relaxed max-w-xl mx-auto lg:mx-0">
+              SurakshaGrid fuses live spatial risk modeling, AI-verified citizen reports, and optimized rescue
+              dispatch into one command center — so every unit reaches the right place first.
+            </p>
+
+            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-3.5 rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:-translate-y-0.5"
+              >
+                Get Started
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <a
+                href="#features"
+                className="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-medium text-sm px-6 py-3.5 transition-colors duration-150"
+              >
+                See how it works
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
 
-          <h1 className="mt-6 text-4xl sm:text-6xl font-bold tracking-tight text-slate-900 leading-[1.05]">
-            Flood response,
-            <br />
-            orchestrated in real time.
-          </h1>
-
-          <p className="mt-6 text-lg text-slate-500 leading-relaxed max-w-2xl mx-auto">
-            SurakshaGrid fuses live spatial risk modeling, AI-verified citizen reports, and optimized rescue
-            dispatch into one command center — so every unit reaches the right place first.
-          </p>
-
-          <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:-translate-y-0.5"
-            >
-              Open Command Center
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <a
-              href="#features"
-              className="inline-flex items-center gap-1.5 text-slate-600 hover:text-slate-900 font-medium text-sm px-6 py-3 transition-colors duration-150"
-            >
-              See how it works
-              <ArrowRight className="w-3.5 h-3.5" />
-            </a>
+          <div className="lg:-mr-12 xl:-mr-16">
+            <HeroPreviewPanel />
           </div>
         </div>
-
-        <HeroPreviewCard />
       </section>
 
       <LogoTicker />
