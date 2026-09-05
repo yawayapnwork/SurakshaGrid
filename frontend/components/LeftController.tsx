@@ -74,7 +74,7 @@ export const LeftController: React.FC<LeftControllerProps> = ({
       </div>
 
       {/* 1. What-If Rainfall Slider & Live Mode Switch */}
-      <div className="space-y-3.5 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70">
+      <div className="space-y-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
         {/* Mode Toggle Switch */}
         <div className="flex items-center bg-slate-100 p-1 rounded-lg gap-1">
           <button
@@ -131,7 +131,7 @@ export const LeftController: React.FC<LeftControllerProps> = ({
         </div>
 
         {/* Live Weather Feed Badge */}
-        <div className="pt-2.5 border-t border-slate-200/70">
+        <div className="pt-3 border-t border-slate-200/80">
           <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600 bg-white border border-slate-200/80 px-2.5 py-1.5 rounded-lg">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
             <span className="truncate">
@@ -164,18 +164,19 @@ export const LeftController: React.FC<LeftControllerProps> = ({
         </button>
       </div>
 
-      {/* 3. Run Rescue Dispatch */}
+      {/* 3. Run Rescue Dispatch — the single primary CTA, deliberately the only accent
+          color in an otherwise neutral slate/white panel so it reads as THE action. */}
       <button
         onClick={onRunDispatch}
         disabled={isDispatching}
-        className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-[13px] tracking-wide flex items-center justify-center gap-2 transition-all duration-150 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
+        className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-[13px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-150 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-sm disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/50 focus-visible:ring-offset-2"
       >
         <Play className="w-4 h-4 fill-current" />
         {isDispatching ? 'Solving dispatch assignment…' : 'Run Rescue Dispatch'}
       </button>
 
       {/* 4. Citizen SOS QR Code & Live Mobile Reporting Link */}
-      <div className="space-y-2 bg-slate-50/70 p-3.5 rounded-xl border border-slate-200/70 text-center">
+      <div className="space-y-2 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 text-center">
         <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700">
           <QrCode className="w-3.5 h-3.5 text-slate-400" />
           <span>Scan to file a live SOS report</span>

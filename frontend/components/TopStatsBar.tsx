@@ -33,13 +33,13 @@ const StatCard: React.FC<{
   label: string;
   children: React.ReactNode;
 }> = ({ icon, iconClass, label, children }) => (
-  <div className="flex items-center gap-3 bg-slate-50/70 px-3.5 py-2 rounded-xl border border-slate-200/70">
-    <div className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center ${iconClass}`}>
+  <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-slate-300/80 transition-all duration-200">
+    <div className={`w-9 h-9 shrink-0 rounded-lg flex items-center justify-center ${iconClass}`}>
       {icon}
     </div>
     <div className="leading-tight">
-      <span className="text-[10.5px] font-medium uppercase tracking-wide text-slate-400 block">{label}</span>
-      <span className="text-sm font-semibold text-slate-900 transition-all duration-300">{children}</span>
+      <span className="text-[10.5px] font-semibold uppercase tracking-wider text-slate-400 block">{label}</span>
+      <span className="text-[15px] font-bold text-slate-900 tabular-nums transition-all duration-300">{children}</span>
     </div>
   </div>
 );
@@ -61,7 +61,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
     'flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-xs font-medium text-slate-600 hover:text-slate-900 shadow-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1';
 
   return (
-    <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 text-slate-900 px-6 py-3 flex flex-wrap items-center justify-between gap-3 z-30 relative">
+    <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 text-slate-900 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 z-30 relative shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       {/* Brand Title & Live Status */}
       <div className="flex items-center gap-3">
         <div className="bg-slate-900 text-white p-2 rounded-xl">
@@ -79,20 +79,24 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
       </div>
 
       {/* Stats Counter Grid */}
-      <div className="flex items-center gap-2.5 text-sm">
-        <StatCard icon={<Activity className="w-4 h-4 text-slate-500" />} iconClass="bg-slate-100" label="Monitored Area">
+      <div className="flex items-center gap-3 text-sm">
+        <StatCard icon={<Activity className="w-4 h-4 text-sky-600" />} iconClass="bg-sky-50" label="Monitored Area">
           {monitoredAreaKm2} km²
         </StatCard>
 
-        <StatCard icon={<AlertTriangle className="w-4 h-4 text-slate-500" />} iconClass="bg-slate-100" label="Active SOS">
+        <StatCard
+          icon={<AlertTriangle className="w-4 h-4 text-amber-600" />}
+          iconClass="bg-amber-50"
+          label="Active SOS"
+        >
           {activeSosCount} {criticalCount > 0 && <span className="text-red-600 font-semibold">({criticalCount} critical)</span>}
         </StatCard>
 
-        <StatCard icon={<Navigation className="w-4 h-4 text-slate-500" />} iconClass="bg-slate-100" label="Dispatched Units">
+        <StatCard icon={<Navigation className="w-4 h-4 text-indigo-600" />} iconClass="bg-indigo-50" label="Dispatched Units">
           {dispatchedUnitsCount} Units
         </StatCard>
 
-        <StatCard icon={<Clock className="w-4 h-4 text-slate-500" />} iconClass="bg-slate-100" label="Avg Dispatch ETA">
+        <StatCard icon={<Clock className="w-4 h-4 text-emerald-600" />} iconClass="bg-emerald-50" label="Avg Dispatch ETA">
           {avgEtaMinutes.toFixed(1)} mins
         </StatCard>
       </div>
