@@ -11,6 +11,7 @@ export interface TopStatsBarProps {
   avgEtaMinutes: number;
   isConnected: boolean;
   isReplayMode: boolean;
+  n8nStatus?: 'idle' | 'syncing' | 'live' | 'fallback' | 'error';
   isMuted: boolean;
   onToggleMute: () => void;
   onOpenAARModal?: () => void;
@@ -49,18 +50,40 @@ const StatCard: React.FC<{
   </div>
 );
 
-const ConnectionBadge: React.FC<{ isReplayMode: boolean; isConnected: boolean }> = ({ isReplayMode, isConnected }) =>
-  isReplayMode ? (
-    <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
-      <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
-      Replay Mode
-    </span>
-  ) : (
-    <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 whitespace-nowrap">
-      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConnected ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
-      {isConnected ? 'Live' : 'Connecting…'}
-    </span>
-  );
+const ConnectionBadge: React.FC<{
+  isReplayMode: boolean;
+  isConnected: boolean;
+  n8nStatus?: 'idle' | 'syncing' | 'live' | 'fallback' | 'error';
+}> = ({ isReplayMode, isConnected, n8nStatus }) => (
+  <div className="flex items-center gap-1.5">
+    {isReplayMode ? (
+      <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap">
+        <span className="w-1.5 h-1.5 rounded-full bg-slate-500 shrink-0" />
+        Replay Mode
+      </span>
+    ) : (
+      <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 whitespace-nowrap">
+        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isConnected ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'}`} />
+        {isConnected ? 'WS Live' : 'WS Connecting…'}
+      </span>
+    )}
+
+    {n8nStatus && n8nStatus !== 'idle' && (
+      <span className="hidden xl:flex items-center gap-1.5 text-[11px] font-medium px-2 py-1.5 rounded-lg bg-purple-50 text-purple-700 border border-purple-200/80 whitespace-nowrap">
+        <span
+          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            n8nStatus === 'live'
+              ? 'bg-purple-600'
+              : n8nStatus === 'syncing'
+              ? 'bg-purple-400 animate-ping'
+              : 'bg-amber-500'
+          }`}
+        />
+        {n8nStatus === 'live' ? 'n8n Live' : n8nStatus === 'syncing' ? 'n8n Syncing…' : 'n8n Fallback'}
+      </span>
+    )}
+  </div>
+);
 
 export const TopStatsBar: React.FC<TopStatsBarProps> = ({
   monitoredAreaKm2 = 42.5,
@@ -70,6 +93,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
   avgEtaMinutes,
   isConnected,
   isReplayMode,
+  n8nStatus,
   isMuted,
   onToggleMute,
   onOpenAARModal,
@@ -104,7 +128,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
         {/* Connection badge — mobile/tablet only; the desktop instance lives at the end
             of the actions row below, so this stays out of the way at lg. */}
         <div className="lg:hidden shrink-0">
-          <ConnectionBadge isReplayMode={isReplayMode} isConnected={isConnected} />
+          <ConnectionBadge isReplayMode={isReplayMode} isConnected={isConnected} n8nStatus={n8nStatus} />
         </div>
 
         {/* Stats — full-width block below `lg` (forces its own line when wrapped),
@@ -237,7 +261,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
           <div className="hidden lg:block w-px h-5 bg-slate-200 mx-0.5" />
 
           <div className="hidden lg:block">
-            <ConnectionBadge isReplayMode={isReplayMode} isConnected={isConnected} />
+            <ConnectionBadge isReplayMode={isReplayMode} isConnected={isConnected} n8nStatus={n8nStatus} />
           </div>
         </div>
       </div>

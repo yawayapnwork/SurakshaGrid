@@ -16,6 +16,7 @@ import { useAnimatedRouteProgress } from '@/hooks/useAnimatedRouteProgress';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useDemoTour } from '@/hooks/useDemoTour';
 import { useLiveRainfall } from '@/hooks/useLiveRainfall';
+import { useN8nLiveFeed } from '@/hooks/useN8nLiveFeed';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import {
   fetchActiveSOSReports,
@@ -118,11 +119,44 @@ export default function DashboardPage() {
   // set, the risk grid / flood zone simulation re-centers on it instead of Chennai.
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
 
-  // Polls the live rainfall reading nearest to userLocation (see useLiveRainfall) — the
-  // authoritative, region-aware source for the "Live Feed" ticker and mode=live risk
-  // grid, replacing the old approach of only ever reflecting whatever the last global
-  // WebSocket broadcast said regardless of where this client's map was looking.
+  // Polls the live rainfall reading nearest to userLocation (see useLiveRainfall)
   const liveWeatherInfo = useLiveRainfall(userLocation, riskMode === 'live', rainfallRefreshTrigger);
+
+  // 1.5 n8n Webhook Live Feed Integration (polls yayaworks.app.n8n.cloud every 15s)
+  const n8nFeed = useN8nLiveFeed(!isReplayMode);
+
+  // Sync n8n live feed state into dashboard when live data is received from n8n webhooks
+  useEffect(() => {
+    if (n8nFeed.isLive) {
+      if (n8nFeed.sosReports.length > 0) {
+        setSosReports((prev) => {
+          const merged = new Map(prev.map((r) => [r.id, r]));
+          for (const report of n8nFeed.sosReports) {
+            merged.set(report.id, { ...merged.get(report.id), ...report });
+          }
+          return Array.from(merged.values());
+        });
+      }
+
+      if (n8nFeed.dispatchQueue.length > 0) {
+        setDispatchAssignments((prev) => mergeDispatchAssignments(prev, n8nFeed.dispatchQueue));
+      }
+
+      if (n8nFeed.rescueUnits.length > 0) {
+        setRescueUnits((prev) => {
+          const merged = new Map(prev.map((u) => [u.id, u]));
+          for (const unit of n8nFeed.rescueUnits) {
+            merged.set(unit.id, { ...merged.get(unit.id), ...unit });
+          }
+          return Array.from(merged.values());
+        });
+      }
+
+      if (n8nFeed.telemetry) {
+        setRainfall(n8nFeed.telemetry.rainfall_intensity);
+      }
+    }
+  }, [n8nFeed.isLive, n8nFeed.sosReports, n8nFeed.dispatchQueue, n8nFeed.rescueUnits, n8nFeed.telemetry]);
 
   // Load sound mute preference and active sim_id on client mount.
   // localStorage/sessionStorage don't exist during SSR, so this can only run
@@ -610,6 +644,7 @@ export default function DashboardPage() {
         avgEtaMinutes={avgEtaMinutes}
         isConnected={isConnected}
         isReplayMode={isReplayMode}
+        n8nStatus={n8nFeed.syncStatus}
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
         onOpenAARModal={() => setIsAARModalOpen(true)}
