@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AlertCircle, Globe, Mic, MicOff, Volume2 } from 'lucide-react';
+import { VoiceSOSRecorder } from '@/components/VoiceSOSRecorder';
 
 interface VoiceToTextInputProps {
   value: string;
@@ -200,6 +201,14 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
           <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
           Listening ({SUPPORTED_LANGUAGES.find((l) => l.code === selectedLang)?.label})... Speak clearly.
         </div>
+      )}
+
+      {/* Fallback for browsers without the Web Speech API (Firefox, Safari, etc.):
+          server-side Whisper transcription instead of live in-browser recognition. */}
+      {!isSupported && (
+        <VoiceSOSRecorder
+          onTranscript={(text) => onChange(value ? `${value} ${text}` : text)}
+        />
       )}
     </div>
   );

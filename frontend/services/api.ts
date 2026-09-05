@@ -1,4 +1,13 @@
-import { DispatchAssignment, EventLog, FloodZoneCollection, LiveAnalyticsStats, RiskGridCollection, SOSReport } from '@/types';
+import {
+  DispatchAssignment,
+  EventLog,
+  FloodZoneCollection,
+  LiveAnalyticsStats,
+  PhotoVerificationResult,
+  ReportTranslationResult,
+  RiskGridCollection,
+  SOSReport,
+} from '@/types';
 
 const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
@@ -117,6 +126,45 @@ export async function transcribeVoiceSOS(audioBlob: Blob): Promise<{
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.detail || `Failed to transcribe audio: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// Note: Must stay in sync with backend POST /api/verify-photo (multipart field "image")
+export async function verifyPhoto(image: Blob | File): Promise<PhotoVerificationResult> {
+  const formData = new FormData();
+  if (image instanceof File) {
+    formData.append('image', image);
+  } else {
+    const extension = image.type.includes('png') ? 'png' : image.type.includes('webp') ? 'webp' : 'jpg';
+    formData.append('image', image, `evidence.${extension}`);
+  }
+
+  const res = await fetch(`${API_BASE_URL}/api/verify-photo`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to verify photo: ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// Note: Must stay in sync with backend POST /api/translate-report (JSON body: text, source_lang, target_lang)
+export async function translateReportText(
+  text: string,
+  sourceLang: string,
+  targetLang: string
+): Promise<ReportTranslationResult> {
+  const res = await fetch(`${API_BASE_URL}/api/translate-report`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, source_lang: sourceLang, target_lang: targetLang }),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to translate report text: ${res.statusText}`);
   }
   return res.json();
 }

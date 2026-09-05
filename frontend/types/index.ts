@@ -131,3 +131,15 @@ export interface LiveAnalyticsStats {
   total_units_count: number;
   avg_eta_minutes: number;
 }
+
+export interface PhotoVerificationResult {
+  verified: boolean;
+  confidence: number;
+  summary: string;
+}
+
+export interface ReportTranslationResult {
+  translated_text: string;
+  source_lang: string;
+  target_lang: string;
+}
