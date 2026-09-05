@@ -35,6 +35,26 @@ const MapContainer = dynamic(
   { ssr: false }
 );
 
+// Merges new/updated assignments into the existing list, keyed by sos_id (one report is
+// assigned to at most one unit at a time). Needed because dispatch assignments arrive
+// from two independent paths that can both fire for the same assignment: the REST
+// response from POST /api/v1/dispatch/optimize, and the UNIT_DISPATCHED WebSocket
+// broadcast the backend sends for every assignment in that same optimizer run. Replacing
+// the array outright (the REST path's old behavior) silently dropped every prior dispatch
+// round's assignments from the queue/map/AAR report the next time dispatch ran; a blind
+// prepend (the WS path's old behavior) then double-counted whichever assignments arrived
+// through both paths. Merging by sos_id fixes both at once.
+function mergeDispatchAssignments(
+  prev: DispatchAssignment[],
+  incoming: DispatchAssignment[]
+): DispatchAssignment[] {
+  const bySosId = new Map(prev.map((a) => [a.sos_id, a]));
+  for (const assignment of incoming) {
+    bySosId.set(assignment.sos_id, assignment);
+  }
+  return Array.from(bySosId.values());
+}
+
 export default function DashboardPage() {
   // 1. Dashboard State
   const [rainfall, setRainfall] = useState<number>(0);
@@ -221,7 +241,7 @@ export default function DashboardPage() {
           assigned_at: data.assigned_at || new Date().toISOString(),
         };
 
-        setDispatchAssignments((prev) => [assignment, ...prev]);
+        setDispatchAssignments((prev) => mergeDispatchAssignments(prev, [assignment]));
 
         // Update unit status to DISPATCHED
         setRescueUnits((prev) =>
@@ -350,7 +370,7 @@ export default function DashboardPage() {
     setIsDispatching(true);
     try {
       const assignments = await triggerOptimizeDispatch(activeSimId || undefined);
-      setDispatchAssignments(assignments);
+      setDispatchAssignments((prev) => mergeDispatchAssignments(prev, assignments));
 
       if (assignments.length > 0) {
         const assignedSosIds = new Set(assignments.map((a) => a.sos_id));
