@@ -53,6 +53,35 @@ def extract_coordinates(geom: Any) -> tuple[float, float]:
     return (80.2707, 13.0827)
 
 
+def extract_coordinates_or_none(geom: Any) -> tuple[float, float] | None:
+    """Like `extract_coordinates`, but returns None instead of a fabricated fallback point
+
+    when coordinates can't be parsed. Used by the dispatch optimizer, where silently
+    substituting a fake coordinate would send a rescue unit to the wrong place — worse
+    than excluding that report/unit from this dispatch round.
+    """
+    if geom is None:
+        return None
+    if hasattr(geom, "x") and hasattr(geom, "y"):
+        return (float(geom.x), float(geom.y))
+    if hasattr(geom, "data") or hasattr(geom, "srid") or hasattr(geom, "desc"):
+        try:
+            shape = to_shape(geom)
+            return (float(shape.x), float(shape.y))
+        except Exception:
+            pass
+    val_str = str(geom)
+    if "POINT" in val_str:
+        clean_str = val_str.split(";")[-1].replace("POINT(", "").replace(")", "").strip()
+        parts = clean_str.split()
+        if len(parts) >= 2:
+            try:
+                return (float(parts[0]), float(parts[1]))
+            except ValueError:
+                return None
+    return None
+
+
 def haversine_distance_meters(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Calculates great-circle distance between two points in meters using Haversine formula."""
     r = 6371000.0  # Radius of Earth in meters
@@ -193,9 +222,39 @@ async def optimize_rescue_dispatch(
         logger.info("Dispatch optimizer skipped: no pending SOS reports or available rescue units")
         return []
 
-    # 3. Extract coordinates
-    unit_coords = [extract_coordinates(u.current_location) for u in available_units]
-    incident_coords = [extract_coordinates(r.location) for r in pending_reports]
+    # 3. Extract coordinates, excluding any report/unit whose location geometry can't be
+    # parsed. Fabricating a fallback coordinate here (as extract_coordinates does for
+    # other callers) would silently send a rescue unit to the wrong place instead of
+    # failing loudly, so this dispatch round just skips that record.
+    usable_units: list[RescueUnit] = []
+    unit_coords: list[tuple[float, float]] = []
+    for unit in available_units:
+        coords = extract_coordinates_or_none(unit.current_location)
+        if coords is None:
+            logger.warning(f"Excluding rescue unit {unit.id} ('{unit.name}') from dispatch: unparseable location")
+            continue
+        usable_units.append(unit)
+        unit_coords.append(coords)
+
+    usable_reports: list[SOSReport] = []
+    incident_coords: list[tuple[float, float]] = []
+    for report in pending_reports:
+        coords = extract_coordinates_or_none(report.location)
+        if coords is None:
+            logger.warning(f"Excluding SOS report {report.id} from dispatch: unparseable location")
+            continue
+        usable_reports.append(report)
+        incident_coords.append(coords)
+
+    available_units = usable_units
+    pending_reports = usable_reports
+
+    if not pending_reports or not available_units:
+        logger.warning(
+            "Dispatch optimizer skipped: every pending SOS report or available rescue unit "
+            "had an unparseable location after filtering"
+        )
+        return []
 
     # 4. Compute duration matrix (ETA in seconds): Tier 1 OSRM -> Tier 2 Batched PostGIS ST_Distance -> Tier 3 Haversine
     duration_matrix = await fetch_osrm_duration_matrix(unit_coords, incident_coords)
@@ -221,7 +280,15 @@ async def optimize_rescue_dispatch(
             multiplier = 1.0 - urgency_trust_weights[j]
             cost_matrix[i, j] = eta_minutes * multiplier
 
-    # 6. Solve optimal global assignments using SciPy linear_sum_assignment (Hungarian Algorithm)
+    # 6. Solve optimal global assignments using SciPy linear_sum_assignment (Hungarian Algorithm).
+    # linear_sum_assignment raises an opaque ValueError on NaN/Inf input, so validate first
+    # and turn any occurrence into a clear, logged error instead.
+    if not np.all(np.isfinite(cost_matrix)):
+        raise ValueError(
+            "Computed dispatch cost matrix contains invalid (NaN/Inf) values; "
+            "cannot solve rescue assignment for this round."
+        )
+
     row_indices, col_indices = linear_sum_assignment(cost_matrix)
 
     assignments: list[DispatchAssignment] = []
