@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { action, sim_id, to, message, priority } = body;
+    const { action, sim_id, to, message, priority, sos_id } = body;
 
     const apiBaseUrl = (
       process.env.NEXT_PUBLIC_API_URL ||
@@ -82,6 +82,13 @@ export async function POST(request: Request) {
       // (SMSAlertRequest: to, message, priority).
       endpointPath = '/api/alerts/send-sms';
       backendBody = JSON.stringify({ to, message, priority });
+    } else if (action === 'resolve-sos') {
+      if (!sos_id) {
+        return NextResponse.json({ error: "Missing 'sos_id' for resolve-sos action" }, { status: 400 });
+      }
+      // Note: Must stay in sync with backend POST /api/v1/sos/{id}/resolve (path param,
+      // no request body).
+      endpointPath = `/api/v1/sos/${encodeURIComponent(sos_id)}/resolve`;
     } else {
       return NextResponse.json({ error: 'Invalid officer action' }, { status: 400 });
     }

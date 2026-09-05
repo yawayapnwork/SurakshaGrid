@@ -169,3 +169,22 @@ export interface SMSAlertResponse {
   failed_count: number;
   results: SMSAlertRecipientResult[];
 }
+
+export interface RouteStep {
+  instruction: string;
+  distance_meters: number;
+  duration_seconds: number;
+  maneuver_type: string;
+  maneuver_modifier: string | null;
+  road_name: string | null;
+}
+
+export interface DispatchRoute {
+  geometry: {
+    type: 'LineString';
+    coordinates: [number, number][];
+  };
+  distance_meters: number;
+  duration_seconds: number;
+  steps: RouteStep[];
+}

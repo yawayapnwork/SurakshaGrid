@@ -1,5 +1,6 @@
 import {
   DispatchAssignment,
+  DispatchRoute,
   EventLog,
   FloodZoneCollection,
   LiveAnalyticsStats,
@@ -29,6 +30,16 @@ export interface GridCenter {
 async function throwApiError(res: Response, fallbackAction: string): Promise<never> {
   const errorData = await res.json().catch(() => ({}));
   throw new Error(errorData.detail || errorData.error || `${fallbackAction}: ${res.statusText || `HTTP ${res.status}`}`);
+}
+
+// Note: Must stay in sync with backend GET /api/v1/dispatch/route
+export async function fetchDispatchRoute(rescueUnitId: string, sosId: string): Promise<DispatchRoute> {
+  const url = `${API_BASE_URL}/api/v1/dispatch/route?rescue_unit_id=${encodeURIComponent(
+    rescueUnitId
+  )}&sos_id=${encodeURIComponent(sosId)}`;
+  const res = await fetch(url);
+  if (!res.ok) return throwApiError(res, 'Failed to fetch dispatch route');
+  return res.json();
 }
 
 // Note: Must stay in sync with backend GET /api/v1/sos/active
@@ -120,6 +131,18 @@ export async function sendSMSAlert(
     body: JSON.stringify({ action: 'send-sms', to, message, priority }),
   });
   if (!res.ok) return throwApiError(res, 'Failed to send SMS alert');
+  return res.json();
+}
+
+// Note: Must stay in sync with backend POST /api/v1/sos/{id}/resolve, proxied through
+// /api/officer-action since that endpoint requires officer JWT auth.
+export async function resolveSOSReport(sosId: string): Promise<SOSReport> {
+  const res = await fetch('/api/officer-action', {
+    method: 'POST',
+    headers: OFFICER_SESSION_HEADERS,
+    body: JSON.stringify({ action: 'resolve-sos', sos_id: sosId }),
+  });
+  if (!res.ok) return throwApiError(res, 'Failed to mark SOS report resolved');
   return res.json();
 }
 

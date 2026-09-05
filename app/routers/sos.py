@@ -8,10 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
+from app.core.deps import get_current_officer
 from app.core.rate_limiter import check_sos_rate_limit
 from app.db.session import get_db
-from app.models.enums import SOSSeverity, SOSStatus
+from app.models.dispatch_assignment import DispatchAssignmentModel
+from app.models.enums import RescueUnitStatus, SOSSeverity, SOSStatus
 from app.models.event_log import EventLog
+from app.models.rescue_unit import RescueUnit
 from app.models.sos_confirmation import SOSConfirmation
 from app.models.sos_report import SOSReport
 from app.schemas.sos_confirmation import SOSConfirmationRead
@@ -264,6 +267,62 @@ async def confirm_sos_report(
         )
 
     return SOSConfirmationRead.model_validate(confirmation)
+
+
+@router.post(
+    "/sos/{id}/resolve",
+    response_model=SOSReportRead,
+    status_code=status.HTTP_200_OK,
+    summary="Mark an SOS report resolved (e.g. 'Mark as Arrived') and free its dispatched rescue unit",
+)
+async def resolve_sos_report(
+    id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    officer: dict = Depends(get_current_officer),
+) -> SOSReportRead:
+    """Sets the report RESOLVED and, if a rescue unit is currently dispatched to it (per
+
+    the latest dispatch_assignments row), returns that unit to AVAILABLE so the next
+    optimizer run can redeploy it. Gated behind officer auth since this is a dispatch
+    lifecycle action, not a citizen-facing one.
+    """
+    result = await db.execute(select(SOSReport).where(SOSReport.id == id))
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"SOS report with id '{id}' not found")
+
+    report.status = SOSStatus.RESOLVED
+
+    assignment_result = await db.execute(
+        select(DispatchAssignmentModel)
+        .where(DispatchAssignmentModel.sos_id == id)
+        .order_by(DispatchAssignmentModel.assigned_at.desc())
+        .limit(1)
+    )
+    assignment = assignment_result.scalar_one_or_none()
+
+    freed_unit_id: uuid.UUID | None = None
+    if assignment is not None:
+        unit_result = await db.execute(select(RescueUnit).where(RescueUnit.id == assignment.rescue_unit_id))
+        unit = unit_result.scalar_one_or_none()
+        if unit is not None and unit.status == RescueUnitStatus.DISPATCHED:
+            unit.status = RescueUnitStatus.AVAILABLE
+            freed_unit_id = unit.id
+
+    event = EventLog(
+        event_type="SOS_RESOLVED",
+        payload={"sos_id": str(report.id), "freed_rescue_unit_id": str(freed_unit_id) if freed_unit_id else None},
+    )
+    db.add(event)
+    await db.commit()
+    await db.refresh(report)
+
+    await ws_manager.publish(
+        "SOS_RESOLVED",
+        {"sos_id": str(report.id), "freed_rescue_unit_id": str(freed_unit_id) if freed_unit_id else None},
+    )
+
+    return SOSReportRead.model_validate(report)
 
 
 @router.get(

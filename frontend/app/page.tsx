@@ -8,23 +8,27 @@ import { RightDispatchQueue } from '@/components/RightDispatchQueue';
 import { RiskCardModal } from '@/components/RiskCardModal';
 import { ReplayScrubber } from '@/components/ReplayScrubber';
 import { BroadcastSMSModal } from '@/components/BroadcastSMSModal';
+import { DispatchNavigationCard } from '@/components/DispatchNavigationCard';
 import { ExportAARModal } from '@/components/ExportAARModal';
 import { playTwoToneEmergencyAlert } from '@/components/AudioAlertManager';
+import { useAnimatedRouteProgress } from '@/hooks/useAnimatedRouteProgress';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useDemoTour } from '@/hooks/useDemoTour';
 import { useLiveRainfall } from '@/hooks/useLiveRainfall';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import {
   fetchActiveSOSReports,
+  fetchDispatchRoute,
   fetchLiveAnalyticsStats,
   fetchReplayEvents,
   fetchSimulatedFloodZones,
   fetchSimulatedRiskScores,
   resetSimulationScenario,
+  resolveSOSReport,
   triggerOptimizeDispatch,
   triggerSimulationScenario,
 } from '@/services/api';
-import { DispatchAssignment, EventLog, EventPayload, FloodZoneCollection, LiveAnalyticsStats, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
+import { DispatchAssignment, DispatchRoute, EventLog, EventPayload, FloodZoneCollection, LiveAnalyticsStats, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
 import { CheckCircle, Info, X } from 'lucide-react';
 
 import { MapErrorBoundary } from '@/components/MapErrorBoundary';
@@ -73,6 +77,13 @@ export default function DashboardPage() {
   const [analyticsStats, setAnalyticsStats] = useState<LiveAnalyticsStats | null>(null);
 
   const [selectedRiskCell, setSelectedRiskCell] = useState<RiskFeatureProperties | null>(null);
+
+  // Focused Dispatch Navigation State (Blinkit/Uber-style nav card + live route)
+  const [focusedAssignment, setFocusedAssignment] = useState<DispatchAssignment | null>(null);
+  const [focusedRoute, setFocusedRoute] = useState<DispatchRoute | null>(null);
+  const [focusedRouteError, setFocusedRouteError] = useState<string | null>(null);
+  const [isLoadingFocusedRoute, setIsLoadingFocusedRoute] = useState(false);
+  const [isMarkingArrived, setIsMarkingArrived] = useState(false);
 
   const [isDispatching, setIsDispatching] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
@@ -396,6 +407,79 @@ export default function DashboardPage() {
     }
   };
 
+  // Focused Dispatch Navigation: fetch the real OSRM route whenever a different
+  // assignment is focused (clicked in RightDispatchQueue); cleared when focus closes.
+  useEffect(() => {
+    if (!focusedAssignment) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing derived route state when the nav card closes, no render-time alternative
+      setFocusedRoute(null);
+      setFocusedRouteError(null);
+      return;
+    }
+    let isSubscribed = true;
+    setIsLoadingFocusedRoute(true);
+    setFocusedRouteError(null);
+
+    fetchDispatchRoute(focusedAssignment.rescue_unit_id, focusedAssignment.sos_id)
+      .then((route) => {
+        if (isSubscribed) setFocusedRoute(route);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch dispatch route:', err);
+        if (isSubscribed) {
+          setFocusedRoute(null);
+          setFocusedRouteError(err instanceof Error ? err.message : 'Route unavailable.');
+        }
+      })
+      .finally(() => {
+        if (isSubscribed) setIsLoadingFocusedRoute(false);
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [focusedAssignment]);
+
+  // Simulated live progress along the fetched route (see useAnimatedRouteProgress for
+  // why this is client-side time-based simulation rather than a real GPS feed).
+  const focusedRouteProgress = useAnimatedRouteProgress(focusedRoute);
+
+  const handleCloseNavigation = () => {
+    setFocusedAssignment(null);
+  };
+
+  const handleMarkArrived = async () => {
+    if (!focusedAssignment) return;
+    setIsMarkingArrived(true);
+    try {
+      await resolveSOSReport(focusedAssignment.sos_id);
+      setSosReports((prev) =>
+        prev.map((r) => (r.id === focusedAssignment.sos_id ? { ...r, status: 'RESOLVED' } : r))
+      );
+      setRescueUnits((prev) =>
+        prev.map((u) => (u.id === focusedAssignment.rescue_unit_id ? { ...u, status: 'AVAILABLE' } : u))
+      );
+      showToast(`${focusedAssignment.unit_name} marked arrived. Incident resolved.`, 'success');
+      setFocusedAssignment(null);
+    } catch (err) {
+      console.error('Failed to mark SOS report resolved:', err);
+      showToast(err instanceof Error ? err.message : 'Failed to mark as arrived.', 'info');
+    } finally {
+      setIsMarkingArrived(false);
+    }
+  };
+
+  // Neither of these has a real backend counterpart yet (no per-unit status enum beyond
+  // AVAILABLE/DISPATCHED/MAINTENANCE, and no unit phone/contact field), so they're UI
+  // affordances that surface a toast rather than silently doing nothing.
+  const handleUpdateStatus = () => {
+    showToast('Status updates are not wired to a backend yet — coming soon.', 'info');
+  };
+
+  const handleCallDispatcher = () => {
+    showToast('Dispatcher calling is not wired to a backend yet — coming soon.', 'info');
+  };
+
   // 7. Toggle Replay Mode & Load Timeline Events
   const handleToggleReplayMode = async (active: boolean) => {
     setIsReplayMode(active);
@@ -587,13 +671,15 @@ export default function DashboardPage() {
                 dispatchAssignments={dispatchAssignments}
                 onSelectRiskCell={setSelectedRiskCell}
                 onLocationResolved={setUserLocation}
+                activeRouteGeometry={focusedRoute?.geometry ?? null}
+                animatedUnitPosition={focusedRouteProgress.position}
               />
             </MapErrorBoundary>
           </div>
 
           {/* 4. Right Live Dispatch Queue — queue column */}
           <div className="lg:col-span-3 lg:h-full lg:min-h-0">
-            <RightDispatchQueue assignments={dispatchAssignments} />
+            <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
           </div>
 
           {/* 5. Replay Time-Scrubber — its own full-width row below the grid columns */}
@@ -630,6 +716,23 @@ export default function DashboardPage() {
         onClose={() => setIsSMSModalOpen(false)}
         onToast={showToast}
       />
+
+      {/* 8. Blinkit/Uber-style Floating Dispatch Navigation Card */}
+      {focusedAssignment && (
+        <DispatchNavigationCard
+          assignment={focusedAssignment}
+          sosReport={sosReports.find((r) => r.id === focusedAssignment.sos_id)}
+          route={focusedRoute}
+          routeError={focusedRouteError}
+          isLoadingRoute={isLoadingFocusedRoute}
+          progress={focusedRouteProgress}
+          onClose={handleCloseNavigation}
+          onMarkArrived={handleMarkArrived}
+          onUpdateStatus={handleUpdateStatus}
+          onCallDispatcher={handleCallDispatcher}
+          isMarkingArrived={isMarkingArrived}
+        />
+      )}
     </main>
   );
 }

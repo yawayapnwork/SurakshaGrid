@@ -15,6 +15,13 @@ interface MapContainerProps {
   /** Called once the viewer's real device location resolves, so the parent can re-center
    *  the risk grid / flood zone data on it instead of leaving it fixed on Chennai. */
   onLocationResolved?: (location: { lat: number; lon: number }) => void;
+  /** Real OSRM road geometry for the currently-focused dispatch assignment (see
+   *  DispatchNavigationCard), rendered as a highlighted primary route on top of the
+   *  plain straight dispatch-assignment lines. Null clears it. */
+  activeRouteGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
+  /** Simulated live position along that route (see useAnimatedRouteProgress). Null hides
+   *  the animated unit marker. */
+  animatedUnitPosition?: [number, number] | null;
 }
 
 export const MapContainer: React.FC<MapContainerProps> = ({
@@ -25,11 +32,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   dispatchAssignments,
   onSelectRiskCell,
   onLocationResolved,
+  activeRouteGeometry,
+  animatedUnitPosition,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
   const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const animatedUnitMarkerRef = useRef<maplibregl.Marker | null>(null);
 
   // Chennai / Flood Monitoring Zone — used as the initial center and as the fallback
   // whenever geolocation is denied, unsupported, or times out.
@@ -154,6 +164,40 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         },
       });
 
+      // 2b. Active Route Source & Layers — the real OSRM road geometry for whichever
+      // dispatch assignment is currently focused in DispatchNavigationCard, drawn as a
+      // highlighted "primary route" (Blinkit/Uber style: a dark casing underneath a
+      // vivid colored line, both round-capped/joined) on top of the plain straight
+      // dispatch-assignment lines above.
+      map.addSource('active-route-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+
+      map.addLayer({
+        id: 'active-route-casing',
+        type: 'line',
+        source: 'active-route-source',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#0f172a',
+          'line-width': 7,
+          'line-opacity': 0.35,
+        },
+      });
+
+      map.addLayer({
+        id: 'active-route-line',
+        type: 'line',
+        source: 'active-route-source',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#2563eb',
+          'line-width': 4.5,
+          'line-opacity': 0.95,
+        },
+      });
+
       // 3. Risk Grid Polygon Click Listener for Explainable Risk Card
       map.on('click', 'risk-grid-fill', (e: maplibregl.MapLayerMouseEvent) => {
         if (e.features && e.features.length > 0) {
@@ -228,6 +272,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     return () => {
       userLocationMarkerRef.current?.remove();
       userLocationMarkerRef.current = null;
+      animatedUnitMarkerRef.current?.remove();
+      animatedUnitMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
     };
@@ -303,6 +349,47 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       features: routeFeatures,
     });
   }, [dispatchAssignments, sosReports, rescueUnits]);
+
+  // Hot-swap the highlighted active-route polyline when the focused assignment's route
+  // (re)loads or is cleared.
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const source = mapRef.current.getSource('active-route-source') as maplibregl.GeoJSONSource;
+    if (!source) return;
+
+    source.setData(
+      activeRouteGeometry
+        ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: activeRouteGeometry, properties: {} }] }
+        : { type: 'FeatureCollection', features: [] }
+    );
+  }, [activeRouteGeometry]);
+
+  // Move the animated unit marker to its simulated live position (see
+  // useAnimatedRouteProgress) each time it updates, creating it on first use and
+  // removing it once the nav card closes (animatedUnitPosition becomes null).
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    if (!animatedUnitPosition) {
+      animatedUnitMarkerRef.current?.remove();
+      animatedUnitMarkerRef.current = null;
+      return;
+    }
+
+    if (!animatedUnitMarkerRef.current) {
+      const el = document.createElement('div');
+      el.className = 'relative flex items-center justify-center';
+      el.innerHTML = `
+        <div class="absolute w-8 h-8 rounded-full bg-blue-500 opacity-30"></div>
+        <div class="relative w-7 h-7 rounded-full bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/></svg>
+        </div>
+      `;
+      animatedUnitMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat(animatedUnitPosition).addTo(mapRef.current);
+    } else {
+      animatedUnitMarkerRef.current.setLngLat(animatedUnitPosition);
+    }
+  }, [animatedUnitPosition]);
 
   // Render SOS Report Markers & Rescue Unit Markers with Visual Urgency State Machine
   useEffect(() => {
