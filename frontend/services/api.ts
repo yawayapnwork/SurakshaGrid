@@ -6,6 +6,8 @@ import {
   PhotoVerificationResult,
   ReportTranslationResult,
   RiskGridCollection,
+  SMSAlertPriority,
+  SMSAlertResponse,
   SOSReport,
 } from '@/types';
 
@@ -86,6 +88,22 @@ export async function triggerOptimizeDispatch(simId?: string): Promise<DispatchA
     body: JSON.stringify({ action: 'optimize', sim_id: simId }),
   });
   if (!res.ok) return throwApiError(res, 'Failed to trigger dispatch');
+  return res.json();
+}
+
+// Note: Must stay in sync with backend POST /api/alerts/send-sms (SMSAlertRequest), proxied
+// through /api/officer-action since that endpoint requires officer JWT auth.
+export async function sendSMSAlert(
+  to: string[],
+  message: string,
+  priority: SMSAlertPriority = 'medium'
+): Promise<SMSAlertResponse> {
+  const res = await fetch('/api/officer-action', {
+    method: 'POST',
+    headers: OFFICER_SESSION_HEADERS,
+    body: JSON.stringify({ action: 'send-sms', to, message, priority }),
+  });
+  if (!res.ok) return throwApiError(res, 'Failed to send SMS alert');
   return res.json();
 }
 

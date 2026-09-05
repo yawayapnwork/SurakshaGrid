@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, AlertTriangle, Clock, FileText, Navigation, Pause, Play, QrCode, ShieldCheck, Square, Volume2, VolumeX } from 'lucide-react';
+import { Activity, AlertTriangle, Clock, FileText, MessageSquareWarning, Navigation, Pause, Play, QrCode, ShieldCheck, Square, Volume2, VolumeX } from 'lucide-react';
 
 export interface TopStatsBarProps {
   monitoredAreaKm2?: number;
@@ -14,6 +14,7 @@ export interface TopStatsBarProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onOpenAARModal?: () => void;
+  onOpenSMSModal?: () => void;
   demoState?: {
     isRunning: boolean;
     isPaused: boolean;
@@ -72,6 +73,7 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
   isMuted,
   onToggleMute,
   onOpenAARModal,
+  onOpenSMSModal,
   demoState,
 }) => {
   const ghostBtn =
@@ -190,6 +192,14 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
             <button onClick={onOpenAARModal} className={ghostBtn}>
               <FileText className="w-4 h-4 text-slate-400 shrink-0" />
               <span className="hidden sm:inline">Export AAR</span>
+            </button>
+          )}
+
+          {/* Broadcast SMS Alert Button */}
+          {onOpenSMSModal && (
+            <button onClick={onOpenSMSModal} className={ghostBtn}>
+              <MessageSquareWarning className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="hidden sm:inline">Broadcast SMS</span>
             </button>
           )}
 

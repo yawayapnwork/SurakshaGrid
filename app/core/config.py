@@ -34,6 +34,20 @@ class Settings(BaseSettings):
     N8N_SOS_WEBHOOK_URL: str | None = Field(default=None)
     N8N_SCENARIO_WEBHOOK_URL: str | None = Field(default=None)
 
+    # Twilio credentials for direct SMS alerting (POST /api/alerts/send-sms, and the
+    # automated critical-SOS / dispatch-confirmation broadcasts below). Optional — SMS
+    # alerting is simply disabled wherever any of these three is unset.
+    TWILIO_ACCOUNT_SID: str | None = Field(default=None)
+    TWILIO_AUTH_TOKEN: str | None = Field(default=None)
+    TWILIO_PHONE_NUMBER: str | None = Field(default=None)
+
+    # Comma-separated E.164 phone numbers (e.g. "+919876543210,+14155552671") of
+    # registered dispatchers/responders who automatically receive an SMS when a
+    # CRITICAL_TRAPPED SOS report is filed or a rescue dispatch round completes. Empty
+    # disables the *automatic* broadcasts only — the on-demand /alerts/send-sms endpoint
+    # still works against whatever recipients a caller supplies.
+    DISPATCHER_ALERT_PHONE_NUMBERS: Annotated[list[str], NoDecode] = Field(default_factory=list)
+
     VLM_MODEL_ID: str = Field(default="vikhyatk/moondream2")
     VLM_MODEL_REVISION: str = Field(default="2024-08-26")
 
@@ -64,6 +78,18 @@ class Settings(BaseSettings):
         if isinstance(value, list):
             return [str(origin).strip() for origin in value if str(origin).strip()]
         raise ValueError("CORS_ORIGINS must be a comma-separated string or a list of strings")
+
+    @field_validator("DISPATCHER_ALERT_PHONE_NUMBERS", mode="before")
+    @classmethod
+    def _parse_dispatcher_alert_phone_numbers(cls, value: object) -> list[str]:
+        """Accept a comma-separated string (as set on Render) or a JSON/native list."""
+        if value is None or value == "":
+            return []
+        if isinstance(value, str):
+            return [number.strip() for number in value.split(",") if number.strip()]
+        if isinstance(value, list):
+            return [str(number).strip() for number in value if str(number).strip()]
+        raise ValueError("DISPATCHER_ALERT_PHONE_NUMBERS must be a comma-separated string or a list of strings")
 
     @field_validator("DATABASE_URL")
     @classmethod

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from app.api.health import router as health_router
 from app.core.config import get_settings
 from app.db.session import engine
+from app.routers.alerts import router as alerts_router
 from app.routers.analytics import router as analytics_router
 from app.routers.audio_transcription import router as audio_transcription_router
 from app.routers.auth import router as auth_router
@@ -93,6 +94,7 @@ app.include_router(photo_verification_router, prefix="/api")
 app.include_router(audio_transcription_router, prefix="/api")
 app.include_router(report_translation_router, prefix="/api")
 app.include_router(speech_synthesis_router, prefix="/api")
+app.include_router(alerts_router, prefix="/api")
 app.include_router(ws_router)
 
 

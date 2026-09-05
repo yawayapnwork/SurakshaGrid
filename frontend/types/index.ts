@@ -143,3 +143,19 @@ export interface ReportTranslationResult {
   source_lang: string;
   target_lang: string;
 }
+
+export type SMSAlertPriority = 'low' | 'medium' | 'high' | 'critical';
+
+export interface SMSAlertRecipientResult {
+  to: string;
+  sent: boolean;
+  error: string | null;
+}
+
+export interface SMSAlertResponse {
+  priority: SMSAlertPriority;
+  total: number;
+  sent_count: number;
+  failed_count: number;
+  results: SMSAlertRecipientResult[];
+}

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { action, sim_id } = body;
+    const { action, sim_id, to, message, priority } = body;
 
     const apiBaseUrl = (
       process.env.NEXT_PUBLIC_API_URL ||
@@ -70,12 +70,18 @@ export async function POST(request: Request) {
     ).replace(/\/$/, '');
 
     let endpointPath = '';
+    let backendBody: string | undefined;
     if (action === 'trigger') {
       endpointPath = '/api/v1/simulation/trigger';
     } else if (action === 'reset') {
       endpointPath = '/api/v1/simulation/reset';
     } else if (action === 'optimize') {
       endpointPath = '/api/v1/dispatch/optimize';
+    } else if (action === 'send-sms') {
+      // Note: Must stay in sync with backend POST /api/alerts/send-sms JSON body
+      // (SMSAlertRequest: to, message, priority).
+      endpointPath = '/api/alerts/send-sms';
+      backendBody = JSON.stringify({ to, message, priority });
     } else {
       return NextResponse.json({ error: 'Invalid officer action' }, { status: 400 });
     }
@@ -92,6 +98,7 @@ export async function POST(request: Request) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
+      body: backendBody,
       cache: 'no-store',
     });
 
@@ -104,6 +111,7 @@ export async function POST(request: Request) {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        body: backendBody,
         cache: 'no-store',
       });
     }

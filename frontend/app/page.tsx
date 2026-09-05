@@ -7,6 +7,7 @@ import { LeftController, LiveWeatherInfo } from '@/components/LeftController';
 import { RightDispatchQueue } from '@/components/RightDispatchQueue';
 import { RiskCardModal } from '@/components/RiskCardModal';
 import { ReplayScrubber } from '@/components/ReplayScrubber';
+import { BroadcastSMSModal } from '@/components/BroadcastSMSModal';
 import { ExportAARModal } from '@/components/ExportAARModal';
 import { playTwoToneEmergencyAlert } from '@/components/AudioAlertManager';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -59,6 +60,9 @@ export default function DashboardPage() {
 
   // AAR Report Modal State
   const [isAARModalOpen, setIsAARModalOpen] = useState(false);
+
+  // Broadcast SMS Alert Modal State
+  const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
@@ -491,6 +495,7 @@ export default function DashboardPage() {
         isMuted={isMuted}
         onToggleMute={handleToggleMute}
         onOpenAARModal={() => setIsAARModalOpen(true)}
+        onOpenSMSModal={() => setIsSMSModalOpen(true)}
         demoState={demoTour}
       />
 
@@ -589,6 +594,13 @@ export default function DashboardPage() {
         rescueUnits={rescueUnits}
         dispatchAssignments={dispatchAssignments}
         monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
+      />
+
+      {/* 7. Broadcast SMS Alert Modal */}
+      <BroadcastSMSModal
+        isOpen={isSMSModalOpen}
+        onClose={() => setIsSMSModalOpen(false)}
+        onToast={showToast}
       />
     </main>
   );

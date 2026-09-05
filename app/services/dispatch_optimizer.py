@@ -18,6 +18,7 @@ from app.models.event_log import EventLog
 from app.models.rescue_unit import RescueUnit
 from app.models.sos_report import SOSReport
 from app.schemas.dispatch import DispatchAssignment
+from app.services.sms_service import broadcast_sms_alert
 from app.services.ws_manager import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -361,4 +362,21 @@ async def optimize_rescue_dispatch(
         )
 
     logger.info(f"Dispatched {len(assignments)} rescue units to pending SOS reports")
+
+    # Direct Twilio SMS confirmation to registered dispatcher/responder numbers, one
+    # message per completed dispatch round rather than per assignment — a single
+    # optimizer run can dispatch several units at once, and a text per unit would spam
+    # recipients for no added information. Wrapped so a Twilio outage never fails or
+    # rolls back an already-committed dispatch round.
+    settings = get_settings()
+    if assignments and settings.DISPATCHER_ALERT_PHONE_NUMBERS:
+        try:
+            unit_summary = ", ".join(f"{a.unit_name} (ETA {round(a.eta_seconds / 60)}m)" for a in assignments)
+            alert_message = (
+                f"SurakshaGrid dispatch confirmed: {len(assignments)} rescue unit(s) assigned - {unit_summary}."
+            )
+            await broadcast_sms_alert(settings.DISPATCHER_ALERT_PHONE_NUMBERS, alert_message)
+        except Exception as exc:  # noqa: BLE001 - an SMS failure must never fail a completed dispatch round
+            logger.warning(f"Failed to send dispatch confirmation SMS alert: {exc}")
+
     return assignments

@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Annotated
 
@@ -6,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
+from app.core.config import get_settings
 from app.core.rate_limiter import check_sos_rate_limit
 from app.db.session import get_db
 from app.models.enums import SOSSeverity, SOSStatus
@@ -16,8 +18,11 @@ from app.schemas.sos_confirmation import SOSConfirmationRead
 from app.schemas.sos_report import SOSReportRead
 from app.services.cloudinary_service import upload_image_to_cloudinary
 from app.services.cv_service import estimate_water_confidence
+from app.services.sms_service import broadcast_sms_alert
 from app.services.webhook_dispatcher import dispatch_sos_webhook
 from app.services.ws_manager import ws_manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["sos"])
 
@@ -158,6 +163,23 @@ async def create_sos_report(
         trust_score=report.trust_score,
         created_at=report.created_at,
     )
+
+    # Direct Twilio SMS broadcast to registered dispatcher/responder numbers for the
+    # highest-urgency reports only — CRITICAL_TRAPPED means someone is reporting they're
+    # physically trapped, which warrants an out-of-band alert beyond the WebSocket/webhook
+    # channels above. Wrapped so a Twilio outage or missing config never fails or delays
+    # the citizen's own SOS submission response.
+    settings = get_settings()
+    if severity == SOSSeverity.CRITICAL_TRAPPED and settings.DISPATCHER_ALERT_PHONE_NUMBERS:
+        try:
+            alert_message = (
+                f"SurakshaGrid CRITICAL SOS #{str(report.id)[:8]}: trapped citizen reported at "
+                f"({latitude:.4f}, {longitude:.4f}). Trust score {report.trust_score}. "
+                "Immediate rescue dispatch required."
+            )
+            await broadcast_sms_alert(settings.DISPATCHER_ALERT_PHONE_NUMBERS, alert_message)
+        except Exception as exc:  # noqa: BLE001 - an SMS failure must never fail SOS submission
+            logger.warning(f"Failed to send critical SOS SMS alert for sos_id={report.id}: {exc}")
 
     return SOSReportRead.model_validate(report)
 
