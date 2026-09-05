@@ -28,6 +28,17 @@ async function throwApiError(res: Response, fallbackAction: string): Promise<nev
   throw new Error(errorData.detail || errorData.error || `${fallbackAction}: ${res.statusText || `HTTP ${res.status}`}`);
 }
 
+// Note: Must stay in sync with backend GET /api/v1/sos/active
+export async function fetchActiveSOSReports(simId?: string): Promise<SOSReport[]> {
+  let url = `${API_BASE_URL}/api/v1/sos/active`;
+  if (simId) {
+    url += `?sim_id=${encodeURIComponent(simId)}`;
+  }
+  const res = await fetch(url);
+  if (!res.ok) return throwApiError(res, 'Failed to fetch active SOS reports');
+  return res.json();
+}
+
 export async function fetchSimulatedRiskScores(
   rainfall: number = 0,
   simId?: string,

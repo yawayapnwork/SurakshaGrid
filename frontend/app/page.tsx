@@ -13,6 +13,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { useDemoTour } from '@/hooks/useDemoTour';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import {
+  fetchActiveSOSReports,
   fetchLiveAnalyticsStats,
   fetchReplayEvents,
   fetchSimulatedFloodZones,
@@ -257,6 +258,35 @@ export default function DashboardPage() {
     onMessage: handleWebSocketMessage,
     enabled: !isReplayMode,
   });
+
+  // Hydrate active SOS reports from the shared backend on every (re)connect, not just on
+  // first mount. Without this, sosReports only ever grows from SOS_CREATED WebSocket
+  // events received *after* this client connected — a freshly opened dashboard, or one
+  // reconnecting after a dropped socket, would otherwise start from an empty list and
+  // stay blind to every report that already exists in the database. Merged by id rather
+  // than replaced outright, so it can't clobber a report a WS message just added in the
+  // same tick.
+  useEffect(() => {
+    if (!isConnected || isReplayMode) return;
+    let isSubscribed = true;
+
+    fetchActiveSOSReports(activeSimId || undefined)
+      .then((reports) => {
+        if (!isSubscribed) return;
+        setSosReports((prev) => {
+          const merged = new Map(prev.map((r) => [r.id, r]));
+          for (const report of reports) {
+            merged.set(report.id, { ...merged.get(report.id), ...report });
+          }
+          return Array.from(merged.values());
+        });
+      })
+      .catch((err) => console.error('Failed to hydrate active SOS reports:', err));
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [isConnected, activeSimId, isReplayMode]);
 
   // 5. Hackathon Live Scenario Generator Handler
   const handleTriggerFloodScenario = async () => {

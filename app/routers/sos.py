@@ -245,6 +245,38 @@ async def confirm_sos_report(
 
 
 @router.get(
+    "/sos/active",
+    response_model=list[SOSReportRead],
+    status_code=status.HTTP_200_OK,
+    summary="List all active (PENDING or ASSIGNED) SOS reports, synchronized across every connected client",
+)
+async def get_active_sos_reports(
+    sim_id: Annotated[str | None, Query(description="Optional active simulation ID filter")] = None,
+    limit: Annotated[int, Query(ge=1, le=1000, description="Maximum number of reports to return")] = 500,
+    db: AsyncSession = Depends(get_db),
+) -> list[SOSReportRead]:
+    """Returns every active SOS report from the shared database, not just what a given
+
+    client happens to have received over its own WebSocket connection since it opened.
+    Dashboards call this once on load (and again after a dropped/reconnected WebSocket)
+    to hydrate full state, then rely on WS broadcasts for incremental live updates —
+    otherwise a freshly opened or reconnected client starts from an empty list and only
+    sees reports created *after* it connected, making existing incidents invisible to it.
+    """
+    stmt = (
+        select(SOSReport)
+        .where(SOSReport.status.in_([SOSStatus.PENDING, SOSStatus.ASSIGNED]))
+        .order_by(SOSReport.created_at.desc())
+        .limit(limit)
+    )
+    if sim_id:
+        stmt = stmt.where(SOSReport.sim_id == sim_id)
+    result = await db.execute(stmt)
+    reports = list(result.scalars().all())
+    return [SOSReportRead.model_validate(r) for r in reports]
+
+
+@router.get(
     "/sos/nearby",
     response_model=list[SOSReportRead],
     status_code=status.HTTP_200_OK,
