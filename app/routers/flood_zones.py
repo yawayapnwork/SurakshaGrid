@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 
 from app.core.config import get_settings
-from app.core.geo_constants import build_flood_zone_polygon, translated_water_corridor
+from app.core.geo_constants import (
+    build_flood_zone_polygon,
+    build_rainfall_reflectivity_bands,
+    translated_water_corridor,
+)
 from app.db.session import get_db
 from app.models.flood_zone import FloodZone
 
@@ -111,23 +115,29 @@ async def simulate_flood_zones(
 
         # 2. Fall back to shared polygon calculation formula
         if not result_data:
-            corridor = translated_water_corridor(center_lon, center_lat)
-            _, geojson_geom = build_flood_zone_polygon(rainfall, corridor)
-            buffer_deg = 0.01 + (min(max(rainfall, 0.0), 100.0) / 100.0) * 0.05
+            if center_lon is not None and center_lat is not None:
+                # A real (geolocated) center reads naturally as concentric radar-style
+                # reflectivity bands (light/heavy/core) around that point rather than a
+                # corridor buffer.
+                result_data = build_rainfall_reflectivity_bands(rainfall, center_lon, center_lat)
+            else:
+                corridor = translated_water_corridor(center_lon, center_lat)
+                _, geojson_geom = build_flood_zone_polygon(rainfall, corridor)
+                buffer_deg = 0.01 + (min(max(rainfall, 0.0), 100.0) / 100.0) * 0.05
 
-            result_data = {
-                "type": "FeatureCollection",
-                "features": [
-                    {
-                        "type": "Feature",
-                        "geometry": geojson_geom,
-                        "properties": {
-                            "rainfall": round(rainfall, 2),
-                            "buffer_degrees": round(buffer_deg, 6),
-                        },
-                    }
-                ],
-            }
+                result_data = {
+                    "type": "FeatureCollection",
+                    "features": [
+                        {
+                            "type": "Feature",
+                            "geometry": geojson_geom,
+                            "properties": {
+                                "rainfall": round(rainfall, 2),
+                                "buffer_degrees": round(buffer_deg, 6),
+                            },
+                        }
+                    ],
+                }
     except Exception as exc:  # noqa: BLE001 - normalize any computation failure to a clean JSON error
         logger.exception(f"Failed to compute flood zone (rainfall={rainfall}, sim_id={sim_id}): {exc}")
         raise HTTPException(

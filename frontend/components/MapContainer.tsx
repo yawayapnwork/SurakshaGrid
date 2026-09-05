@@ -66,32 +66,33 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         data: floodZones || { type: 'FeatureCollection', features: [] },
       });
 
+      // Soft cyan/blue radar-blip fill for the flood/rainfall extent. When the source
+      // holds concentric reflectivity bands (see build_rainfall_reflectivity_bands —
+      // 'light'/'heavy'/'core' features per zone, outermost first), color is keyed off
+      // `band` and opacity off each band's own `opacity` property, so a cloudburst reads
+      // as a denser, darker core rather than one polygon ballooning in size. The
+      // corridor-buffer fallback (build_flood_zone_polygon) carries neither property, so
+      // both expressions fall back to a flat sky-blue at 0.4 opacity for that path. No
+      // stroke layer: 'fill-outline-color' is left transparent so every band reads as an
+      // organic blob rather than a shape with a hard, geometric-looking border.
       map.addLayer({
         id: 'flood-zone-fill',
         type: 'fill',
         source: 'flood-zone-source',
         paint: {
-          'fill-color': '#0ea5e9', // Sky blue flood zone extent
-          'fill-opacity': 0.45,
-        },
-      });
-
-      // Rounded line-cap/join tracing the now-organic (meandering-line-buffer) flood
-      // extent from build_flood_zone_polygon — a plain 'fill' layer alone renders no
-      // border, and MapLibre's default line joins are mitered/sharp, which would make
-      // even a smooth polygon's boundary look faceted at each vertex.
-      map.addLayer({
-        id: 'flood-zone-outline',
-        type: 'line',
-        source: 'flood-zone-source',
-        layout: {
-          'line-cap': 'round',
-          'line-join': 'round',
-        },
-        paint: {
-          'line-color': '#0284c7',
-          'line-width': 1.5,
-          'line-opacity': 0.65,
+          'fill-color': [
+            'match',
+            ['get', 'band'],
+            'light',
+            '#38bdf8', // Light cyan — broad, smooth stratiform fringe
+            'heavy',
+            '#0ea5e9', // Sky blue — moderately dense band
+            'core',
+            '#0284c7', // Deep blue — dense convective core
+            '#0ea5e9', // Default (corridor-buffer fallback, no band property)
+          ],
+          'fill-opacity': ['coalesce', ['get', 'opacity'], 0.4],
+          'fill-outline-color': 'transparent',
         },
       });
 
