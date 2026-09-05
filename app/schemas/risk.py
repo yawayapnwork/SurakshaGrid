@@ -13,6 +13,10 @@ class RiskBreakdown(BaseModel):
 class RiskFeatureProperties(BaseModel):
     risk_score: float = Field(..., ge=0.0, le=1.0, description="Overall risk score between 0.0 and 1.0")
     breakdown: RiskBreakdown
+    zone_id: str | None = Field(
+        default=None, description="Stable emergency zone ID, used by the frontend to tween fill-color transitions by feature id rather than replacing the whole layer"
+    )
+    zone_name: str | None = Field(default=None, description="Human-readable emergency zone name")
 
 
 class RiskPolygonGeometry(BaseModel):

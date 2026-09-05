@@ -49,6 +49,8 @@ export interface RiskBreakdown {
 export interface RiskFeatureProperties {
   risk_score: number;
   breakdown: RiskBreakdown;
+  zone_id?: string | null;
+  zone_name?: string | null;
 }
 
 export interface RiskGridFeature {

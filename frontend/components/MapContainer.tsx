@@ -59,9 +59,13 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       });
 
       // 1. Add Risk Grid Source & Layer
+      // promoteId lets MapLibre match features across setData() calls by the backend's
+      // stable zone_id (when present) instead of array position, which is what makes the
+      // fill-color-transition below animate a smooth recolor instead of an instant swap.
       map.addSource('risk-grid-source', {
         type: 'geojson',
         data: riskGrid || { type: 'FeatureCollection', features: [] },
+        promoteId: 'zone_id',
       });
 
       // Polygon fill layer with dynamic color gradient based on risk_score
@@ -83,6 +87,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             0.85,
             'rgba(239, 68, 68, 0.75)', // Red (Critical)
           ],
+          'fill-color-transition': { duration: 400, delay: 0 },
           'fill-outline-color': 'rgba(255, 255, 255, 0.4)',
         },
       });

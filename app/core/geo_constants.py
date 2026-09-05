@@ -6,6 +6,16 @@ WATER_CORRIDOR_LINE: tuple[tuple[float, float], tuple[float, float]] = (
     (80.35, 13.10),
 )
 
+# Beyond this distance from the water corridor, flood proximity risk is treated as zero.
+MAX_FLOOD_PROXIMITY_METERS: float = 3000.0
+
+# Radius (in meters) around a zone boundary within which active SOS reports still count
+# toward that zone's incident density, so reports just outside a polygon edge aren't dropped.
+REPORT_DENSITY_RADIUS_METERS: float = 250.0
+
+# Active reports within a zone at/above this count saturate the report_density score to 1.0.
+REPORT_DENSITY_SATURATION_COUNT: float = 3.0
+
 
 def distance_to_water_corridor(lon: float, lat: float) -> float:
     """Calculates the vertical distance in degrees from (lon, lat) to the water corridor line."""

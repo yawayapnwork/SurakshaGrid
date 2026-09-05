@@ -25,6 +25,7 @@ from app.schemas.risk import (
     RiskPolygonGeometry,
 )
 from app.services.dispatch_optimizer import extract_coordinates
+from app.services.spatial_risk_service import compute_dynamic_zone_risk_scores, zone_count
 from app.services.ws_manager import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -141,6 +142,18 @@ async def simulate_risk_scores(
                 return RiskGridCollection(**json.loads(cached_data))
         except Exception as exc:
             logger.warning(f"Redis cache read error: {exc}")
+
+    # Prefer live PostGIS-driven scoring across designated emergency zones once they've
+    # been seeded; fall back to the synthetic bounding-box grid below for a fresh/demo DB.
+    if await zone_count(db) > 0:
+        response = await compute_dynamic_zone_risk_scores(db, effective_rainfall, sim_id)
+        if redis_client:
+            try:
+                await redis_client.setex(cache_key, CACHE_TTL_SECONDS, response.model_dump_json())
+                await redis_client.aclose()
+            except Exception as exc:
+                logger.warning(f"Redis cache write error: {exc}")
+        return response
 
     # 1. Fetch active/pending SOS reports to compute report density
     stmt = select(SOSReport).where(SOSReport.status.in_([SOSStatus.PENDING, SOSStatus.ASSIGNED]))
