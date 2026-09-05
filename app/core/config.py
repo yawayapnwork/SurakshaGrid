@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     N8N_SOS_WEBHOOK_URL: str | None = Field(default=None)
     N8N_SCENARIO_WEBHOOK_URL: str | None = Field(default=None)
 
+    VLM_MODEL_ID: str = Field(default="vikhyatk/moondream2")
+    VLM_MODEL_REVISION: str = Field(default="2024-08-26")
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> list[str]:
