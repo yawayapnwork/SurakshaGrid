@@ -1,7 +1,11 @@
 import logging
 import uuid
-import cloudinary
-import cloudinary.uploader
+try:
+    import cloudinary
+    import cloudinary.uploader
+except ImportError:
+    cloudinary = None  # type: ignore[assignment]
+
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
@@ -11,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 def _sync_cloudinary_upload(image_bytes: bytes, public_id: str) -> str | None:
     """Synchronous worker function to upload image bytes to Cloudinary."""
+    if not cloudinary:
+        return None
     try:
         response = cloudinary.uploader.upload(
             image_bytes,

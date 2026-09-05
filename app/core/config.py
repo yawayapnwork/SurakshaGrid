@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     @field_validator("DATABASE_URL")
     @classmethod
     def _require_asyncpg_driver(cls, value: str) -> str:
+        if value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+asyncpg://", 1)
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
         if not value.startswith("postgresql+asyncpg://"):
             raise ValueError(
                 "DATABASE_URL must use the 'postgresql+asyncpg://' driver for async SQLAlchemy"

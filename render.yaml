@@ -1,12 +1,14 @@
 services:
-  # 1. FastAPI Web Service
+  # 1. FastAPI High-Performance Backend Web Service
   - type: web
     name: surakshagrid-api
     runtime: python
     plan: starter
     region: singapore
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2"
+    # Execute database migrations ONCE during pre-deploy phase to eliminate race conditions
+    preDeployCommand: "alembic upgrade head"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2"
     healthCheckPath: /healthz
     envVars:
       - key: DATABASE_URL
@@ -32,8 +34,36 @@ services:
         value: production
       - key: PYTHON_VERSION
         value: 3.11.9
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: MAX_RESIDENT_MODELS
+        value: "1"
 
-  # 2. Redis Pub/Sub Cache Service
+  # 2. Next.js SSR & Operations Dashboard Web Service
+  - type: web
+    name: surakshagrid-frontend
+    runtime: node
+    plan: starter
+    region: singapore
+    buildCommand: "cd frontend && npm ci && npm run build"
+    startCommand: "cd frontend && npm run start"
+    healthCheckPath: /api/officer-action
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: surakshagrid-api
+          property: url
+      - key: NEXT_PUBLIC_N8N_WEBHOOK_URL
+        value: "https://yayaworks.app.n8n.cloud/webhook"
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD_PLAIN
+        sync: false
+      - key: NODE_VERSION
+        value: "20.11.0"
+
+  # 3. Redis Pub/Sub & Operations Metrics Cache Service
   - type: redis
     name: surakshagrid-redis
     plan: starter
@@ -41,7 +71,7 @@ services:
     maxmemoryPolicy: allkeys-lru
 
 databases:
-  # 3. Managed PostgreSQL Database with PostGIS
+  # 4. Managed PostgreSQL Database with PostGIS Extension
   - name: surakshagrid-db
     plan: starter
     region: singapore
