@@ -830,15 +830,24 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     gridOffsets.forEach(([dLon, dLat]) => {
       const el = document.createElement('div');
       el.className = 'relative flex flex-col items-center justify-center pointer-events-none group';
+
+      const speed = telemetry.wind.speedKmH;
+      const degrees = telemetry.wind.directionDegrees;
+      const strokeW = Math.min(3.5, Math.max(1.8, 1.5 + speed / 30));
+      const barb1 = speed > 20 ? `<line x1="12" y1="15" x2="18" y2="12" stroke="#38bdf8" stroke-width="${strokeW}" stroke-linecap="round"/>` : '';
+      const barb2 = speed > 40 ? `<line x1="12" y1="18" x2="18" y2="15" stroke="#38bdf8" stroke-width="${strokeW}" stroke-linecap="round"/>` : '';
+
       el.innerHTML = `
-        <div class="w-6 h-6 rounded-full bg-slate-950/90 border border-sky-400/80 shadow-xl backdrop-blur-md flex items-center justify-center transition-transform duration-500" style="transform: rotate(${telemetry.wind.directionDegrees}deg)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="12" y1="19" x2="12" y2="5"></line>
-            <polyline points="5 12 12 5 19 12"></polyline>
+        <div class="w-7 h-7 rounded-full bg-slate-950/90 border border-sky-400/80 shadow-xl backdrop-blur-md flex items-center justify-center transition-transform duration-500" style="transform: rotate(${degrees}deg)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="21" x2="12" y2="4" stroke="#38bdf8" stroke-width="${strokeW}"></line>
+            <polyline points="6 10 12 3 18 10" stroke="#38bdf8" stroke-width="${strokeW}"></polyline>
+            ${barb1}
+            ${barb2}
           </svg>
         </div>
         <span class="mt-0.5 text-[8px] font-mono font-bold bg-slate-950/90 text-sky-300 px-1 py-0.2 rounded border border-sky-500/40 shadow-sm whitespace-nowrap">
-          ${telemetry.wind.speedKmH}k/h ${telemetry.wind.heading}
+          ${speed}k/h ${telemetry.wind.heading}
         </span>
       `;
 

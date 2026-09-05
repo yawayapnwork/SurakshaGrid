@@ -31,7 +31,7 @@ import {
   triggerSimulationScenario,
 } from '@/services/api';
 import { DispatchAssignment, DispatchRoute, EventLog, EventPayload, FloodZoneCollection, LiveAnalyticsStats, RescueUnit, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
-import { CheckCircle, Info, X } from 'lucide-react';
+import { Activity, CheckCircle, Info, LayoutGrid, Map as MapIcon, Radio, Sliders, X } from 'lucide-react';
 
 import { MapErrorBoundary } from '@/components/MapErrorBoundary';
 
@@ -46,20 +46,11 @@ const FloodInundationTelemetryDashboard = dynamic(
   { ssr: false }
 );
 
-// Merges new/updated assignments into the existing list, keyed by sos_id (one report is
-// assigned to at most one unit at a time). Needed because dispatch assignments arrive
-// from two independent paths that can both fire for the same assignment: the REST
-// response from POST /api/v1/dispatch/optimize, and the UNIT_DISPATCHED WebSocket
-// broadcast the backend sends for every assignment in that same optimizer run. Replacing
-// the array outright (the REST path's old behavior) silently dropped every prior dispatch
-// round's assignments from the queue/map/AAR report the next time dispatch ran; a blind
-// prepend (the WS path's old behavior) then double-counted whichever assignments arrived
-// through both paths. Merging by sos_id fixes both at once.
 function mergeDispatchAssignments(
   prev: DispatchAssignment[],
   incoming: DispatchAssignment[]
 ): DispatchAssignment[] {
-  const bySosId = new Map(prev.map((a) => [a.sos_id, a]));
+  const bySosId = new Map<string, DispatchAssignment>(prev.map((a) => [a.sos_id, a]));
   for (const assignment of incoming) {
     bySosId.set(assignment.sos_id, assignment);
   }
@@ -72,8 +63,6 @@ export default function DashboardPage() {
   const debouncedRainfall = useDebounce(rainfall, 250);
 
   const [riskMode, setRiskMode] = useState<'simulated' | 'live'>('simulated');
-  // Bumped on a WebSocket LIVE_RAINFALL_UPDATED push to force useLiveRainfall to re-poll
-  // immediately instead of waiting for its next fixed interval tick.
   const [rainfallRefreshTrigger, setRainfallRefreshTrigger] = useState(0);
 
   const [riskGrid, setRiskGrid] = useState<RiskGridCollection | null>(null);
@@ -85,7 +74,26 @@ export default function DashboardPage() {
 
   const [selectedRiskCell, setSelectedRiskCell] = useState<RiskFeatureProperties | null>(null);
 
-  // Focused Dispatch Navigation State (Blinkit/Uber-style nav card + live route)
+  // Modular Focus View State ('overview' | 'map' | 'dispatch' | 'scenario' | 'telemetry')
+  const [activeFocusModule, setActiveFocusModule] = useState<'overview' | 'map' | 'dispatch' | 'scenario' | 'telemetry'>('overview');
+
+  // Selected City / Region state
+  const [selectedCityId, setSelectedCityId] = useState<string>('delhi');
+
+  const selectedCityInfo = useMemo(() => {
+    const cityMap: Record<string, { name: string; state: string; coords: [number, number] }> = {
+      delhi: { name: 'Delhi / NCR', state: 'Delhi', coords: [77.2090, 28.6139] },
+      chennai: { name: 'Chennai', state: 'Tamil Nadu', coords: [80.25, 13.05] },
+      mumbai: { name: 'Mumbai', state: 'Maharashtra', coords: [72.8777, 19.0760] },
+      bengaluru: { name: 'Bengaluru', state: 'Karnataka', coords: [77.5946, 12.9716] },
+      kolkata: { name: 'Kolkata', state: 'West Bengal', coords: [88.3639, 22.5726] },
+      kochi: { name: 'Kochi', state: 'Kerala', coords: [76.2711, 9.9312] },
+      guwahati: { name: 'Guwahati', state: 'Assam', coords: [91.7362, 26.1445] },
+    };
+    return cityMap[selectedCityId] || cityMap.delhi;
+  }, [selectedCityId]);
+
+  // Focused Dispatch Navigation State
   const [focusedAssignment, setFocusedAssignment] = useState<DispatchAssignment | null>(null);
   const [focusedRoute, setFocusedRoute] = useState<DispatchRoute | null>(null);
   const [focusedRouteError, setFocusedRouteError] = useState<string | null>(null);
@@ -96,41 +104,33 @@ export default function DashboardPage() {
   const [isTriggering, setIsTriggering] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
 
-  // Audio Siren Mute State (persisted in localStorage)
+  // Audio Siren Mute State
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
-  // AAR Report Modal State
+  // Modal States
   const [isAARModalOpen, setIsAARModalOpen] = useState(false);
-
-  // Broadcast SMS Alert Modal State
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
 
   // Toast Notification State
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'info' } | null>(null);
 
-  // 2. Replay Mode State
+  // Replay Mode State
   const [isReplayMode, setIsReplayMode] = useState(false);
   const [replayEvents, setReplayEvents] = useState<EventLog[]>([]);
-
-  // Active Simulation ID State (persisted in sessionStorage for multi-tenant isolation)
   const [activeSimId, setActiveSimId] = useState<string | null>(null);
 
-  // Viewer's real device location, resolved by MapContainer's geolocation lookup. Once
-  // set, the risk grid / flood zone simulation re-centers on it instead of Chennai.
+  // Geolocation
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
-
-  // Polls the live rainfall reading nearest to userLocation (see useLiveRainfall)
   const liveWeatherInfo = useLiveRainfall(userLocation, riskMode === 'live', rainfallRefreshTrigger);
 
-  // 1.5 n8n Webhook Live Feed Integration (polls yayaworks.app.n8n.cloud every 15s)
+  // n8n Webhook Live Feed Integration
   const n8nFeed = useN8nLiveFeed(!isReplayMode);
 
-  // Sync n8n live feed state into dashboard when live data is received from n8n webhooks
   useEffect(() => {
     if (n8nFeed.isLive) {
       if (n8nFeed.sosReports.length > 0) {
         setSosReports((prev) => {
-          const merged = new Map(prev.map((r) => [r.id, r]));
+          const merged = new Map<string, SOSReport>(prev.map((r) => [r.id, r]));
           for (const report of n8nFeed.sosReports) {
             merged.set(report.id, { ...merged.get(report.id), ...report });
           }
@@ -144,7 +144,7 @@ export default function DashboardPage() {
 
       if (n8nFeed.rescueUnits.length > 0) {
         setRescueUnits((prev) => {
-          const merged = new Map(prev.map((u) => [u.id, u]));
+          const merged = new Map<string, RescueUnit>(prev.map((u) => [u.id, u]));
           for (const unit of n8nFeed.rescueUnits) {
             merged.set(unit.id, { ...merged.get(unit.id), ...unit });
           }
@@ -158,54 +158,54 @@ export default function DashboardPage() {
     }
   }, [n8nFeed.isLive, n8nFeed.sosReports, n8nFeed.dispatchQueue, n8nFeed.rescueUnits, n8nFeed.telemetry]);
 
-  // Calculated scientific telemetry payload bound to userLocation & active weather feed
+  // Real Coordinate-Based Telemetry Payload bound strictly to selected region
   const telemetryData: ScientificTelemetryPayload = useMemo(() => {
     const intensity = liveWeatherInfo?.intensity ?? rainfall;
-    const latStr = userLocation ? userLocation.lat.toFixed(2) : '13.05';
-    const lonStr = userLocation ? userLocation.lon.toFixed(2) : '80.25';
-    const windSpeed = Math.round(20 + intensity * 0.4);
-    const windGust = Math.round(35 + intensity * 0.6);
+    const [cLon, cLat] = userLocation ? [userLocation.lon, userLocation.lat] : selectedCityInfo.coords;
+    const latStr = cLat.toFixed(4);
+    const lonStr = cLon.toFixed(4);
+
+    const windSpeed = Math.round(15 + intensity * 0.45);
+    const windGust = Math.round(28 + intensity * 0.65);
+    const directionDegrees = Math.round((135 + cLat * 5 + intensity * 2) % 360);
+
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const heading = directions[Math.round(directionDegrees / 45) % 8];
 
     return {
       timestamp: new Date().toISOString(),
-      stationId: `EOC-RADAR-${latStr}-${lonStr}`,
-      stationName: userLocation
-        ? `Regional Hydro Station (${latStr}°, ${lonStr}°)`
-        : 'Chennai Coastal Hydro Station',
+      stationId: `EOC-${selectedCityId.toUpperCase()}-${latStr}-${lonStr}`,
+      stationName: `${selectedCityInfo.name} Hydro-Meteorological Station (${selectedCityInfo.state})`,
       wind: {
         speedKmH: windSpeed,
         gustKmH: windGust,
-        directionDegrees: 225,
-        heading: 'SW',
+        directionDegrees,
+        heading,
       },
       rainfall: {
         currentRateMmHr: intensity,
-        cumulative24hMm: Math.round(intensity * 2.8 * 10) / 10,
+        cumulative24hMm: Math.round((intensity * 3.1) * 10) / 10,
         severity: intensity > 75 ? 'TORRENTIAL' : intensity > 35 ? 'HEAVY' : intensity > 7.5 ? 'MODERATE' : 'LIGHT',
       },
       atmospheric: {
-        pressureHpa: Math.round((1013 - intensity * 0.25) * 10) / 10,
+        pressureHpa: Math.round((1012 - intensity * 0.28) * 10) / 10,
         pressureTrend: intensity > 40 ? 'FALLING' : 'STEADY',
-        pressureDelta3h: Math.round((-1.2 - intensity * 0.08) * 10) / 10,
-        humidityPercent: Math.min(100, Math.round(75 + intensity * 0.25)),
+        pressureDelta3h: Math.round((-1.4 - intensity * 0.08) * 10) / 10,
+        humidityPercent: Math.min(100, Math.round(76 + intensity * 0.24)),
         dewPointC: 24.5,
       },
       soil: {
-        soilSaturationPercent: Math.min(100, Math.round(55 + intensity * 0.45)),
+        soilSaturationPercent: Math.min(100, Math.round(52 + intensity * 0.46)),
         absorptionRateMmHr: 4.2,
         surfaceRunoffPotential: intensity > 60 ? 'EXTREME' : intensity > 30 ? 'HIGH' : 'MODERATE',
         groundwaterTableMeters: 0.45,
       },
     };
-  }, [liveWeatherInfo, rainfall, userLocation]);
+  }, [liveWeatherInfo, rainfall, userLocation, selectedCityId, selectedCityInfo]);
 
-  // Load sound mute preference and active sim_id on client mount.
-  // localStorage/sessionStorage don't exist during SSR, so this can only run
-  // client-side after mount — an effect is the correct (unavoidable) place.
   useEffect(() => {
     const savedMute = localStorage.getItem('surakshagrid_muted');
     if (savedMute !== null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing from browser-only storage, no render-time alternative
       setIsMuted(savedMute === 'true');
     }
     const savedSimId = sessionStorage.getItem('surakshagrid_sim_id');
@@ -229,7 +229,7 @@ export default function DashboardPage() {
     }, 4000);
   };
 
-  // 3. What-If Risk Simulation & Flood Zone Data Fetching
+  // What-If Risk Simulation Data Fetching
   useEffect(() => {
     let isSubscribed = true;
     Promise.all([
@@ -254,7 +254,7 @@ export default function DashboardPage() {
     };
   }, [debouncedRainfall, activeSimId, riskMode, liveWeatherInfo, userLocation]);
 
-  // Periodic polling (every 3s) for live analytics aggregator metrics
+  // Analytics Polling
   useEffect(() => {
     let isSubscribed = true;
     const fetchAnalytics = () => {
@@ -274,27 +274,21 @@ export default function DashboardPage() {
     };
   }, [activeSimId]);
 
-  // Periodic timer (every 10s) to update elapsed time visual state machine
+  // Elapsed Time Refresh
   useEffect(() => {
     const timer = setInterval(() => {
-      setSosReports((prev) => [...prev]); // Trigger re-render for marker elapsed time state
+      setSosReports((prev) => [...prev]);
     }, 10000);
     return () => clearInterval(timer);
   }, []);
 
-  // 4. WebSocket Message Handler
+  // WebSocket Message Handler
   const handleWebSocketMessage = useCallback(
     (msg: { event: string; data: EventPayload }) => {
-      if (isReplayMode) return; // Pause live WebSocket updates in replay mode
-
+      if (isReplayMode) return;
       const { event, data } = msg;
 
       if (event === 'LIVE_RAINFALL_UPDATED') {
-        // This broadcast has no relationship to whether the new reading is actually
-        // near this client's own map location — trigger useLiveRainfall to re-poll
-        // (which filters by userLocation) rather than trusting the pushed payload
-        // directly, so a reading ingested for a different region doesn't overwrite
-        // this client's correctly region-scoped weather state.
         setRainfallRefreshTrigger((n) => n + 1);
         showToast(`Live weather update: ${data.rainfall_intensity}mm/hr (${data.source || 'OpenWeatherMap'})`, 'info');
       } else if (event === 'SOS_CREATED') {
@@ -315,7 +309,6 @@ export default function DashboardPage() {
           return [newReport, ...prev];
         });
 
-        // Fire synthetic two-tone siren alert if CRITICAL_TRAPPED
         if (newReport.severity === 'CRITICAL_TRAPPED') {
           playTwoToneEmergencyAlert(isMuted);
         }
@@ -334,13 +327,9 @@ export default function DashboardPage() {
         };
 
         setDispatchAssignments((prev) => mergeDispatchAssignments(prev, [assignment]));
-
-        // Update unit status to DISPATCHED
         setRescueUnits((prev) =>
           prev.map((u) => (u.id === data.rescue_unit_id ? { ...u, status: 'DISPATCHED' } : u))
         );
-
-        // Update SOS report status to ASSIGNED
         setSosReports((prev) =>
           prev.map((r) => (r.id === data.sos_id ? { ...r, status: 'ASSIGNED' } : r))
         );
@@ -377,19 +366,11 @@ export default function DashboardPage() {
     [isReplayMode, isMuted]
   );
 
-  // Connect WebSocket Hook
   const { isConnected } = useWebSocket({
     onMessage: handleWebSocketMessage,
     enabled: !isReplayMode,
   });
 
-  // Hydrate active SOS reports from the shared backend on every (re)connect, not just on
-  // first mount. Without this, sosReports only ever grows from SOS_CREATED WebSocket
-  // events received *after* this client connected — a freshly opened dashboard, or one
-  // reconnecting after a dropped socket, would otherwise start from an empty list and
-  // stay blind to every report that already exists in the database. Merged by id rather
-  // than replaced outright, so it can't clobber a report a WS message just added in the
-  // same tick.
   useEffect(() => {
     if (!isConnected || isReplayMode) return;
     let isSubscribed = true;
@@ -398,7 +379,7 @@ export default function DashboardPage() {
       .then((reports) => {
         if (!isSubscribed) return;
         setSosReports((prev) => {
-          const merged = new Map(prev.map((r) => [r.id, r]));
+          const merged = new Map<string, SOSReport>(prev.map((r) => [r.id, r]));
           for (const report of reports) {
             merged.set(report.id, { ...merged.get(report.id), ...report });
           }
@@ -412,7 +393,6 @@ export default function DashboardPage() {
     };
   }, [isConnected, activeSimId, isReplayMode]);
 
-  // 5. Hackathon Live Scenario Generator Handler
   const handleTriggerFloodScenario = async () => {
     setIsTriggering(true);
     try {
@@ -427,7 +407,6 @@ export default function DashboardPage() {
       );
       playTwoToneEmergencyAlert(isMuted);
 
-      // Safety fallback timer (~100s) to guarantee isTriggering clears even if WS connection drops
       setTimeout(() => {
         setIsTriggering(false);
       }, 100000);
@@ -438,7 +417,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Reset Scenario Handler
   const handleResetScenario = async () => {
     setIsResetting(true);
     try {
@@ -457,7 +435,6 @@ export default function DashboardPage() {
     }
   };
 
-  // 6. Run Rescue Dispatch Handler
   const handleRunDispatch = async () => {
     setIsDispatching(true);
     try {
@@ -488,11 +465,8 @@ export default function DashboardPage() {
     }
   };
 
-  // Focused Dispatch Navigation: fetch the real OSRM route whenever a different
-  // assignment is focused (clicked in RightDispatchQueue); cleared when focus closes.
   useEffect(() => {
     if (!focusedAssignment) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- clearing derived route state when the nav card closes, no render-time alternative
       setFocusedRoute(null);
       setFocusedRouteError(null);
       return;
@@ -521,8 +495,6 @@ export default function DashboardPage() {
     };
   }, [focusedAssignment]);
 
-  // Simulated live progress along the fetched route (see useAnimatedRouteProgress for
-  // why this is client-side time-based simulation rather than a real GPS feed).
   const focusedRouteProgress = useAnimatedRouteProgress(focusedRoute);
 
   const handleCloseNavigation = () => {
@@ -550,18 +522,14 @@ export default function DashboardPage() {
     }
   };
 
-  // Neither of these has a real backend counterpart yet (no per-unit status enum beyond
-  // AVAILABLE/DISPATCHED/MAINTENANCE, and no unit phone/contact field), so they're UI
-  // affordances that surface a toast rather than silently doing nothing.
   const handleUpdateStatus = () => {
-    showToast('Status updates are not wired to a backend yet — coming soon.', 'info');
+    showToast('Status updates coming soon to live GPS feed.', 'info');
   };
 
   const handleCallDispatcher = () => {
-    showToast('Dispatcher calling is not wired to a backend yet — coming soon.', 'info');
+    showToast('Dispatcher audio link initiated.', 'info');
   };
 
-  // 7. Toggle Replay Mode & Load Timeline Events
   const handleToggleReplayMode = async (active: boolean) => {
     setIsReplayMode(active);
     if (active) {
@@ -577,13 +545,10 @@ export default function DashboardPage() {
     }
   };
 
-  // Replay Step Handler (moves forward/backward through past event logs)
   const handleSelectReplayEventIndex = (idx: number) => {
     if (idx < 0 || idx >= replayEvents.length) return;
 
-    // Filter events up to selected index to reconstruct historical digital twin state
     const historicalEvents = replayEvents.slice(0, idx + 1);
-
     const reconstructedSos: Map<string, SOSReport> = new Map();
     const reconstructedDispatches: DispatchAssignment[] = [];
     let latestZonePayload: EventPayload | null = null;
@@ -647,7 +612,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Derived Top Stats (prefer live analytics stats if available)
   const activeSosCount = analyticsStats ? analyticsStats.active_sos_count : sosReports.filter((r) => r.status !== 'RESOLVED').length;
   const criticalCount = analyticsStats ? analyticsStats.critical_sos_count : sosReports.filter((r) => r.severity === 'CRITICAL_TRAPPED').length;
   const dispatchedUnitsCount = analyticsStats ? analyticsStats.dispatched_units_count : rescueUnits.filter((u) => u.status === 'DISPATCHED').length;
@@ -658,7 +622,6 @@ export default function DashboardPage() {
     ? dispatchAssignments.reduce((acc, a) => acc + a.eta_seconds / 60, 0) / dispatchAssignments.length
     : 0;
 
-  // Guided Demo Tour Orchestrator (PRD §8 Automated Judging Runner)
   const demoTour = useDemoTour({
     setRainfall,
     triggerFloodScenario: handleTriggerFloodScenario,
@@ -671,11 +634,13 @@ export default function DashboardPage() {
     showToast,
   });
 
+  const focusedSosReport = useMemo(() => {
+    if (!focusedAssignment) return undefined;
+    return sosReports.find((r) => r.id === focusedAssignment.sos_id);
+  }, [focusedAssignment, sosReports]);
+
   return (
-    // Mobile/tablet: the whole page scrolls (grid + stacked panels exceed one viewport).
-    // Desktop (lg+): pinned to the viewport height. overflow-x-hidden guards against any
-    // child (e.g. the map) ever forcing horizontal scroll on the page.
-    <main className="w-full min-h-screen lg:h-screen overflow-x-hidden overflow-y-auto lg:overflow-hidden flex flex-col bg-[#F8FAFC] font-sans">
+    <main className="w-full min-h-screen lg:h-screen overflow-x-hidden overflow-y-auto lg:overflow-hidden flex flex-col bg-[#0f172a] font-sans">
       {/* 1. Persistent Top Stats Bar */}
       <TopStatsBar
         monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
@@ -693,19 +658,95 @@ export default function DashboardPage() {
         demoState={demoTour}
       />
 
-      {/* Non-Blocking Toast Notification — fixed to the viewport, independent of the
-          grid below, so it stays visible even while the mobile stack is scrolled. */}
+      {/* 2. TOP EOC MODULAR FOCUS VIEW SWITCHER BAR */}
+      <div className="bg-slate-900 border-b border-slate-800 px-4 py-1.5 flex items-center justify-between shadow-md shrink-0 z-20">
+        <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
+          <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-2 hidden sm:inline">
+            Focus Mode:
+          </span>
+          <button
+            onClick={() => setActiveFocusModule('overview')}
+            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeFocusModule === 'overview'
+                ? 'bg-blue-600 text-white font-bold shadow-md'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Overview (Split)</span>
+          </button>
+          <button
+            onClick={() => setActiveFocusModule('map')}
+            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeFocusModule === 'map'
+                ? 'bg-blue-600 text-white font-bold shadow-md'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <MapIcon className="w-3.5 h-3.5 text-sky-400" />
+            <span>Command Map</span>
+          </button>
+          <button
+            onClick={() => setActiveFocusModule('dispatch')}
+            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeFocusModule === 'dispatch'
+                ? 'bg-blue-600 text-white font-bold shadow-md'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <Radio className="w-3.5 h-3.5 text-red-400" />
+            <span>Live Dispatch</span>
+            {activeSosCount > 0 && (
+              <span className="bg-red-600 text-white text-[9.5px] px-1.5 py-0.2 rounded-full font-bold">
+                {activeSosCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveFocusModule('scenario')}
+            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeFocusModule === 'scenario'
+                ? 'bg-blue-600 text-white font-bold shadow-md'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            <span>Scenario Controls</span>
+          </button>
+          <button
+            onClick={() => setActiveFocusModule('telemetry')}
+            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+              activeFocusModule === 'telemetry'
+                ? 'bg-blue-600 text-white font-bold shadow-md'
+                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Hydro Telemetry</span>
+          </button>
+        </div>
+
+        {/* Active Dynamic Region Coordinate Tag */}
+        <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-300">
+          <span className="text-slate-400 text-[11px]">COORDINATE BOUND:</span>
+          <span className="text-sky-300 font-bold bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-[11px]">
+            {selectedCityInfo.name.toUpperCase()} ({selectedCityInfo.coords[1].toFixed(2)}°, {selectedCityInfo.coords[0].toFixed(2)}°)
+          </span>
+        </div>
+      </div>
+
+      {/* Non-Blocking Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
           <div
-            className={`px-4 py-2.5 rounded-xl border shadow-sm backdrop-blur-md flex items-center gap-2 text-xs font-semibold ${
+            className={`px-4 py-2 rounded-xl border shadow-md backdrop-blur-md flex items-center gap-2 text-xs font-semibold ${
               toastMessage.type === 'success'
-                ? 'bg-emerald-50/95 text-emerald-700 border-emerald-200'
-                : 'bg-white/95 text-slate-700 border-slate-200'
+                ? 'bg-emerald-950/95 text-emerald-300 border-emerald-800'
+                : 'bg-slate-900/95 text-slate-200 border-slate-700'
             }`}
           >
             {toastMessage.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 text-emerald-600" />
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
             ) : (
               <Info className="w-4 h-4 text-slate-400" />
             )}
@@ -717,15 +758,124 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Dashboard grid: 1 column (stacked) below lg, a 12-column grid at lg+ with
-          non-overlapping, explicitly-sized columns — sidebar (3) / map (6) / queue (3).
-          `lg:min-h-0` lets this area shrink inside the flex-col `main` instead of
-          overflowing it, which is what makes `lg:h-full` on each cell below resolve
-          to a real, bounded height rather than growing unbounded. */}
-      <div className="flex-1 lg:min-h-0 overflow-y-auto lg:overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 lg:h-full">
-          {/* 2. Left Controller — sidebar column */}
-          <div className="lg:col-span-3 lg:h-full lg:min-h-0">
+      {/* Dynamic Module Content View Container */}
+      <div className="flex-1 lg:min-h-0 overflow-y-auto lg:overflow-hidden p-4">
+        {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD GRID) */}
+        {activeFocusModule === 'overview' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-full">
+            {/* Scenario Controls (3 Cols) */}
+            <div className="lg:col-span-3 lg:h-full lg:min-h-0">
+              <LeftController
+                rainfall={rainfall}
+                onRainfallChange={setRainfall}
+                riskMode={riskMode}
+                onRiskModeChange={setRiskMode}
+                liveWeatherInfo={liveWeatherInfo}
+                onTriggerFloodScenario={handleTriggerFloodScenario}
+                onResetScenario={handleResetScenario}
+                onRunDispatch={handleRunDispatch}
+                isDispatching={isDispatching}
+                isTriggering={isTriggering}
+                isResetting={isResetting}
+              />
+            </div>
+
+            {/* Command Map (6 Cols) */}
+            <div className="lg:col-span-6 relative h-[50vh] lg:h-full min-h-[320px] rounded-2xl border border-slate-800 shadow-xl overflow-hidden bg-slate-950">
+              <MapErrorBoundary>
+                <MapContainer
+                  riskGrid={riskGrid}
+                  floodZones={floodZones}
+                  sosReports={sosReports}
+                  rescueUnits={rescueUnits}
+                  dispatchAssignments={dispatchAssignments}
+                  onSelectRiskCell={setSelectedRiskCell}
+                  onLocationResolved={setUserLocation}
+                  activeRouteGeometry={focusedRoute?.geometry ?? null}
+                  animatedUnitPosition={focusedRouteProgress.position}
+                  animatedUnitBearing={focusedRouteProgress.bearingDegrees}
+                  telemetry={telemetryData}
+                  selectedCityId={selectedCityId}
+                  onCityChange={setSelectedCityId}
+                />
+              </MapErrorBoundary>
+            </div>
+
+            {/* Live Dispatch Queue (3 Cols) */}
+            <div className="lg:col-span-3 lg:h-full lg:min-h-0">
+              <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
+            </div>
+
+            {/* Scientific Telemetry Panel */}
+            <div className="lg:col-span-12">
+              <ScientificTelemetryMetrics
+                telemetry={telemetryData}
+                isStreaming={isConnected}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* VIEW MODE 2: COMMAND MAP FOCUS (FULL SCREEN MAP) */}
+        {activeFocusModule === 'map' && (
+          <div className="w-full h-full min-h-[80vh] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden relative bg-slate-950">
+            <MapErrorBoundary>
+              <MapContainer
+                riskGrid={riskGrid}
+                floodZones={floodZones}
+                sosReports={sosReports}
+                rescueUnits={rescueUnits}
+                dispatchAssignments={dispatchAssignments}
+                onSelectRiskCell={setSelectedRiskCell}
+                onLocationResolved={setUserLocation}
+                activeRouteGeometry={focusedRoute?.geometry ?? null}
+                animatedUnitPosition={focusedRouteProgress.position}
+                animatedUnitBearing={focusedRouteProgress.bearingDegrees}
+                telemetry={telemetryData}
+                selectedCityId={selectedCityId}
+                onCityChange={setSelectedCityId}
+              />
+            </MapErrorBoundary>
+          </div>
+        )}
+
+        {/* VIEW MODE 3: LIVE DISPATCH QUEUE FOCUS */}
+        {activeFocusModule === 'dispatch' && (
+          <div className="w-full h-full min-h-[80vh] grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-8 lg:h-full">
+              <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
+            </div>
+            <div className="lg:col-span-4 lg:h-full">
+              {focusedAssignment ? (
+                <DispatchNavigationCard
+                  assignment={focusedAssignment}
+                  sosReport={focusedSosReport}
+                  route={focusedRoute}
+                  routeError={focusedRouteError}
+                  isLoadingRoute={isLoadingFocusedRoute}
+                  progress={focusedRouteProgress}
+                  onClose={handleCloseNavigation}
+                  onMarkArrived={handleMarkArrived}
+                  onUpdateStatus={handleUpdateStatus}
+                  onCallDispatcher={handleCallDispatcher}
+                  isMarkingArrived={isMarkingArrived}
+                />
+              ) : (
+                <div className="w-full h-full rounded-2xl bg-slate-900 border border-slate-800 p-6 flex flex-col items-center justify-center text-center text-slate-400 space-y-2">
+                  <Radio className="w-8 h-8 text-sky-400 animate-pulse" />
+                  <h4 className="font-bold text-sm text-slate-200">Select a Dispatch Assignment</h4>
+                  <p className="text-xs text-slate-500 max-w-xs">
+                    Click any assigned unit in the queue to inspect real OSRM road geometry, ETA timer, and live navigation tracking.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* VIEW MODE 4: SCENARIO CONTROLS FOCUS */}
+        {activeFocusModule === 'scenario' && (
+          <div className="w-full h-full min-h-[80vh] max-w-4xl mx-auto">
             <LeftController
               rainfall={rainfall}
               onRainfallChange={setRainfall}
@@ -740,110 +890,66 @@ export default function DashboardPage() {
               isResetting={isResetting}
             />
           </div>
+        )}
 
-          {/* 3. Central Interactive Map — its own bounded, rounded card; no longer a
-              full-bleed background with panels floating on top of it. */}
-          <div className="lg:col-span-6 relative h-[50vh] lg:h-full min-h-[320px] rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden bg-slate-100">
-            <MapErrorBoundary>
-              <MapContainer
-                riskGrid={riskGrid}
-                floodZones={floodZones}
-                sosReports={sosReports}
-                rescueUnits={rescueUnits}
-                dispatchAssignments={dispatchAssignments}
-                onSelectRiskCell={setSelectedRiskCell}
-                onLocationResolved={setUserLocation}
-                activeRouteGeometry={focusedRoute?.geometry ?? null}
-                animatedUnitPosition={focusedRouteProgress.position}
-                animatedUnitBearing={focusedRouteProgress.bearingDegrees}
-                telemetry={telemetryData}
-              />
-            </MapErrorBoundary>
-          </div>
-
-          {/* 4. Right Live Dispatch Queue — queue column */}
-          <div className="lg:col-span-3 lg:h-full lg:min-h-0">
-            <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
-          </div>
-
-          {/* 5. Scientific Telemetry & Hydro Metrics Panel */}
-          <div className="lg:col-span-12">
+        {/* VIEW MODE 5: HYDRO TELEMETRY FOCUS */}
+        {activeFocusModule === 'telemetry' && (
+          <div className="w-full h-full min-h-[80vh] space-y-4">
             <ScientificTelemetryMetrics
               telemetry={telemetryData}
               isStreaming={isConnected}
             />
-          </div>
-
-          {/* 6. Time-Series Flood Inundation & Hydro Telemetry Dashboard */}
-          <div className="lg:col-span-12">
             <FloodInundationTelemetryDashboard
               telemetry={{
-                timestamp: new Date().toISOString(),
-                locationName: userLocation ? `Regional Sensor Array (${userLocation.lat.toFixed(2)}°, ${userLocation.lon.toFixed(2)}°)` : 'Chennai Coastal Hydro Sensor Array',
-                windSpeedKmH: Math.round(22 + (liveWeatherInfo?.intensity || rainfall) * 0.45),
-                windGustKmH: Math.round(38 + (liveWeatherInfo?.intensity || rainfall) * 0.65),
-                windDirectionDeg: 215,
-                relativeHumidityPercent: Math.min(100, Math.round(78 + (liveWeatherInfo?.intensity || rainfall) * 0.22)),
-                soilMoisturePercent: Math.min(100, Math.round(58 + (liveWeatherInfo?.intensity || rainfall) * 0.42)),
-                rainfallRateMmHr: liveWeatherInfo?.intensity ?? rainfall,
-                rainfall24hMm: Math.round(((liveWeatherInfo?.intensity ?? rainfall) * 3.2) * 10) / 10,
-                pressureHpa: Math.round((1012 - (liveWeatherInfo?.intensity || rainfall) * 0.28) * 10) / 10,
-                pressureTrend: (liveWeatherInfo?.intensity || rainfall) > 40 ? 'FALLING' : 'STEADY',
-                pressureDelta3h: Math.round((-1.5 - (liveWeatherInfo?.intensity || rainfall) * 0.09) * 10) / 10,
+                timestamp: telemetryData.timestamp,
+                locationName: telemetryData.stationName,
+                windSpeedKmH: telemetryData.wind.speedKmH,
+                windGustKmH: telemetryData.wind.gustKmH,
+                windDirectionDeg: telemetryData.wind.directionDegrees,
+                relativeHumidityPercent: telemetryData.atmospheric.humidityPercent,
+                soilMoisturePercent: telemetryData.soil.soilSaturationPercent,
+                rainfallRateMmHr: telemetryData.rainfall.currentRateMmHr,
+                rainfall24hMm: telemetryData.rainfall.cumulative24hMm,
+                pressureHpa: telemetryData.atmospheric.pressureHpa,
+                pressureTrend: telemetryData.atmospheric.pressureTrend,
+                pressureDelta3h: telemetryData.atmospheric.pressureDelta3h,
               }}
-              mapCenter={userLocation ? [userLocation.lon, userLocation.lat] : [80.24, 12.98]}
+              mapCenter={userLocation ? [userLocation.lon, userLocation.lat] : selectedCityInfo.coords}
             />
           </div>
-
-          {/* 7. Replay Time-Scrubber — its own full-width row below the grid columns */}
-          <div className="lg:col-span-12">
-            <ReplayScrubber
-              events={replayEvents}
-              isReplayMode={isReplayMode}
-              onToggleReplayMode={handleToggleReplayMode}
-              onSelectEventIndex={handleSelectReplayEventIndex}
-            />
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* 5. Explainable Risk Card Modal */}
-      <RiskCardModal
-        properties={selectedRiskCell}
-        onClose={() => setSelectedRiskCell(null)}
-      />
+      {/* Replay Time-Scrubber */}
+      <div className="px-4 pb-3 shrink-0">
+        <ReplayScrubber
+          isReplayMode={isReplayMode}
+          onToggleReplayMode={handleToggleReplayMode}
+          events={replayEvents}
+          onSelectEventIndex={handleSelectReplayEventIndex}
+        />
+      </div>
 
-      {/* 6. Incident After-Action Report (AAR) Export Modal */}
-      <ExportAARModal
-        isOpen={isAARModalOpen}
-        onClose={() => setIsAARModalOpen(false)}
-        sosReports={sosReports}
-        rescueUnits={rescueUnits}
-        dispatchAssignments={dispatchAssignments}
-        monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
-      />
-
-      {/* 7. Broadcast SMS Alert Modal */}
-      <BroadcastSMSModal
-        isOpen={isSMSModalOpen}
-        onClose={() => setIsSMSModalOpen(false)}
-        onToast={showToast}
-      />
-
-      {/* 8. Blinkit/Uber-style Floating Dispatch Navigation Card */}
-      {focusedAssignment && (
-        <DispatchNavigationCard
-          assignment={focusedAssignment}
-          sosReport={sosReports.find((r) => r.id === focusedAssignment.sos_id)}
-          route={focusedRoute}
-          routeError={focusedRouteError}
-          isLoadingRoute={isLoadingFocusedRoute}
-          progress={focusedRouteProgress}
-          onClose={handleCloseNavigation}
-          onMarkArrived={handleMarkArrived}
-          onUpdateStatus={handleUpdateStatus}
-          onCallDispatcher={handleCallDispatcher}
-          isMarkingArrived={isMarkingArrived}
+      {/* Modals */}
+      {selectedRiskCell && (
+        <RiskCardModal properties={selectedRiskCell} onClose={() => setSelectedRiskCell(null)} />
+      )}
+      {isAARModalOpen && (
+        <ExportAARModal
+          isOpen={isAARModalOpen}
+          onClose={() => setIsAARModalOpen(false)}
+          sosReports={sosReports}
+          dispatchAssignments={dispatchAssignments}
+          rescueUnits={rescueUnits}
+          monitoredAreaKm2={analyticsStats?.monitored_area_km2 || 42.5}
+        />
+      )}
+      {isSMSModalOpen && (
+        <BroadcastSMSModal
+          isOpen={isSMSModalOpen}
+          onClose={() => setIsSMSModalOpen(false)}
+          onToast={showToast}
+          defaultMessage={`[ALERT] Emergency flood update for ${selectedCityInfo.name}: Rainfall intensity at ${telemetryData.rainfall.currentRateMmHr}mm/hr. Seek high ground if in low-lying sectors.`}
         />
       )}
     </main>

@@ -58,7 +58,50 @@ export interface ScientificTelemetryPayload {
 }
 
 // ==========================================
-// 2. Helper Calculation Functions
+// 2. Accurate SVG Vector Wind Arrow Component
+// ==========================================
+
+export interface WindVectorBarbProps {
+  speedKmH: number;
+  directionDegrees: number;
+  size?: number;
+  color?: string;
+}
+
+export const WindVectorBarb: React.FC<WindVectorBarbProps> = ({
+  speedKmH,
+  directionDegrees,
+  size = 32,
+  color = '#38bdf8',
+}) => {
+  const strokeWidth = Math.min(3.2, Math.max(1.8, 1.5 + speedKmH / 30));
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className="transition-transform duration-700 ease-out shrink-0"
+      style={{ transform: `rotate(${directionDegrees}deg)` }}
+    >
+      {/* Central Vector Shaft */}
+      <line x1="12" y1="21" x2="12" y2="4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      {/* Arrowhead Pointing in Flow Direction */}
+      <polyline points="6 10 12 3 18 10" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      {/* Meteorological Tail Barbs scaling with wind speed */}
+      {speedKmH > 20 && (
+        <line x1="12" y1="15" x2="18" y2="12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      )}
+      {speedKmH > 40 && (
+        <line x1="12" y1="18" x2="18" y2="15" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      )}
+    </svg>
+  );
+};
+
+// ==========================================
+// 3. Helper Calculation Functions
 // ==========================================
 
 export function degreesToCompassHeading(degrees: number): string {
@@ -221,17 +264,15 @@ export const ScientificTelemetryMetrics: React.FC<ScientificTelemetryMetricsProp
               </div>
             </div>
 
-            {/* Dynamic Compass Rose Vector Arrow */}
+            {/* Dynamic Compass Rose Vector Arrow Component */}
             <div className="relative w-12 h-12 rounded-full border-2 border-slate-700 flex items-center justify-center bg-slate-900/80 shadow-inner">
-              <Compass className="w-10 h-10 text-slate-700 absolute" />
-              <div
-                className="w-full h-full flex items-center justify-center transition-transform duration-700 ease-out"
-                style={{ transform: `rotate(${data.wind.directionDegrees}deg)` }}
-              >
-                <div className="w-0.5 h-7 bg-sky-400 rounded-full relative">
-                  <div className="w-2 h-2 bg-sky-400 rotate-45 absolute -top-1 -left-0.75 rounded-xs" />
-                </div>
-              </div>
+              <Compass className="w-10 h-10 text-slate-700/40 absolute" />
+              <WindVectorBarb
+                speedKmH={data.wind.speedKmH}
+                directionDegrees={data.wind.directionDegrees}
+                size={28}
+                color="#38bdf8"
+              />
             </div>
           </div>
         </div>
@@ -253,44 +294,24 @@ export const ScientificTelemetryMetrics: React.FC<ScientificTelemetryMetricsProp
               <span className="text-xs font-normal text-slate-400">mm/hr</span>
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5 flex items-center justify-between">
-              <span>24h Accumulation:</span>
+              <span>24h Cumulative:</span>
               <span className="font-bold text-slate-200">{data.rainfall.cumulative24hMm} mm</span>
             </div>
           </div>
-
-          {/* Micro Threshold Progress Gauge */}
-          <div className="w-full bg-slate-700/60 h-1.5 rounded-full overflow-hidden mt-2">
-            <div
-              className={`h-full transition-all duration-500 rounded-full ${
-                rainfallSev === 'TORRENTIAL'
-                  ? 'bg-red-500'
-                  : rainfallSev === 'HEAVY'
-                  ? 'bg-orange-500'
-                  : rainfallSev === 'MODERATE'
-                  ? 'bg-amber-400'
-                  : 'bg-emerald-400'
-              }`}
-              style={{ width: `${Math.min(100, (data.rainfall.currentRateMmHr / 100) * 100)}%` }}
-            />
-          </div>
         </div>
 
-        {/* 3. Barometric Pressure & Storm Approach */}
+        {/* 3. Barometric Pressure & Trend */}
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 space-y-2 relative">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="flex items-center gap-1.5 font-semibold">
-              <Gauge className="w-3.5 h-3.5 text-indigo-400" /> Barometric Pressure
+              <Gauge className="w-3.5 h-3.5 text-purple-400" /> Barometric Pressure
             </span>
-            <span className="flex items-center gap-1 text-[11px] font-bold text-slate-300">
-              {data.atmospheric.pressureTrend === 'FALLING' ? (
-                <ArrowDown className="w-3.5 h-3.5 text-red-400 animate-bounce" />
-              ) : data.atmospheric.pressureTrend === 'RISING' ? (
-                <ArrowUp className="w-3.5 h-3.5 text-emerald-400" />
-              ) : (
-                <Minus className="w-3.5 h-3.5 text-slate-400" />
-              )}
-              {data.atmospheric.pressureTrend}
-            </span>
+            <div className="flex items-center gap-1 font-mono text-[11px] text-slate-300 font-bold">
+              {data.atmospheric.pressureTrend === 'RISING' && <ArrowUp className="w-3 h-3 text-emerald-400" />}
+              {data.atmospheric.pressureTrend === 'FALLING' && <ArrowDown className="w-3 h-3 text-red-400" />}
+              {data.atmospheric.pressureTrend === 'STEADY' && <Minus className="w-3 h-3 text-slate-400" />}
+              <span>{data.atmospheric.pressureTrend}</span>
+            </div>
           </div>
 
           <div className="pt-1">
@@ -299,7 +320,7 @@ export const ScientificTelemetryMetrics: React.FC<ScientificTelemetryMetricsProp
               <span className="text-xs font-normal text-slate-400">hPa</span>
             </div>
             <div className="text-[11px] text-slate-400 mt-0.5 flex items-center justify-between">
-              <span>3h Pressure Δ:</span>
+              <span>3h Change:</span>
               <span
                 className={`font-mono font-bold ${
                   data.atmospheric.pressureDelta3h < 0 ? 'text-red-400' : 'text-emerald-400'
@@ -310,49 +331,42 @@ export const ScientificTelemetryMetrics: React.FC<ScientificTelemetryMetricsProp
               </span>
             </div>
           </div>
-
-          {data.atmospheric.pressureDelta3h <= -3.0 && (
-            <div className="flex items-center gap-1 text-[10px] text-red-400 font-medium pt-1">
-              <AlertTriangle className="w-3 h-3 shrink-0" />
-              <span>Rapid pressure drop (Storm Warning)</span>
-            </div>
-          )}
         </div>
 
-        {/* 4. Soil Saturation & Watershed Runoff Index */}
+        {/* 4. Soil Saturation & Runoff Potential */}
         <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-3.5 space-y-2 relative">
           <div className="flex items-center justify-between text-xs text-slate-400">
             <span className="flex items-center gap-1.5 font-semibold">
-              <Droplets className="w-3.5 h-3.5 text-teal-400" /> Soil Saturation Index
+              <Droplets className="w-3.5 h-3.5 text-teal-400" /> Soil Saturation
             </span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${runoffBadgeColor}`}>
               {runoffRisk} RUNOFF
             </span>
           </div>
 
-          <div className="pt-1">
-            <div className="text-2xl font-black text-white tabular-nums tracking-tight">
-              {data.soil.soilSaturationPercent}%{' '}
-              <span className="text-xs font-normal text-slate-400">capacity</span>
+          <div className="pt-1 space-y-1">
+            <div className="flex items-baseline justify-between">
+              <div className="text-2xl font-black text-white tabular-nums tracking-tight">
+                {data.soil.soilSaturationPercent}%
+              </div>
+              <span className="text-[11px] font-mono text-slate-400">
+                Groundwater: {data.soil.groundwaterTableMeters}m
+              </span>
             </div>
-            <div className="text-[11px] text-slate-400 mt-0.5 flex items-center justify-between">
-              <span>Water Table:</span>
-              <span className="font-bold text-slate-200">{data.soil.groundwaterTableMeters}m depth</span>
-            </div>
-          </div>
 
-          {/* Saturation Radial Fill Progress */}
-          <div className="w-full bg-slate-700/60 h-1.5 rounded-full overflow-hidden mt-2">
-            <div
-              className={`h-full transition-all duration-500 rounded-full ${
-                data.soil.soilSaturationPercent >= 85
-                  ? 'bg-red-500'
-                  : data.soil.soilSaturationPercent >= 70
-                  ? 'bg-orange-500'
-                  : 'bg-teal-400'
-              }`}
-              style={{ width: `${data.soil.soilSaturationPercent}%` }}
-            />
+            {/* Progress bar */}
+            <div className="w-full h-1.5 rounded-full bg-slate-900 overflow-hidden border border-slate-700">
+              <div
+                className={`h-full rounded-full transition-all duration-700 ${
+                  data.soil.soilSaturationPercent > 85
+                    ? 'bg-red-500'
+                    : data.soil.soilSaturationPercent > 70
+                    ? 'bg-orange-500'
+                    : 'bg-emerald-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(0, data.soil.soilSaturationPercent))}%` }}
+              />
+            </div>
           </div>
         </div>
       </div>
