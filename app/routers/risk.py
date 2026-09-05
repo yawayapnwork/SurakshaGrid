@@ -152,17 +152,40 @@ async def simulate_risk_scores(
         except Exception as exc:
             logger.warning(f"Redis cache read error: {exc}")
 
-    # Prefer live PostGIS-driven scoring across designated emergency zones once they've
-    # been seeded; fall back to the synthetic bounding-box grid below for a fresh/demo DB.
+    try:
+        response = await _build_risk_grid_response(db, effective_rainfall, sim_id, center_lon, center_lat)
+    except Exception as exc:  # noqa: BLE001 - normalize any computation failure to a clean JSON error
+        logger.exception(f"Failed to compute risk grid (rainfall={effective_rainfall}, mode={mode}): {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to compute risk scores for the current simulation parameters. Please try again.",
+        ) from exc
+
+    if redis_client:
+        try:
+            await redis_client.setex(cache_key, CACHE_TTL_SECONDS, response.model_dump_json())
+            await redis_client.aclose()
+        except Exception as exc:
+            logger.warning(f"Redis cache write error: {exc}")
+
+    return response
+
+
+async def _build_risk_grid_response(
+    db: AsyncSession,
+    effective_rainfall: float,
+    sim_id: str | None,
+    center_lon: float | None,
+    center_lat: float | None,
+) -> RiskGridCollection:
+    """Computes the risk grid: live PostGIS-driven scoring across designated emergency
+
+    zones once they've been seeded, or the synthetic bounding-box grid formula below for
+    a fresh/demo DB. Split out from the route handler so it can be wrapped in one
+    try/except there instead of leaving computation errors to bubble up as an opaque 500.
+    """
     if await zone_count(db) > 0:
-        response = await compute_dynamic_zone_risk_scores(db, effective_rainfall, sim_id, center_lon, center_lat)
-        if redis_client:
-            try:
-                await redis_client.setex(cache_key, CACHE_TTL_SECONDS, response.model_dump_json())
-                await redis_client.aclose()
-            except Exception as exc:
-                logger.warning(f"Redis cache write error: {exc}")
-        return response
+        return await compute_dynamic_zone_risk_scores(db, effective_rainfall, sim_id, center_lon, center_lat)
 
     # 1. Fetch active/pending SOS reports to compute report density
     stmt = select(SOSReport).where(SOSReport.status.in_([SOSStatus.PENDING, SOSStatus.ASSIGNED]))
@@ -271,14 +294,5 @@ async def simulate_risk_scores(
             )
             features.append(feature)
 
-    response = RiskGridCollection(type="FeatureCollection", features=features)
-
-    if redis_client:
-        try:
-            await redis_client.setex(cache_key, CACHE_TTL_SECONDS, response.model_dump_json())
-            await redis_client.aclose()
-        except Exception as exc:
-            logger.warning(f"Redis cache write error: {exc}")
-
-    return response
+    return RiskGridCollection(type="FeatureCollection", features=features)
 

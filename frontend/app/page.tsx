@@ -116,7 +116,12 @@ export default function DashboardPage() {
           setFloodZones(floodData);
         }
       })
-      .catch((err) => console.error('Error simulating risk scores or flood zones:', err));
+      .catch((err) => {
+        console.error('Error simulating risk scores or flood zones:', err);
+        if (isSubscribed) {
+          showToast(err instanceof Error ? err.message : 'Failed to run the flood risk simulation.', 'info');
+        }
+      });
 
     return () => {
       isSubscribed = false;
@@ -274,7 +279,7 @@ export default function DashboardPage() {
       }, 100000);
     } catch (err) {
       console.error('Failed to trigger live simulation scenario:', err);
-      showToast('Failed to trigger simulation scenario', 'info');
+      showToast(err instanceof Error ? err.message : 'Failed to trigger simulation scenario.', 'info');
       setIsTriggering(false);
     }
   };
@@ -292,6 +297,7 @@ export default function DashboardPage() {
       showToast('Demo state safely wiped. Baseline DB intact.', 'info');
     } catch (err) {
       console.error('Failed to reset simulation:', err);
+      showToast(err instanceof Error ? err.message : 'Failed to reset simulation scenario.', 'info');
     } finally {
       setIsResetting(false);
     }
@@ -322,7 +328,7 @@ export default function DashboardPage() {
       }
     } catch (err) {
       console.error('Failed to run rescue dispatch optimizer:', err);
-      showToast('Dispatch optimizer failed', 'info');
+      showToast(err instanceof Error ? err.message : 'Dispatch optimizer failed.', 'info');
     } finally {
       setIsDispatching(false);
     }
@@ -338,6 +344,8 @@ export default function DashboardPage() {
         showToast('Digital Twin Replay Mode Activated', 'info');
       } catch (err) {
         console.error('Failed to fetch replay events:', err);
+        showToast(err instanceof Error ? err.message : 'Failed to load replay events.', 'info');
+        setIsReplayMode(false);
       }
     }
   };

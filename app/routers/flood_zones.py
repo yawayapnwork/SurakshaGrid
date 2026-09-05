@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from geoalchemy2.shape import to_shape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,56 +77,63 @@ async def simulate_flood_zones(
         except Exception as exc:
             logger.warning(f"Redis cache read error: {exc}")
 
-    result_data = None
+    try:
+        result_data = None
 
-    # 1. Try fetching latest persisted FloodZone record for sim_id
-    if sim_id:
-        stmt = select(FloodZone).where(FloodZone.sim_id == sim_id).order_by(FloodZone.created_at.desc())
-        res = await db.execute(stmt)
-        latest_zone = res.scalars().first()
-        if latest_zone:
-            try:
-                shape = to_shape(latest_zone.geometry)
-                coords = [[[round(pt[0], 6), round(pt[1], 6)] for pt in shape.exterior.coords]]
-                result_data = {
-                    "type": "FeatureCollection",
-                    "features": [
-                        {
-                            "type": "Feature",
-                            "geometry": {
-                                "type": "Polygon",
-                                "coordinates": coords,
-                            },
-                            "properties": {
-                                "rainfall": round(latest_zone.rainfall_intensity, 2),
-                                "sim_id": latest_zone.sim_id,
-                                "zone_id": str(latest_zone.id),
-                            },
-                        }
-                    ],
-                }
-            except Exception:
-                pass
+        # 1. Try fetching latest persisted FloodZone record for sim_id
+        if sim_id:
+            stmt = select(FloodZone).where(FloodZone.sim_id == sim_id).order_by(FloodZone.created_at.desc())
+            res = await db.execute(stmt)
+            latest_zone = res.scalars().first()
+            if latest_zone:
+                try:
+                    shape = to_shape(latest_zone.geometry)
+                    coords = [[[round(pt[0], 6), round(pt[1], 6)] for pt in shape.exterior.coords]]
+                    result_data = {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "Polygon",
+                                    "coordinates": coords,
+                                },
+                                "properties": {
+                                    "rainfall": round(latest_zone.rainfall_intensity, 2),
+                                    "sim_id": latest_zone.sim_id,
+                                    "zone_id": str(latest_zone.id),
+                                },
+                            }
+                        ],
+                    }
+                except Exception as exc:
+                    logger.warning(f"Failed to parse persisted flood zone geometry for sim_id={sim_id}: {exc}")
 
-    # 2. Fall back to shared polygon calculation formula
-    if not result_data:
-        corridor = translated_water_corridor(center_lon, center_lat)
-        _, geojson_geom = build_flood_zone_polygon(rainfall, corridor)
-        buffer_deg = 0.01 + (min(max(rainfall, 0.0), 100.0) / 100.0) * 0.05
+        # 2. Fall back to shared polygon calculation formula
+        if not result_data:
+            corridor = translated_water_corridor(center_lon, center_lat)
+            _, geojson_geom = build_flood_zone_polygon(rainfall, corridor)
+            buffer_deg = 0.01 + (min(max(rainfall, 0.0), 100.0) / 100.0) * 0.05
 
-        result_data = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "geometry": geojson_geom,
-                    "properties": {
-                        "rainfall": round(rainfall, 2),
-                        "buffer_degrees": round(buffer_deg, 6),
-                    },
-                }
-            ],
-        }
+            result_data = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": geojson_geom,
+                        "properties": {
+                            "rainfall": round(rainfall, 2),
+                            "buffer_degrees": round(buffer_deg, 6),
+                        },
+                    }
+                ],
+            }
+    except Exception as exc:  # noqa: BLE001 - normalize any computation failure to a clean JSON error
+        logger.exception(f"Failed to compute flood zone (rainfall={rainfall}, sim_id={sim_id}): {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to compute the flood zone extent for the current simulation parameters. Please try again.",
+        ) from exc
 
     if redis_client:
         try:

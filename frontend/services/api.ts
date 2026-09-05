@@ -18,6 +18,16 @@ export interface GridCenter {
   lon: number;
 }
 
+// Every backend error response is clean JSON with a `detail` string (see app/main.py's
+// global exception handler + each router's try/except); the /api/officer-action Next.js
+// route instead uses `error` (see app/api/officer-action/route.ts). `res.statusText` is
+// the last-resort fallback for a response the JSON parse can't read at all (e.g. a
+// network-level failure surfaced as a non-JSON body).
+async function throwApiError(res: Response, fallbackAction: string): Promise<never> {
+  const errorData = await res.json().catch(() => ({}));
+  throw new Error(errorData.detail || errorData.error || `${fallbackAction}: ${res.statusText || `HTTP ${res.status}`}`);
+}
+
 export async function fetchSimulatedRiskScores(
   rainfall: number = 0,
   simId?: string,
@@ -32,9 +42,7 @@ export async function fetchSimulatedRiskScores(
     url += `&center_lon=${center.lon}&center_lat=${center.lat}`;
   }
   const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch risk scores: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to fetch risk scores');
   return res.json();
 }
 
@@ -51,9 +59,7 @@ export async function fetchSimulatedFloodZones(
     url += `&center_lon=${center.lon}&center_lat=${center.lat}`;
   }
   const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch flood zones: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to fetch flood zones');
   return res.json();
 }
 
@@ -68,9 +74,7 @@ export async function triggerOptimizeDispatch(simId?: string): Promise<DispatchA
     headers: OFFICER_SESSION_HEADERS,
     body: JSON.stringify({ action: 'optimize', sim_id: simId }),
   });
-  if (!res.ok) {
-    throw new Error(`Failed to trigger dispatch: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to trigger dispatch');
   return res.json();
 }
 
@@ -81,9 +85,7 @@ export async function fetchReplayEvents(since?: string, simId?: string): Promise
   const query = params.toString() ? `?${params.toString()}` : '';
 
   const res = await fetch(`${API_BASE_URL}/api/v1/replay${query}`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch replay events: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to fetch replay events');
   return res.json();
 }
 
@@ -118,10 +120,7 @@ export async function createSOSReport(data: {
     method: 'POST',
     body: formData,
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to create SOS report: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to create SOS report');
   return res.json();
 }
 
@@ -139,10 +138,7 @@ export async function transcribeVoiceSOS(audioBlob: Blob): Promise<{
     method: 'POST',
     body: formData,
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to transcribe audio: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to transcribe audio');
   return res.json();
 }
 
@@ -160,10 +156,7 @@ export async function verifyPhoto(image: Blob | File): Promise<PhotoVerification
     method: 'POST',
     body: formData,
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to verify photo: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to verify photo');
   return res.json();
 }
 
@@ -178,10 +171,7 @@ export async function translateReportText(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, source_lang: sourceLang, target_lang: targetLang }),
   });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.detail || `Failed to translate report text: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to translate report text');
   return res.json();
 }
 
@@ -197,9 +187,7 @@ export async function triggerSimulationScenario(): Promise<{
     headers: OFFICER_SESSION_HEADERS,
     body: JSON.stringify({ action: 'trigger' }),
   });
-  if (!res.ok) {
-    throw new Error(`Failed to trigger simulation scenario: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to trigger simulation scenario');
   return res.json();
 }
 
@@ -212,9 +200,7 @@ export async function resetSimulationScenario(simId?: string): Promise<{
     headers: OFFICER_SESSION_HEADERS,
     body: JSON.stringify({ action: 'reset', sim_id: simId }),
   });
-  if (!res.ok) {
-    throw new Error(`Failed to reset simulation scenario: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to reset simulation scenario');
   return res.json();
 }
 
@@ -224,9 +210,7 @@ export async function fetchLiveAnalyticsStats(simId?: string): Promise<LiveAnaly
     url += `?sim_id=${encodeURIComponent(simId)}`;
   }
   const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch live analytics stats: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to fetch live analytics stats');
   return res.json();
 }
 
@@ -241,8 +225,6 @@ export async function fetchNearbySOSReports(
     url += `&sim_id=${encodeURIComponent(simId)}`;
   }
   const res = await fetch(url);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch nearby SOS reports: ${res.statusText}`);
-  }
+  if (!res.ok) return throwApiError(res, 'Failed to fetch nearby SOS reports');
   return res.json();
 }

@@ -500,7 +500,15 @@ async def reset_simulation(
             detail="Simulation endpoints are disabled in production environments",
         )
 
-    await reset_demo_state(db)
+    try:
+        await reset_demo_state(db)
+    except Exception as exc:  # noqa: BLE001 - normalize any reset failure to a clean JSON error
+        logger.exception(f"Failed to reset simulation state: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to reset the demo scenario state. Please try again.",
+        ) from exc
+
     return {"status": "success", "message": "Demo state reset successfully"}
 
 
@@ -522,40 +530,47 @@ async def trigger_simulation(
             detail="Simulation endpoints are disabled in production environments",
         )
 
-    # 1. Reset existing demo state across all workers via Redis
-    await reset_demo_state(db)
+    try:
+        # 1. Reset existing demo state across all workers via Redis
+        await reset_demo_state(db)
 
-    sim_id = str(uuid.uuid4())
-    await _set_active_sim_id(sim_id)
+        sim_id = str(uuid.uuid4())
+        await _set_active_sim_id(sim_id)
 
-    # 2. Seed 7 Rescue Units immediately
-    rescue_units_data = [
-        ("NDRF Rescue Boat Alpha", RescueUnitType.BOAT, "SRID=4326;POINT(80.2707 13.0827)"),
-        ("SDRF Rescue Boat Beta", RescueUnitType.BOAT, "SRID=4326;POINT(80.2200 13.0400)"),
-        ("Coast Guard Rescue Boat Gamma", RescueUnitType.BOAT, "SRID=4326;POINT(80.2800 13.0600)"),
-        ("108 Emergency Ambulance Alpha", RescueUnitType.AMBULANCE, "SRID=4326;POINT(80.2000 13.0100)"),
-        ("Medical Relief Ambulance Bravo", RescueUnitType.AMBULANCE, "SRID=4326;POINT(80.2500 13.1000)"),
-        ("SkyEye Recon Drone One", RescueUnitType.DRONE, "SRID=4326;POINT(80.2400 13.0500)"),
-        ("AeroSurveillance Drone Two", RescueUnitType.DRONE, "SRID=4326;POINT(80.2600 13.0900)"),
-    ]
+        # 2. Seed 7 Rescue Units immediately
+        rescue_units_data = [
+            ("NDRF Rescue Boat Alpha", RescueUnitType.BOAT, "SRID=4326;POINT(80.2707 13.0827)"),
+            ("SDRF Rescue Boat Beta", RescueUnitType.BOAT, "SRID=4326;POINT(80.2200 13.0400)"),
+            ("Coast Guard Rescue Boat Gamma", RescueUnitType.BOAT, "SRID=4326;POINT(80.2800 13.0600)"),
+            ("108 Emergency Ambulance Alpha", RescueUnitType.AMBULANCE, "SRID=4326;POINT(80.2000 13.0100)"),
+            ("Medical Relief Ambulance Bravo", RescueUnitType.AMBULANCE, "SRID=4326;POINT(80.2500 13.1000)"),
+            ("SkyEye Recon Drone One", RescueUnitType.DRONE, "SRID=4326;POINT(80.2400 13.0500)"),
+            ("AeroSurveillance Drone Two", RescueUnitType.DRONE, "SRID=4326;POINT(80.2600 13.0900)"),
+        ]
 
-    seeded_units: list[RescueUnit] = []
-    for name, u_type, loc_wkt in rescue_units_data:
-        unit = RescueUnit(
-            id=uuid.uuid4(),
-            name=name,
-            unit_type=u_type,
-            current_location=loc_wkt,
-            status=RescueUnitStatus.AVAILABLE,
-            sim_id=sim_id,
-        )
-        db.add(unit)
-        seeded_units.append(unit)
+        seeded_units: list[RescueUnit] = []
+        for name, u_type, loc_wkt in rescue_units_data:
+            unit = RescueUnit(
+                id=uuid.uuid4(),
+                name=name,
+                unit_type=u_type,
+                current_location=loc_wkt,
+                status=RescueUnitStatus.AVAILABLE,
+                sim_id=sim_id,
+            )
+            db.add(unit)
+            seeded_units.append(unit)
 
-    await db.commit()
+        await db.commit()
 
-    # 3. Schedule background staggered SOS spawner with dedicated AsyncSessionLocal session management
-    background_tasks.add_task(run_staggered_simulation, sim_id)
+        # 3. Schedule background staggered SOS spawner with dedicated AsyncSessionLocal session management
+        background_tasks.add_task(run_staggered_simulation, sim_id)
+    except Exception as exc:  # noqa: BLE001 - normalize any trigger failure to a clean JSON error
+        logger.exception(f"Failed to trigger simulation scenario: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to start the flood scenario simulation. Please try again.",
+        ) from exc
 
     logger.info(f"Triggered live simulation: seeded {len(seeded_units)} units immediately. Spawning SOS reports progressively.")
 

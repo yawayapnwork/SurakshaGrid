@@ -1,8 +1,10 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.health import router as health_router
 from app.core.config import get_settings
@@ -23,6 +25,7 @@ from app.routers.ws import router as ws_router
 from app.services.ws_manager import ws_manager
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -47,6 +50,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Converts any exception that escapes a route handler into a clean JSON 500.
+
+    Without this, Starlette's default fallback (ServerErrorMiddleware) returns a plain-
+    text response from OUTSIDE the CORS middleware, so the browser's fetch sees it as a
+    blocked cross-origin response rather than a real 500 — the frontend then reports a
+    generic network failure with no error message at all. Registering a handler here
+    routes it through FastAPI's ExceptionMiddleware instead, which sits *inside*
+    CORSMiddleware, so this JSON response gets CORS headers and the frontend can actually
+    read and display `detail`.
+    """
+    logger.exception(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An unexpected server error occurred. Please try again."},
+    )
+
 
 @app.get("/")
 async def root() -> dict[str, str]:
