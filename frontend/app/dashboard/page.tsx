@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { TopStatsBar } from '@/components/TopStatsBar';
 import { LeftController } from '@/components/LeftController';
@@ -9,7 +9,7 @@ import { RiskCardModal } from '@/components/RiskCardModal';
 import { ReplayScrubber } from '@/components/ReplayScrubber';
 import { BroadcastSMSModal } from '@/components/BroadcastSMSModal';
 import { DispatchNavigationCard } from '@/components/DispatchNavigationCard';
-import { ScientificTelemetryMetrics } from '@/components/ScientificTelemetryMetrics';
+import { ScientificTelemetryMetrics, ScientificTelemetryPayload } from '@/components/ScientificTelemetryMetrics';
 import { ExportAARModal } from '@/components/ExportAARModal';
 import { playTwoToneEmergencyAlert } from '@/components/AudioAlertManager';
 import { useAnimatedRouteProgress } from '@/hooks/useAnimatedRouteProgress';
@@ -157,6 +157,47 @@ export default function DashboardPage() {
       }
     }
   }, [n8nFeed.isLive, n8nFeed.sosReports, n8nFeed.dispatchQueue, n8nFeed.rescueUnits, n8nFeed.telemetry]);
+
+  // Calculated scientific telemetry payload bound to userLocation & active weather feed
+  const telemetryData: ScientificTelemetryPayload = useMemo(() => {
+    const intensity = liveWeatherInfo?.intensity ?? rainfall;
+    const latStr = userLocation ? userLocation.lat.toFixed(2) : '13.05';
+    const lonStr = userLocation ? userLocation.lon.toFixed(2) : '80.25';
+    const windSpeed = Math.round(20 + intensity * 0.4);
+    const windGust = Math.round(35 + intensity * 0.6);
+
+    return {
+      timestamp: new Date().toISOString(),
+      stationId: `EOC-RADAR-${latStr}-${lonStr}`,
+      stationName: userLocation
+        ? `Regional Hydro Station (${latStr}°, ${lonStr}°)`
+        : 'Chennai Coastal Hydro Station',
+      wind: {
+        speedKmH: windSpeed,
+        gustKmH: windGust,
+        directionDegrees: 225,
+        heading: 'SW',
+      },
+      rainfall: {
+        currentRateMmHr: intensity,
+        cumulative24hMm: Math.round(intensity * 2.8 * 10) / 10,
+        severity: intensity > 75 ? 'TORRENTIAL' : intensity > 35 ? 'HEAVY' : intensity > 7.5 ? 'MODERATE' : 'LIGHT',
+      },
+      atmospheric: {
+        pressureHpa: Math.round((1013 - intensity * 0.25) * 10) / 10,
+        pressureTrend: intensity > 40 ? 'FALLING' : 'STEADY',
+        pressureDelta3h: Math.round((-1.2 - intensity * 0.08) * 10) / 10,
+        humidityPercent: Math.min(100, Math.round(75 + intensity * 0.25)),
+        dewPointC: 24.5,
+      },
+      soil: {
+        soilSaturationPercent: Math.min(100, Math.round(55 + intensity * 0.45)),
+        absorptionRateMmHr: 4.2,
+        surfaceRunoffPotential: intensity > 60 ? 'EXTREME' : intensity > 30 ? 'HIGH' : 'MODERATE',
+        groundwaterTableMeters: 0.45,
+      },
+    };
+  }, [liveWeatherInfo, rainfall, userLocation]);
 
   // Load sound mute preference and active sim_id on client mount.
   // localStorage/sessionStorage don't exist during SSR, so this can only run
@@ -715,6 +756,7 @@ export default function DashboardPage() {
                 activeRouteGeometry={focusedRoute?.geometry ?? null}
                 animatedUnitPosition={focusedRouteProgress.position}
                 animatedUnitBearing={focusedRouteProgress.bearingDegrees}
+                telemetry={telemetryData}
               />
             </MapErrorBoundary>
           </div>
@@ -727,35 +769,7 @@ export default function DashboardPage() {
           {/* 5. Scientific Telemetry & Hydro Metrics Panel */}
           <div className="lg:col-span-12">
             <ScientificTelemetryMetrics
-              telemetry={{
-                timestamp: new Date().toISOString(),
-                stationId: 'EOC-CH-04',
-                stationName: userLocation ? `Regional Hydro Radar (${userLocation.lat.toFixed(2)}°, ${userLocation.lon.toFixed(2)}°)` : 'Chennai Coastal Radar & Hydro Station',
-                wind: {
-                  speedKmH: Math.round(20 + (liveWeatherInfo?.intensity || rainfall) * 0.4),
-                  gustKmH: Math.round(35 + (liveWeatherInfo?.intensity || rainfall) * 0.6),
-                  directionDegrees: 225,
-                  heading: 'SW',
-                },
-                rainfall: {
-                  currentRateMmHr: liveWeatherInfo?.intensity ?? rainfall,
-                  cumulative24hMm: Math.round(((liveWeatherInfo?.intensity ?? rainfall) * 2.8) * 10) / 10,
-                  severity: (liveWeatherInfo?.intensity ?? rainfall) > 75 ? 'TORRENTIAL' : (liveWeatherInfo?.intensity ?? rainfall) > 35 ? 'HEAVY' : (liveWeatherInfo?.intensity ?? rainfall) > 7.5 ? 'MODERATE' : 'LIGHT',
-                },
-                atmospheric: {
-                  pressureHpa: Math.round((1013 - (liveWeatherInfo?.intensity || rainfall) * 0.25) * 10) / 10,
-                  pressureTrend: (liveWeatherInfo?.intensity || rainfall) > 40 ? 'FALLING' : 'STEADY',
-                  pressureDelta3h: Math.round((-1.2 - (liveWeatherInfo?.intensity || rainfall) * 0.08) * 10) / 10,
-                  humidityPercent: Math.min(100, Math.round(75 + (liveWeatherInfo?.intensity || rainfall) * 0.25)),
-                  dewPointC: 24.5,
-                },
-                soil: {
-                  soilSaturationPercent: Math.min(100, Math.round(55 + (liveWeatherInfo?.intensity || rainfall) * 0.45)),
-                  absorptionRateMmHr: 4.2,
-                  surfaceRunoffPotential: (liveWeatherInfo?.intensity || rainfall) > 60 ? 'EXTREME' : (liveWeatherInfo?.intensity || rainfall) > 30 ? 'HIGH' : 'MODERATE',
-                  groundwaterTableMeters: 0.45,
-                },
-              }}
+              telemetry={telemetryData}
               isStreaming={isConnected}
             />
           </div>

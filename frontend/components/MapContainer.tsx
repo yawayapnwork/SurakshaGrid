@@ -6,12 +6,15 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import {
   Building2,
   ChevronDown,
+  Compass,
+  Droplets,
   Layers,
   MapPin,
   Navigation,
   Radio,
   ShieldAlert,
   SlidersHorizontal,
+  Wind,
 } from 'lucide-react';
 import {
   DispatchAssignment,
@@ -22,6 +25,7 @@ import {
   RiskGridCollection,
   SOSReport,
 } from '@/types';
+import { ScientificTelemetryPayload } from '@/components/ScientificTelemetryMetrics';
 
 export interface CityPreset {
   id: string;
@@ -56,6 +60,59 @@ interface MapContainerProps {
   animatedUnitPosition?: [number, number] | null;
   /** Real-time heading / rotation angle along street segments (in degrees 0..360) */
   animatedUnitBearing?: number;
+  /** Active scientific meteorological & hydrological telemetry payload */
+  telemetry?: ScientificTelemetryPayload | null;
+  /** Optional active city selection */
+  selectedCityId?: string;
+  /** Called when user changes city selection */
+  onCityChange?: (cityId: string) => void;
+}
+
+function generateSoilMoistureGeoJSON(center: [number, number], saturationPercent: number) {
+  const [lon, lat] = center;
+  const numPoints = 32;
+
+  const createRing = (radius: number) => {
+    const coords: [number, number][] = [];
+    for (let i = 0; i <= numPoints; i++) {
+      const angle = (i / numPoints) * 2 * Math.PI;
+      const dx = radius * Math.cos(angle) * 1.3;
+      const dy = radius * Math.sin(angle);
+      coords.push([lon + dx, lat + dy]);
+    }
+    return coords;
+  };
+
+  const ringCore = createRing(0.04);
+  const ringOuter = createRing(0.08);
+
+  return {
+    type: 'FeatureCollection' as const,
+    features: [
+      {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [ringCore],
+        },
+        properties: {
+          ring: 'core',
+          saturationPercent,
+        },
+      },
+      {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [ringOuter],
+        },
+        properties: {
+          ring: 'outer',
+          saturationPercent: Math.max(0, saturationPercent - 15),
+        },
+      },
+    ],
+  };
 }
 
 export const MapContainer: React.FC<MapContainerProps> = ({
@@ -69,15 +126,22 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   activeRouteGeometry,
   animatedUnitPosition,
   animatedUnitBearing = 0,
+  telemetry,
+  selectedCityId: controlledCityId,
+  onCityChange,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const windMarkersRef = useRef<maplibregl.Marker[]>([]);
   const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
   const animatedUnitMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const isUserSelectedRegionRef = useRef<boolean>(false);
 
   // City & Layer State
-  const [selectedCityId, setSelectedCityId] = useState<string>('chennai');
+  const [internalCityId, setInternalCityId] = useState<string>('chennai');
+  const selectedCityId = controlledCityId || internalCityId;
+
   const [isCityDropdownOpen, setIsCityDropdownOpen] = useState<boolean>(false);
   const [isLayerPanelOpen, setIsLayerPanelOpen] = useState<boolean>(false);
 
@@ -87,6 +151,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     sosReports: true,
     rescueUnits: true,
     dispatchRoutes: true,
+    windVectors: true,
+    soilMoisture: true,
   });
 
   const onSelectRiskCellRef = useRef(onSelectRiskCell);
@@ -136,6 +202,31 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           ],
           'fill-opacity': ['coalesce', ['get', 'opacity'], 0.4],
           'fill-outline-color': 'transparent',
+        },
+      });
+
+      // Soil Moisture Saturation Source & Layer
+      map.addSource('soil-moisture-source', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+
+      map.addLayer({
+        id: 'soil-moisture-fill',
+        type: 'fill',
+        source: 'soil-moisture-source',
+        layout: { visibility: layersVisible.soilMoisture ? 'visible' : 'none' },
+        paint: {
+          'fill-color': [
+            'match',
+            ['get', 'ring'],
+            'core',
+            'rgba(239, 68, 68, 0.40)',
+            'outer',
+            'rgba(249, 115, 22, 0.30)',
+            'rgba(234, 179, 8, 0.25)',
+          ],
+          'fill-outline-color': 'rgba(255, 255, 255, 0.2)',
         },
       });
 
@@ -284,10 +375,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
     mapRef.current = map;
 
-    // Geolocation Resolution
+    // Geolocation Resolution (Guarded to prevent resetting manually selected city viewports)
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          if (isUserSelectedRegionRef.current) {
+            console.log('Skipping geolocation auto-flyTo: user selected city manually.');
+            return;
+          }
           const { longitude, latitude } = position.coords;
           const el = document.createElement('div');
           el.className = 'relative flex items-center justify-center';
@@ -314,6 +409,8 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       userLocationMarkerRef.current = null;
       animatedUnitMarkerRef.current?.remove();
       animatedUnitMarkerRef.current = null;
+      windMarkersRef.current.forEach((m) => m.remove());
+      windMarkersRef.current = [];
       map.remove();
       mapRef.current = null;
     };
@@ -336,6 +433,67 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       source.setData(floodZones || { type: 'FeatureCollection', features: [] });
     }
   }, [floodZones]);
+
+  // Hot-swap Soil Moisture Saturation Layer
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const source = mapRef.current.getSource('soil-moisture-source') as maplibregl.GeoJSONSource;
+    if (!source) return;
+
+    if (!layersVisible.soilMoisture || !telemetry) {
+      source.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+
+    const city = CITY_PRESETS.find((c) => c.id === selectedCityId) || CITY_PRESETS[0];
+    const saturation = telemetry.soil.soilSaturationPercent;
+    const geojson = generateSoilMoistureGeoJSON(city.coordinates, saturation);
+    source.setData(geojson);
+  }, [telemetry, selectedCityId, layersVisible.soilMoisture]);
+
+  // Dynamic Wind Airflow Vector Markers
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    windMarkersRef.current.forEach((m) => m.remove());
+    windMarkersRef.current = [];
+
+    if (!layersVisible.windVectors || !telemetry) return;
+
+    const city = CITY_PRESETS.find((c) => c.id === selectedCityId) || CITY_PRESETS[0];
+    const [cLon, cLat] = city.coordinates;
+
+    const gridOffsets = [
+      [-0.04, -0.025],
+      [0.0, -0.035],
+      [0.04, -0.025],
+      [-0.045, 0.015],
+      [0.0, 0.025],
+      [0.045, 0.015],
+    ];
+
+    gridOffsets.forEach(([dLon, dLat]) => {
+      const el = document.createElement('div');
+      el.className = 'relative flex flex-col items-center justify-center pointer-events-none group';
+      el.innerHTML = `
+        <div class="w-7 h-7 rounded-full bg-slate-900/90 border border-sky-400/60 shadow-xl backdrop-blur-md flex items-center justify-center transition-transform duration-500" style="transform: rotate(${telemetry.wind.directionDegrees}deg)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"></line>
+            <polyline points="5 12 12 5 19 12"></polyline>
+          </svg>
+        </div>
+        <span class="mt-0.5 text-[8.5px] font-mono font-bold bg-slate-900/90 text-sky-300 px-1.5 py-0.5 rounded-full border border-sky-500/40 shadow-sm whitespace-nowrap">
+          ${telemetry.wind.speedKmH} km/h ${telemetry.wind.heading}
+        </span>
+      `;
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([cLon + dLon, cLat + dLat])
+        .addTo(mapRef.current!);
+
+      windMarkersRef.current.push(marker);
+    });
+  }, [telemetry, selectedCityId, layersVisible.windVectors]);
 
   // Update Dispatch Routes
   useEffect(() => {
@@ -539,9 +697,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [sosReports, rescueUnits, layersVisible]);
 
-  // Handle City Change Navigation
+  // Handle City Change Navigation (Locks Viewport to Selected Region)
   const handleCityChange = (cityId: string) => {
-    setSelectedCityId(cityId);
+    isUserSelectedRegionRef.current = true;
+    setInternalCityId(cityId);
+    onCityChange?.(cityId);
     setIsCityDropdownOpen(false);
 
     const city = CITY_PRESETS.find((c) => c.id === cityId);
@@ -551,7 +711,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       center: city.coordinates,
       zoom: city.zoom,
       pitch: 35,
-      duration: 2000,
+      duration: 1800,
       essential: true,
     });
 
@@ -571,6 +731,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         } else if (layerKey === 'floodZones') {
           const vis = nextState.floodZones ? 'visible' : 'none';
           if (mapRef.current.getLayer('flood-zone-fill')) mapRef.current.setLayoutProperty('flood-zone-fill', 'visibility', vis);
+        } else if (layerKey === 'soilMoisture') {
+          const vis = nextState.soilMoisture ? 'visible' : 'none';
+          if (mapRef.current.getLayer('soil-moisture-fill')) mapRef.current.setLayoutProperty('soil-moisture-fill', 'visibility', vis);
         } else if (layerKey === 'dispatchRoutes') {
           const vis = nextState.dispatchRoutes ? 'visible' : 'none';
           if (mapRef.current.getLayer('dispatch-routes-layer')) mapRef.current.setLayoutProperty('dispatch-routes-layer', 'visibility', vis);
@@ -698,7 +861,35 @@ export const MapContainer: React.FC<MapContainerProps> = ({
               />
             </label>
 
-            {/* 3. SOS Reports */}
+            {/* 3. Airflow Vector Markers */}
+            <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2">
+                <Wind className="w-4 h-4 text-sky-300" />
+                <span className="font-medium text-slate-200">Airflow Wind Vectors</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={layersVisible.windVectors}
+                onChange={() => toggleLayer('windVectors')}
+                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+              />
+            </label>
+
+            {/* 4. Soil Saturation Index */}
+            <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2">
+                <Droplets className="w-4 h-4 text-teal-400" />
+                <span className="font-medium text-slate-200">Soil Saturation Index</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={layersVisible.soilMoisture}
+                onChange={() => toggleLayer('soilMoisture')}
+                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+              />
+            </label>
+
+            {/* 5. SOS Reports */}
             <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
               <div className="flex items-center gap-2">
                 <span className="w-4 h-4 rounded-full bg-red-600 text-white font-bold flex items-center justify-center text-[9px]">!</span>
@@ -712,7 +903,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
               />
             </label>
 
-            {/* 4. Rescue Units */}
+            {/* 6. Rescue Units */}
             <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
               <div className="flex items-center gap-2">
                 <Navigation className="w-4 h-4 text-emerald-400" />
@@ -726,7 +917,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
               />
             </label>
 
-            {/* 5. Dispatch Routes */}
+            {/* 7. Dispatch Routes */}
             <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
               <div className="flex items-center gap-2">
                 <span className="w-4 h-0.5 bg-blue-500 rounded-full" />
