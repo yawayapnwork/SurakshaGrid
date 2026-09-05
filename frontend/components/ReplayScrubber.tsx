@@ -59,9 +59,10 @@ export const ReplayScrubber: React.FC<ReplayScrubberProps> = ({
 
   if (!isReplayMode) {
     return (
-      // Mobile: sits in normal flow below the map/queue stack. Desktop: floats
-      // bottom-center over the map as before.
-      <div className="relative w-full flex justify-center py-2 lg:py-0 lg:absolute lg:bottom-6 lg:left-1/2 lg:-translate-x-1/2 lg:z-20">
+      // Its own full-width row below the dashboard grid at every breakpoint — the map
+      // is now a bounded card rather than a full-bleed background, so this no longer
+      // needs to float on top of it.
+      <div className="w-full flex justify-center py-2">
         <button
           onClick={() => onToggleReplayMode(true)}
           className="min-h-[44px] py-2.5 px-5 rounded-xl bg-white/95 hover:bg-slate-50 border border-slate-200/80 text-slate-700 font-semibold text-xs shadow-sm flex items-center gap-2 transition-all backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1"
@@ -74,7 +75,7 @@ export const ReplayScrubber: React.FC<ReplayScrubberProps> = ({
   }
 
   return (
-    <div className="relative w-full max-w-2xl mx-auto lg:absolute lg:bottom-6 lg:left-1/2 lg:-translate-x-1/2 lg:z-20 lg:w-[calc(100%-2rem)] bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 shadow-sm text-slate-900 space-y-3">
+    <div className="w-full max-w-2xl mx-auto bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-2xl p-3.5 sm:p-4 shadow-sm text-slate-900 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <History className="w-4 h-4 text-slate-400" />

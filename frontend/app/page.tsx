@@ -433,9 +433,10 @@ export default function DashboardPage() {
   });
 
   return (
-    // Mobile/tablet: the whole page scrolls (map + stacked panels exceed one viewport).
-    // Desktop (lg+): pinned to the viewport height, map+panels manage their own layout.
-    <main className="w-full min-h-screen lg:h-screen overflow-y-auto lg:overflow-hidden flex flex-col bg-[#F8FAFC] font-sans">
+    // Mobile/tablet: the whole page scrolls (grid + stacked panels exceed one viewport).
+    // Desktop (lg+): pinned to the viewport height. overflow-x-hidden guards against any
+    // child (e.g. the map) ever forcing horizontal scroll on the page.
+    <main className="w-full min-h-screen lg:h-screen overflow-x-hidden overflow-y-auto lg:overflow-hidden flex flex-col bg-[#F8FAFC] font-sans">
       {/* 1. Persistent Top Stats Bar */}
       <TopStatsBar
         monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
@@ -451,73 +452,84 @@ export default function DashboardPage() {
         demoState={demoTour}
       />
 
-      {/* Map + floating panels area: on lg+, panels are positioned absolutely relative
-          to THIS container (not the viewport), so header height/wrapping can never push
-          them out of place or make them overlap each other. Below lg, this same container
-          switches to a normal-flow vertical stack (map, then queue, then replay bar) and
-          the whole page scrolls instead. */}
-      <div className="relative flex flex-col gap-4 p-4 lg:p-0 lg:block lg:flex-1 lg:min-h-0">
-        {/* Non-Blocking Toast Notification — fixed to the viewport so it stays visible
-            even while the mobile stacked layout is scrolled. */}
-        {toastMessage && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
-            <div
-              className={`px-4 py-2.5 rounded-xl border shadow-sm backdrop-blur-md flex items-center gap-2 text-xs font-semibold ${
-                toastMessage.type === 'success'
-                  ? 'bg-emerald-50/95 text-emerald-700 border-emerald-200'
-                  : 'bg-white/95 text-slate-700 border-slate-200'
-              }`}
-            >
-              {toastMessage.type === 'success' ? (
-                <CheckCircle className="w-4 h-4 text-emerald-600" />
-              ) : (
-                <Info className="w-4 h-4 text-slate-400" />
-              )}
-              <span>{toastMessage.text}</span>
-              <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-75">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
+      {/* Non-Blocking Toast Notification — fixed to the viewport, independent of the
+          grid below, so it stays visible even while the mobile stack is scrolled. */}
+      {toastMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
+          <div
+            className={`px-4 py-2.5 rounded-xl border shadow-sm backdrop-blur-md flex items-center gap-2 text-xs font-semibold ${
+              toastMessage.type === 'success'
+                ? 'bg-emerald-50/95 text-emerald-700 border-emerald-200'
+                : 'bg-white/95 text-slate-700 border-slate-200'
+            }`}
+          >
+            {toastMessage.type === 'success' ? (
+              <CheckCircle className="w-4 h-4 text-emerald-600" />
+            ) : (
+              <Info className="w-4 h-4 text-slate-400" />
+            )}
+            <span>{toastMessage.text}</span>
+            <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-75">
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* 2. Central Interactive Map with Error Boundary */}
-        <MapErrorBoundary>
-          <MapContainer
-            riskGrid={riskGrid}
-            floodZones={floodZones}
-            sosReports={sosReports}
-            rescueUnits={rescueUnits}
-            dispatchAssignments={dispatchAssignments}
-            onSelectRiskCell={setSelectedRiskCell}
-          />
-        </MapErrorBoundary>
+      {/* Dashboard grid: 1 column (stacked) below lg, a 12-column grid at lg+ with
+          non-overlapping, explicitly-sized columns — sidebar (3) / map (6) / queue (3).
+          `lg:min-h-0` lets this area shrink inside the flex-col `main` instead of
+          overflowing it, which is what makes `lg:h-full` on each cell below resolve
+          to a real, bounded height rather than growing unbounded. */}
+      <div className="flex-1 lg:min-h-0 overflow-y-auto lg:overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 lg:h-full">
+          {/* 2. Left Controller — sidebar column */}
+          <div className="lg:col-span-3 lg:h-full lg:min-h-0">
+            <LeftController
+              rainfall={rainfall}
+              onRainfallChange={setRainfall}
+              riskMode={riskMode}
+              onRiskModeChange={setRiskMode}
+              liveWeatherInfo={liveWeatherInfo}
+              onTriggerFloodScenario={handleTriggerFloodScenario}
+              onResetScenario={handleResetScenario}
+              onRunDispatch={handleRunDispatch}
+              isDispatching={isDispatching}
+              isTriggering={isTriggering}
+              isResetting={isResetting}
+            />
+          </div>
 
-        {/* 3. Left Controller Drawer */}
-        <LeftController
-          rainfall={rainfall}
-          onRainfallChange={setRainfall}
-          riskMode={riskMode}
-          onRiskModeChange={setRiskMode}
-          liveWeatherInfo={liveWeatherInfo}
-          onTriggerFloodScenario={handleTriggerFloodScenario}
-          onResetScenario={handleResetScenario}
-          onRunDispatch={handleRunDispatch}
-          isDispatching={isDispatching}
-          isTriggering={isTriggering}
-          isResetting={isResetting}
-        />
+          {/* 3. Central Interactive Map — its own bounded, rounded card; no longer a
+              full-bleed background with panels floating on top of it. */}
+          <div className="lg:col-span-6 relative h-[50vh] lg:h-full min-h-[320px] rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden bg-slate-100">
+            <MapErrorBoundary>
+              <MapContainer
+                riskGrid={riskGrid}
+                floodZones={floodZones}
+                sosReports={sosReports}
+                rescueUnits={rescueUnits}
+                dispatchAssignments={dispatchAssignments}
+                onSelectRiskCell={setSelectedRiskCell}
+              />
+            </MapErrorBoundary>
+          </div>
 
-        {/* 4. Right Live Dispatch Queue Drawer */}
-        <RightDispatchQueue assignments={dispatchAssignments} />
+          {/* 4. Right Live Dispatch Queue — queue column */}
+          <div className="lg:col-span-3 lg:h-full lg:min-h-0">
+            <RightDispatchQueue assignments={dispatchAssignments} />
+          </div>
 
-        {/* 7. Replay Time-Scrubber Control */}
-        <ReplayScrubber
-          events={replayEvents}
-          isReplayMode={isReplayMode}
-          onToggleReplayMode={handleToggleReplayMode}
-          onSelectEventIndex={handleSelectReplayEventIndex}
-        />
+          {/* 5. Replay Time-Scrubber — its own full-width row below the grid columns */}
+          <div className="lg:col-span-12">
+            <ReplayScrubber
+              events={replayEvents}
+              isReplayMode={isReplayMode}
+              onToggleReplayMode={handleToggleReplayMode}
+              onSelectEventIndex={handleSelectReplayEventIndex}
+            />
+          </div>
+        </div>
       </div>
 
       {/* 5. Explainable Risk Card Modal */}

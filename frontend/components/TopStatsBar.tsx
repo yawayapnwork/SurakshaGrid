@@ -78,32 +78,36 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
     'min-h-[44px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-xs font-medium text-slate-600 hover:text-slate-900 shadow-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1';
 
   return (
-    <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 text-slate-900 px-4 sm:px-6 py-3 sm:py-3.5 z-30 relative shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 lg:gap-4">
-        {/* Row 1: Brand + (mobile-only) connection badge */}
-        <div className="flex items-center justify-between lg:justify-start gap-3">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-            <div className="bg-slate-900 text-white p-1.5 sm:p-2 rounded-xl shrink-0">
-              <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-semibold text-sm sm:text-[15px] tracking-tight text-slate-900 flex items-center gap-2">
-                <span className="truncate">SurakshaGrid</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold border border-slate-200/80 shrink-0">
-                  v1.0
-                </span>
-              </h1>
-              <p className="hidden sm:block text-xs text-slate-400 truncate">Flood Intelligence & Emergency Dispatch System</p>
-            </div>
+    <header className="w-full bg-white/90 backdrop-blur-md border-b border-slate-200/80 text-slate-900 px-4 sm:px-6 py-3 sm:py-3.5 z-30 relative shadow-[0_1px_2px_rgba(15,23,42,0.04)] overflow-x-hidden">
+      {/* Single unified row: brand (left) — stats — actions (right). Each group is one
+          flex-wrap item, so on a squeeze the WHOLE group drops to its own line instead
+          of individual buttons breaking into a vertical stack inside a shrunken column. */}
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        {/* Brand */}
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="bg-slate-900 text-white p-1.5 sm:p-2 rounded-xl shrink-0">
+            <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
-
-          <div className="lg:hidden shrink-0">
-            <ConnectionBadge isReplayMode={isReplayMode} isConnected={isConnected} />
+          <div className="min-w-0">
+            <h1 className="font-semibold text-sm sm:text-[15px] tracking-tight text-slate-900 flex items-center gap-2">
+              <span className="truncate">SurakshaGrid</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 font-semibold border border-slate-200/80 shrink-0">
+                v1.0
+              </span>
+            </h1>
+            <p className="hidden sm:block text-xs text-slate-400 truncate">Flood Intelligence & Emergency Dispatch System</p>
           </div>
         </div>
 
-        {/* Row 2: Stats — 2-col grid on mobile, 4-col grid on tablet, inline row on desktop */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:flex lg:items-center gap-2 sm:gap-2.5 lg:gap-3 text-sm">
+        {/* Connection badge — mobile/tablet only; the desktop instance lives at the end
+            of the actions row below, so this stays out of the way at lg. */}
+        <div className="lg:hidden shrink-0">
+          <ConnectionBadge isReplayMode={isReplayMode} isConnected={isConnected} />
+        </div>
+
+        {/* Stats — full-width block below `lg` (forces its own line when wrapped),
+            shrink-to-fit inline row at `lg` and up */}
+        <div className="w-full lg:w-auto grid grid-cols-2 sm:grid-cols-4 lg:flex lg:items-center gap-2 sm:gap-2.5 lg:gap-3 text-sm">
           <StatCard icon={<Activity className="w-4 h-4 text-sky-600" />} iconClass="bg-sky-50" label="Monitored Area">
             {monitoredAreaKm2} km²
           </StatCard>
@@ -125,8 +129,9 @@ export const TopStatsBar: React.FC<TopStatsBarProps> = ({
           </StatCard>
         </div>
 
-        {/* Row 3: Actions — wraps freely on narrow screens, labels hide below sm */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Actions — full-width block below `lg` (own line, buttons wrap freely inside
+            it without affecting siblings), shrink-to-fit inline row at `lg` and up */}
+        <div className="w-full lg:w-auto flex flex-wrap items-center gap-2">
           {/* Guided Demo 60s Runner Control */}
           {demoState && (
             demoState.isRunning ? (

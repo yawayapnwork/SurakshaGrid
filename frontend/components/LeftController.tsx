@@ -87,7 +87,7 @@ export const LeftController: React.FC<LeftControllerProps> = ({
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-[85%] max-w-sm rounded-none border-r
-          lg:absolute lg:inset-y-auto lg:top-6 lg:left-6 lg:z-20 lg:w-80 lg:max-h-[calc(100%-3rem)] lg:rounded-2xl lg:border
+          lg:static lg:inset-auto lg:z-auto lg:w-full lg:h-full lg:max-h-full lg:rounded-2xl lg:border
           transition-transform duration-300 ease-out lg:translate-x-0
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
           overflow-y-auto custom-scrollbar bg-white border-slate-200/80 shadow-2xl lg:shadow-sm p-5 text-slate-900 space-y-5`}

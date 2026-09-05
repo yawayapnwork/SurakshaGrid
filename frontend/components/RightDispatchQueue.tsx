@@ -14,9 +14,9 @@ export const RightDispatchQueue: React.FC<RightDispatchQueueProps> = ({
   onSelectAssignment,
 }) => {
   return (
-    // Mobile: stacks below the map as a normal-flow block (full width, capped height,
-    // internal scroll). Desktop (lg+): the original floating card pinned top-right.
-    <aside className="relative w-full max-h-[70vh] lg:absolute lg:right-6 lg:top-6 lg:z-20 lg:w-[22rem] lg:max-h-[calc(100%-3rem)] bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-sm text-slate-900 flex flex-col">
+    // Mobile/tablet: a normal-flow block stacked below the map grid cell (capped
+    // height, internal scroll). Desktop (lg+): fills its own grid column, full height.
+    <aside className="relative w-full max-h-[70vh] lg:w-full lg:h-full lg:max-h-full bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-sm text-slate-900 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
         <div className="flex items-center gap-2">
