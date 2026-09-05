@@ -93,14 +93,14 @@ export const LeftController: React.FC<LeftControllerProps> = ({
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
           flex flex-col w-full h-full min-h-0 max-h-full overflow-hidden bg-white border-slate-200 text-slate-900`}
       >
-        <div className="shrink-0 flex-shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 p-4">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-              <Sliders className="w-3.5 h-3.5 text-slate-600" />
+        <div className="shrink-0 flex-shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 p-5 sm:p-6">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center">
+              <Sliders className="w-4 h-4 text-slate-600" />
             </div>
             <div>
-              <h2 className="font-semibold text-[13px] text-slate-900 tracking-tight">Scenario Controls</h2>
-              <p className="text-[11px] text-slate-400">Configure the simulation parameters</p>
+              <h2 className="font-bold text-sm text-slate-900 tracking-tight">Scenario Controls</h2>
+              <p className="text-[11px] text-slate-500">Configure the simulation parameters</p>
             </div>
           </div>
           <button
@@ -112,7 +112,7 @@ export const LeftController: React.FC<LeftControllerProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 pr-1 custom-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 sm:p-6 space-y-5 pr-1 custom-scrollbar">
           {/* 1. What-If Rainfall Slider & Live Mode Switch */}
           <div className="space-y-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
             {/* Mode Toggle Switch */}

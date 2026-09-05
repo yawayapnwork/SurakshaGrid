@@ -101,32 +101,37 @@ ${
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-fade-in">
-      <div className="bg-white border border-slate-200/80 rounded-2xl max-w-2xl w-full p-6 text-slate-900 shadow-lg space-y-5 max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md animate-fade-in">
+      <div className="w-full max-w-2xl max-h-[85vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden p-6 space-y-5 text-slate-900">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2 text-slate-500">
-            <FileText className="w-4.5 h-4.5" />
-            <h3 className="font-semibold text-[15px] text-slate-900 tracking-tight">Incident After-Action Report (AAR)</h3>
+        <div className="shrink-0 flex-shrink-0 flex items-center justify-between border-b border-slate-100 pb-3.5">
+          <div className="flex items-center gap-2.5 text-slate-500">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
+              <FileText className="w-4.5 h-4.5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-slate-900 tracking-tight">Incident After-Action Report (AAR)</h3>
+              <p className="text-xs text-slate-500">Exportable operational debrief and audit log</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-900 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+            className="text-slate-400 hover:text-slate-900 p-1.5 rounded-xl hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Markdown Content Preview Box */}
-        <div className="flex-1 overflow-y-auto bg-slate-50/70 p-4 rounded-xl border border-slate-200/70 font-mono text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar bg-slate-50/70 p-5 rounded-xl border border-slate-200/70 font-mono text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
           {aarMarkdown}
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="flex items-center justify-end gap-3 pt-2">
+        <div className="shrink-0 flex-shrink-0 flex items-center justify-end gap-3 pt-2">
           <button
             onClick={handleCopy}
-            className="px-4 py-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1"
+            className="px-4.5 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-2 transition-all shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1"
           >
             {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
             {copied ? 'Copied to Clipboard!' : 'Copy Markdown'}
@@ -134,7 +139,7 @@ ${
 
           <button
             onClick={handleDownload}
-            className="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center gap-2 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
+            className="px-4.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center gap-2 transition-all shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/40 focus-visible:ring-offset-2"
           >
             <Download className="w-4 h-4" />
             Download Report (.md)

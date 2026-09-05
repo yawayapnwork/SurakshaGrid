@@ -197,9 +197,9 @@ export const ScientificTelemetryMetrics: React.FC<ScientificTelemetryMetricsProp
   }[runoffRisk];
 
   return (
-    <div className="flex flex-col h-full max-h-full w-full overflow-hidden bg-white border border-slate-200 rounded-xl p-4 sm:p-5 text-slate-900 shadow-sm font-sans">
+    <div className="flex flex-col h-full max-h-full w-full overflow-hidden bg-white border border-slate-200 rounded-xl p-5 sm:p-6 text-slate-900 shadow-sm font-sans">
       {/* Header Bar */}
-      <div className="shrink-0 flex-shrink-0 flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+      <div className="shrink-0 flex-shrink-0 flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-sky-50 border border-sky-100 flex items-center justify-center text-sky-600">
             <Activity className="w-4 h-4" />
@@ -243,7 +243,7 @@ export const ScientificTelemetryMetrics: React.FC<ScientificTelemetryMetricsProp
       </div>
 
       {/* 4 Primary Telemetry Indicator Cards */}
-      <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* 1. Wind Vector & Velocity */}
         <div className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3.5 space-y-2 relative overflow-hidden">
           <div className="flex items-center justify-between text-xs text-slate-500">
