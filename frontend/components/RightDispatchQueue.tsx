@@ -14,11 +14,9 @@ export const RightDispatchQueue: React.FC<RightDispatchQueueProps> = ({
   onSelectAssignment,
 }) => {
   return (
-    // Mobile/tablet: a normal-flow block stacked below the map grid cell (capped
-    // height, internal scroll). Desktop (lg+): fills its own grid column, full height.
-    <aside className="relative w-full max-h-[70vh] lg:w-full lg:h-full lg:max-h-full bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-sm text-slate-900 flex flex-col">
+    <aside className="flex flex-col h-full max-h-full w-full overflow-hidden bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm text-slate-900">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
+      <div className="shrink-0 flex-shrink-0 flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
             <Navigation className="w-3.5 h-3.5 text-slate-600" />
@@ -34,7 +32,7 @@ export const RightDispatchQueue: React.FC<RightDispatchQueueProps> = ({
       </div>
 
       {/* Dispatch Cards List */}
-      <div className="overflow-y-auto space-y-2.5 pr-1 flex-1 custom-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2.5 pr-1 custom-scrollbar">
         {assignments.length === 0 ? (
           <div className="text-center py-10 px-4 bg-slate-50/70 rounded-xl border border-dashed border-slate-200">
             <UserCheck className="w-7 h-7 text-slate-300 mx-auto mb-2" />

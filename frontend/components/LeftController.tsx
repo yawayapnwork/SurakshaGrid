@@ -88,12 +88,12 @@ export const LeftController: React.FC<LeftControllerProps> = ({
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-[85%] max-w-sm rounded-none border-r
-          lg:static lg:inset-auto lg:z-auto lg:w-full lg:h-full lg:max-h-full lg:rounded-2xl lg:border
+          lg:static lg:inset-auto lg:z-auto lg:w-full lg:h-full lg:max-h-full lg:rounded-xl lg:border
           transition-transform duration-300 ease-out lg:translate-x-0
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
-          overflow-y-auto custom-scrollbar bg-white border-slate-200/80 shadow-2xl lg:shadow-sm p-5 text-slate-900 space-y-5`}
+          flex flex-col h-full max-h-full overflow-hidden bg-white border-slate-200 shadow-2xl lg:shadow-sm text-slate-900`}
       >
-        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-3.5">
+        <div className="shrink-0 flex-shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 p-4">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
               <Sliders className="w-3.5 h-3.5 text-slate-600" />
@@ -112,135 +112,136 @@ export const LeftController: React.FC<LeftControllerProps> = ({
           </button>
         </div>
 
-      {/* 1. What-If Rainfall Slider & Live Mode Switch */}
-      <div className="space-y-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
-        {/* Mode Toggle Switch */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-lg gap-1">
-          <button
-            onClick={() => onRiskModeChange?.('simulated')}
-            className={`min-h-[44px] flex-1 py-1.5 px-2.5 rounded-md text-[11.5px] font-semibold transition-all duration-150 ${
-              !isLiveMode
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            Simulated
-          </button>
-          <button
-            onClick={() => onRiskModeChange?.('live')}
-            className={`min-h-[44px] flex-1 py-1.5 px-2.5 rounded-md text-[11.5px] font-semibold transition-all duration-150 flex items-center justify-center gap-1.5 ${
-              isLiveMode
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-            Live Feed
-          </button>
-        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+          {/* 1. What-If Rainfall Slider & Live Mode Switch */}
+          <div className="space-y-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80">
+            {/* Mode Toggle Switch */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-lg gap-1">
+              <button
+                onClick={() => onRiskModeChange?.('simulated')}
+                className={`min-h-[44px] flex-1 py-1.5 px-2.5 rounded-md text-[11.5px] font-semibold transition-all duration-150 ${
+                  !isLiveMode
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Simulated
+              </button>
+              <button
+                onClick={() => onRiskModeChange?.('live')}
+                className={`min-h-[44px] flex-1 py-1.5 px-2.5 rounded-md text-[11.5px] font-semibold transition-all duration-150 flex items-center justify-center gap-1.5 ${
+                  isLiveMode
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${isLiveMode ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                Live Feed
+              </button>
+            </div>
 
-        <div className="flex items-center justify-between pt-0.5">
-          <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
-            <CloudRain className="w-3.5 h-3.5 text-slate-400" />
-            {isLiveMode ? 'Live Ingested Rainfall' : 'What-If Rainfall Intensity'}
-          </label>
-          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-900 text-white tabular-nums">
-            {isLiveMode
-              ? `${liveWeatherInfo ? liveWeatherInfo.intensity : 0}%`
-              : `${rainfall}%`}
-          </span>
-        </div>
+            <div className="flex items-center justify-between pt-0.5">
+              <label className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+                <CloudRain className="w-3.5 h-3.5 text-slate-400" />
+                {isLiveMode ? 'Live Ingested Rainfall' : 'What-If Rainfall Intensity'}
+              </label>
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-900 text-white tabular-nums">
+                {isLiveMode
+                  ? `${liveWeatherInfo ? liveWeatherInfo.intensity : 0}%`
+                  : `${rainfall}%`}
+              </span>
+            </div>
 
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={isLiveMode ? (liveWeatherInfo ? liveWeatherInfo.intensity : 0) : rainfall}
-          disabled={isLiveMode}
-          onChange={(e) => onRainfallChange(Number(e.target.value))}
-          className={`w-full h-2 rounded-full appearance-none cursor-pointer accent-slate-900 transition-colors ${
-            isLiveMode ? 'bg-slate-200 opacity-50 cursor-not-allowed' : 'bg-slate-200'
-          }`}
-        />
-
-        <div className="flex justify-between text-[10px] text-slate-400 font-medium">
-          <span>0% Dry</span>
-          <span>50% Moderate</span>
-          <span>100% Extreme</span>
-        </div>
-
-        {/* Live Weather Feed Badge */}
-        <div className="pt-3 border-t border-slate-200/80">
-          <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600 bg-white border border-slate-200/80 px-2.5 py-1.5 rounded-lg">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-            <span className="truncate">
-              {liveWeatherInfo
-                ? `Live weather feed: ${liveWeatherInfo.intensity}mm/hr (${liveWeatherInfo.source}, ${formatRelativeTime(liveWeatherInfo.timestamp)})`
-                : 'Live weather feed: 12mm/hr (OpenWeatherMap, 2 min ago)'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Trigger Flood Event & Reset Scenario Actions */}
-      <div className="space-y-2">
-        <button
-          onClick={onTriggerFloodScenario}
-          disabled={isTriggering || isResetting}
-          className="min-h-[44px] w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1"
-        >
-          <span className={`w-1.5 h-1.5 rounded-full bg-amber-500 ${isTriggering ? 'animate-ping' : ''}`} />
-          {isTriggering ? 'Scenario running…' : 'Trigger Flood Event Scenario'}
-        </button>
-
-        <button
-          onClick={onResetScenario}
-          disabled={isTriggering || isResetting}
-          className="min-h-[44px] w-full py-2 px-4 rounded-xl bg-transparent hover:bg-slate-50 text-slate-400 hover:text-slate-600 border border-transparent hover:border-slate-200 font-medium text-xs flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
-          {isResetting ? 'Wiping demo state…' : 'Reset Scenario State'}
-        </button>
-      </div>
-
-      {/* 3. Run Rescue Dispatch — the single primary CTA, deliberately the only accent
-          color in an otherwise neutral slate/white panel so it reads as THE action. */}
-      <button
-        onClick={onRunDispatch}
-        disabled={isDispatching}
-        className="min-h-[44px] w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-[13px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-150 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-sm disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/50 focus-visible:ring-offset-2"
-      >
-        <Play className="w-4 h-4 fill-current" />
-        {isDispatching ? 'Solving dispatch assignment…' : 'Run Rescue Dispatch'}
-      </button>
-
-      {/* 4. Citizen SOS QR Code & Live Mobile Reporting Link */}
-      <div className="space-y-2 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 text-center">
-        <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700">
-          <QrCode className="w-3.5 h-3.5 text-slate-400" />
-          <span>Scan to file a live SOS report</span>
-        </div>
-        <div className="flex justify-center py-1">
-          <div className="p-1.5 bg-white rounded-lg shadow-xs border border-slate-200/80 inline-block">
-            <Image
-              src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(reportUrl)}`}
-              alt="Scan QR code to open Citizen SOS report form"
-              width={110}
-              height={110}
-              unoptimized
-              className="w-24 h-24 object-contain"
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={isLiveMode ? (liveWeatherInfo ? liveWeatherInfo.intensity : 0) : rainfall}
+              disabled={isLiveMode}
+              onChange={(e) => onRainfallChange(Number(e.target.value))}
+              className={`w-full h-2 rounded-full appearance-none cursor-pointer accent-slate-900 transition-colors ${
+                isLiveMode ? 'bg-slate-200 opacity-50 cursor-not-allowed' : 'bg-slate-200'
+              }`}
             />
+
+            <div className="flex justify-between text-[10px] text-slate-400 font-medium">
+              <span>0% Dry</span>
+              <span>50% Moderate</span>
+              <span>100% Extreme</span>
+            </div>
+
+            {/* Live Weather Feed Badge */}
+            <div className="pt-3 border-t border-slate-200/80">
+              <div className="flex items-center gap-2 text-[11px] font-medium text-slate-600 bg-white border border-slate-200/80 px-2.5 py-1.5 rounded-lg">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                <span className="truncate">
+                  {liveWeatherInfo
+                    ? `Live weather feed: ${liveWeatherInfo.intensity}mm/hr (${liveWeatherInfo.source}, ${formatRelativeTime(liveWeatherInfo.timestamp)})`
+                    : 'Live weather feed: 12mm/hr (OpenWeatherMap, 2 min ago)'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Trigger Flood Event & Reset Scenario Actions */}
+          <div className="space-y-2">
+            <button
+              onClick={onTriggerFloodScenario}
+              disabled={isTriggering || isResetting}
+              className="min-h-[44px] w-full py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 font-semibold text-xs flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/15 focus-visible:ring-offset-1"
+            >
+              <span className={`w-1.5 h-1.5 rounded-full bg-amber-500 ${isTriggering ? 'animate-ping' : ''}`} />
+              {isTriggering ? 'Scenario running…' : 'Trigger Flood Event Scenario'}
+            </button>
+
+            <button
+              onClick={onResetScenario}
+              disabled={isTriggering || isResetting}
+              className="min-h-[44px] w-full py-2 px-4 rounded-xl bg-transparent hover:bg-slate-50 text-slate-400 hover:text-slate-600 border border-transparent hover:border-slate-200 font-medium text-xs flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <RotateCcw className={`w-3.5 h-3.5 ${isResetting ? 'animate-spin' : ''}`} />
+              {isResetting ? 'Wiping demo state…' : 'Reset Scenario State'}
+            </button>
+          </div>
+
+          {/* 3. Run Rescue Dispatch */}
+          <button
+            onClick={onRunDispatch}
+            disabled={isDispatching}
+            className="min-h-[44px] w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-[13px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all duration-150 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:pointer-events-none disabled:shadow-sm disabled:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/50 focus-visible:ring-offset-2"
+          >
+            <Play className="w-4 h-4 fill-current" />
+            {isDispatching ? 'Solving dispatch assignment…' : 'Run Rescue Dispatch'}
+          </button>
+
+          {/* 4. Citizen SOS QR Code & Live Mobile Reporting Link */}
+          <div className="space-y-2 bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-xs font-semibold text-slate-700">
+              <QrCode className="w-3.5 h-3.5 text-slate-400" />
+              <span>Scan to file a live SOS report</span>
+            </div>
+            <div className="flex justify-center py-1">
+              <div className="p-1.5 bg-white rounded-lg shadow-xs border border-slate-200/80 inline-block">
+                <Image
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(reportUrl)}`}
+                  alt="Scan QR code to open Citizen SOS report form"
+                  width={110}
+                  height={110}
+                  unoptimized
+                  className="w-24 h-24 object-contain"
+                />
+              </div>
+            </div>
+            <a
+              href="/report"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:underline"
+            >
+              Open Citizen SOS Form <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
         </div>
-        <a
-          href="/report"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center justify-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 hover:underline"
-        >
-          Open Citizen SOS Form <ExternalLink className="w-3 h-3" />
-        </a>
-      </div>
       </aside>
     </>
   );

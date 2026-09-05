@@ -640,9 +640,9 @@ export default function DashboardPage() {
   }, [focusedAssignment, sosReports]);
 
   return (
-    <main className="h-screen w-screen overflow-hidden flex flex-col bg-slate-50 text-slate-900 relative font-sans">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-100 text-slate-900 relative font-sans">
       {/* Top Navigation & Telemetry Stats Bar (Fixed shrink-0 height) */}
-      <div className="shrink-0 flex-shrink-0 w-full z-30 relative">
+      <header className="shrink-0 flex-shrink-0 w-full z-30 relative">
         <TopStatsBar
           monitoredAreaKm2={analyticsStats?.monitored_area_km2 || 42.5}
           activeSosCount={activeSosCount}
@@ -658,10 +658,10 @@ export default function DashboardPage() {
           onOpenSMSModal={() => setIsSMSModalOpen(true)}
           demoState={demoTour}
         />
-      </div>
+      </header>
 
       {/* 2. TOP EOC MODULAR FOCUS VIEW SWITCHER BAR (Fixed shrink-0 height) */}
-      <div className="bg-white border-b border-slate-200/80 px-4 py-2 flex items-center justify-between shadow-xs shrink-0 flex-shrink-0 z-20">
+      <nav className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between shadow-xs shrink-0 flex-shrink-0 z-20">
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-2 hidden sm:inline">
             Focus Mode:
@@ -671,7 +671,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'overview'
                 ? 'bg-slate-900 text-white font-bold shadow-xs'
-                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
             }`}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
@@ -682,7 +682,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'map'
                 ? 'bg-slate-900 text-white font-bold shadow-xs'
-                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
             }`}
           >
             <MapIcon className="w-3.5 h-3.5 text-sky-600" />
@@ -693,7 +693,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'dispatch'
                 ? 'bg-slate-900 text-white font-bold shadow-xs'
-                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
             }`}
           >
             <Radio className="w-3.5 h-3.5 text-red-600" />
@@ -709,7 +709,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'scenario'
                 ? 'bg-slate-900 text-white font-bold shadow-xs'
-                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
             }`}
           >
             <Sliders className="w-3.5 h-3.5 text-amber-600" />
@@ -720,7 +720,7 @@ export default function DashboardPage() {
             className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'telemetry'
                 ? 'bg-slate-900 text-white font-bold shadow-xs'
-                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200'
             }`}
           >
             <Activity className="w-3.5 h-3.5 text-emerald-600" />
@@ -731,11 +731,11 @@ export default function DashboardPage() {
         {/* Active Dynamic Region Coordinate Tag */}
         <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-600">
           <span className="text-slate-400 text-[11px]">COORDINATE BOUND:</span>
-          <span className="text-slate-800 font-bold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/80 text-[11px]">
+          <span className="text-slate-800 font-bold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 text-[11px]">
             {selectedCityInfo.name.toUpperCase()} ({selectedCityInfo.coords[1].toFixed(2)}°, {selectedCityInfo.coords[0].toFixed(2)}°)
           </span>
         </div>
-      </div>
+      </nav>
 
       {/* Non-Blocking Toast Notification */}
       {toastMessage && (
@@ -761,14 +761,14 @@ export default function DashboardPage() {
       )}
 
       {/* Dynamic Workspace Content Area (Strict Viewport Isolation) */}
-      <div className="flex-1 w-full h-full min-h-0 overflow-hidden relative flex flex-col p-4">
+      <main className="flex-1 w-full h-full min-h-0 overflow-hidden relative p-4 flex flex-col">
         {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD UN-SQUASHED 2-COLUMN VIEWPORT GRID) */}
         {activeFocusModule === 'overview' && (
-          <div className="w-full h-full min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+          <div className="w-full h-full min-h-0 grid grid-cols-12 gap-4 overflow-hidden">
             {/* Left Primary Column: Command Map Hero Card + Hydro Telemetry (8 Cols) */}
-            <div className="lg:col-span-8 h-full flex flex-col gap-4 min-h-0 overflow-hidden">
+            <div className="col-span-12 lg:col-span-8 h-full min-h-0 flex flex-col gap-4 overflow-hidden">
               {/* Map Container Hero Card (Flex-1 fills remaining vertical space) */}
-              <div className="flex-1 min-h-0 w-full rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden relative bg-white">
+              <div className="flex-1 min-h-0 w-full flex flex-col max-h-full overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm relative">
                 <MapErrorBoundary>
                   <MapContainer
                     riskGrid={riskGrid}
@@ -788,8 +788,8 @@ export default function DashboardPage() {
                 </MapErrorBoundary>
               </div>
 
-              {/* Hydro Telemetry Data Metrics Panel (Fixed bottom height with internal scroll if needed) */}
-              <div className="shrink-0 flex-shrink-0 w-full max-h-[220px] overflow-y-auto custom-scrollbar">
+              {/* Hydro Telemetry Data Metrics Panel */}
+              <div className="shrink-0 flex-shrink-0 w-full max-h-[220px] flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                 <ScientificTelemetryMetrics
                   telemetry={telemetryData}
                   isStreaming={isConnected}
@@ -798,9 +798,9 @@ export default function DashboardPage() {
             </div>
 
             {/* Right Secondary Column: Scenario Controls + Live Dispatch Queue (4 Cols) */}
-            <div className="lg:col-span-4 h-full flex flex-col gap-4 min-h-0 overflow-hidden">
+            <div className="col-span-12 lg:col-span-4 h-full min-h-0 flex flex-col gap-4 overflow-hidden">
               {/* Scenario Simulation Controls */}
-              <div className="shrink-0 flex-shrink-0 max-h-[46%] overflow-y-auto custom-scrollbar rounded-2xl bg-white border border-slate-200/80">
+              <div className="flex-1 min-h-0 max-h-[48%] flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                 <LeftController
                   rainfall={rainfall}
                   onRainfallChange={setRainfall}
@@ -816,8 +816,8 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* Live Rescue Units Dispatch Queue (Fills remaining height) */}
-              <div className="flex-1 min-h-0 w-full h-full overflow-hidden flex flex-col">
+              {/* Live Rescue Units Dispatch Queue */}
+              <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                 <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
               </div>
             </div>
@@ -826,7 +826,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 2: COMMAND MAP FOCUS (FULL SCREEN MAP 100%) */}
         {activeFocusModule === 'map' && (
-          <div className="w-full h-full min-h-0 rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative bg-white">
+          <div className="w-full h-full min-h-0 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm relative">
             <MapErrorBoundary>
               <MapContainer
                 riskGrid={riskGrid}
@@ -849,28 +849,31 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 3: LIVE DISPATCH QUEUE FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'dispatch' && (
-          <div className="w-full h-full min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
-            <div className="lg:col-span-7 h-full min-h-0 flex flex-col overflow-hidden">
+          <div className="w-full h-full min-h-0 grid grid-cols-12 gap-4 overflow-hidden">
+            <div className="col-span-12 lg:col-span-7 h-full min-h-0 flex flex-col overflow-hidden">
               <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
             </div>
-            <div className="lg:col-span-5 h-full min-h-0 flex flex-col overflow-hidden">
+            <div className="col-span-12 lg:col-span-5 h-full min-h-0 flex flex-col overflow-hidden">
               {focusedAssignment ? (
-                <DispatchNavigationCard
-                  assignment={focusedAssignment}
-                  sosReport={focusedSosReport}
-                  route={focusedRoute}
-                  routeError={focusedRouteError}
-                  isLoadingRoute={isLoadingFocusedRoute}
-                  progress={focusedRouteProgress}
-                  onClose={handleCloseNavigation}
-                  onMarkArrived={handleMarkArrived}
-                  onUpdateStatus={handleUpdateStatus}
-                  onCallDispatcher={handleCallDispatcher}
-                  isMarkingArrived={isMarkingArrived}
-                />
+                <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
+                  <DispatchNavigationCard
+                    assignment={focusedAssignment}
+                    sosReport={focusedSosReport}
+                    route={focusedRoute}
+                    routeError={focusedRouteError}
+                    isLoadingRoute={isLoadingFocusedRoute}
+                    progress={focusedRouteProgress}
+                    onClose={handleCloseNavigation}
+                    onMarkArrived={handleMarkArrived}
+                    onUpdateStatus={handleUpdateStatus}
+                    onCallDispatcher={handleCallDispatcher}
+                    isMarkingArrived={isMarkingArrived}
+                    embedded={true}
+                  />
+                </div>
               ) : (
-                <div className="w-full h-full rounded-2xl bg-white border border-slate-200/80 p-8 flex flex-col items-center justify-center text-center text-slate-500 space-y-3 shadow-xs">
-                  <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                <div className="w-full h-full rounded-xl bg-white border border-slate-200 p-8 flex flex-col items-center justify-center text-center text-slate-500 space-y-3 shadow-sm">
+                  <div className="w-12 h-12 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
                     <Radio className="w-6 h-6 animate-pulse" />
                   </div>
                   <h4 className="font-bold text-base text-slate-900">Select a Dispatch Assignment</h4>
@@ -885,7 +888,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 4: SCENARIO CONTROLS FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'scenario' && (
-          <div className="w-full h-full min-h-0 max-w-4xl mx-auto overflow-y-auto custom-scrollbar p-1">
+          <div className="w-full h-full min-h-0 max-w-4xl mx-auto flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
             <LeftController
               rainfall={rainfall}
               onRainfallChange={setRainfall}
@@ -904,41 +907,45 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 5: HYDRO TELEMETRY FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'telemetry' && (
-          <div className="w-full h-full min-h-0 overflow-y-auto custom-scrollbar space-y-4 p-1">
-            <ScientificTelemetryMetrics
-              telemetry={telemetryData}
-              isStreaming={isConnected}
-            />
-            <FloodInundationTelemetryDashboard
-              telemetry={{
-                timestamp: telemetryData.timestamp,
-                locationName: telemetryData.stationName,
-                windSpeedKmH: telemetryData.wind.speedKmH,
-                windGustKmH: telemetryData.wind.gustKmH,
-                windDirectionDeg: telemetryData.wind.directionDegrees,
-                relativeHumidityPercent: telemetryData.atmospheric.humidityPercent,
-                soilMoisturePercent: telemetryData.soil.soilSaturationPercent,
-                rainfallRateMmHr: telemetryData.rainfall.currentRateMmHr,
-                rainfall24hMm: telemetryData.rainfall.cumulative24hMm,
-                pressureHpa: telemetryData.atmospheric.pressureHpa,
-                pressureTrend: telemetryData.atmospheric.pressureTrend,
-                pressureDelta3h: telemetryData.atmospheric.pressureDelta3h,
-              }}
-              mapCenter={userLocation ? [userLocation.lon, userLocation.lat] : selectedCityInfo.coords}
-            />
+          <div className="w-full h-full min-h-0 flex flex-col gap-4 overflow-hidden">
+            <div className="shrink-0 flex-shrink-0 max-h-[35%] flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
+              <ScientificTelemetryMetrics
+                telemetry={telemetryData}
+                isStreaming={isConnected}
+              />
+            </div>
+            <div className="flex-1 min-h-0 flex flex-col overflow-y-auto custom-scrollbar bg-white border border-slate-200 rounded-xl shadow-sm p-4">
+              <FloodInundationTelemetryDashboard
+                telemetry={{
+                  timestamp: telemetryData.timestamp,
+                  locationName: telemetryData.stationName,
+                  windSpeedKmH: telemetryData.wind.speedKmH,
+                  windGustKmH: telemetryData.wind.gustKmH,
+                  windDirectionDeg: telemetryData.wind.directionDegrees,
+                  relativeHumidityPercent: telemetryData.atmospheric.humidityPercent,
+                  soilMoisturePercent: telemetryData.soil.soilSaturationPercent,
+                  rainfallRateMmHr: telemetryData.rainfall.currentRateMmHr,
+                  rainfall24hMm: telemetryData.rainfall.cumulative24hMm,
+                  pressureHpa: telemetryData.atmospheric.pressureHpa,
+                  pressureTrend: telemetryData.atmospheric.pressureTrend,
+                  pressureDelta3h: telemetryData.atmospheric.pressureDelta3h,
+                }}
+                mapCenter={userLocation ? [userLocation.lon, userLocation.lat] : selectedCityInfo.coords}
+              />
+            </div>
           </div>
         )}
-      </div>
+      </main>
 
       {/* Replay Time-Scrubber (Fixed shrink-0 height) */}
-      <div className="px-4 pb-3 shrink-0 flex-shrink-0">
+      <footer className="px-4 pb-3 shrink-0 flex-shrink-0 z-20">
         <ReplayScrubber
           isReplayMode={isReplayMode}
           onToggleReplayMode={handleToggleReplayMode}
           events={replayEvents}
           onSelectEventIndex={handleSelectReplayEventIndex}
         />
-      </div>
+      </footer>
 
       {/* Modals */}
       {selectedRiskCell && (
@@ -962,6 +969,6 @@ export default function DashboardPage() {
           defaultMessage={`[ALERT] Emergency flood update for ${selectedCityInfo.name}: Rainfall intensity at ${telemetryData.rainfall.currentRateMmHr}mm/hr. Seek high ground if in low-lying sectors.`}
         />
       )}
-    </main>
+    </div>
   );
 }

@@ -26,6 +26,7 @@ interface DispatchNavigationCardProps {
   onUpdateStatus: () => void;
   onCallDispatcher: () => void;
   isMarkingArrived: boolean;
+  embedded?: boolean;
 }
 
 function formatEta(seconds: number): string {
@@ -59,6 +60,7 @@ export const DispatchNavigationCard: React.FC<DispatchNavigationCardProps> = ({
   onUpdateStatus,
   onCallDispatcher,
   isMarkingArrived,
+  embedded = false,
 }) => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -71,6 +73,117 @@ export const DispatchNavigationCard: React.FC<DispatchNavigationCardProps> = ({
 
   const etaSeconds = route ? progress.remainingSeconds : assignment.eta_seconds;
   const distanceMeters = route ? progress.remainingMeters : null;
+
+  if (embedded) {
+    return (
+      <div className="flex flex-col h-full w-full overflow-hidden bg-white rounded-xl text-slate-900 font-sans">
+        {/* Header: unit + close */}
+        <div className="shrink-0 flex-shrink-0 flex items-center justify-between px-4 pt-3.5 pb-2.5 border-b border-slate-100">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <Navigation2 className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-slate-900 truncate">{assignment.unit_name}</div>
+              <div className="text-[10.5px] text-slate-400 truncate">
+                En route to incident #{assignment.sos_id.slice(0, 8)}
+                {sosReport ? ` — ${sosReport.severity.replace('_', ' ')}` : ''}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-100 transition-colors shrink-0"
+            aria-label="Close navigation"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Scrollable content body */}
+        <div className="flex-1 overflow-y-auto space-y-4 p-4 custom-scrollbar">
+          {/* Big ETA + distance row */}
+          <div className="flex items-end justify-between">
+            <div>
+              <div className="text-3xl font-bold text-slate-900 tabular-nums leading-none">
+                {formatEta(etaSeconds)}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1">Estimated time of arrival</div>
+            </div>
+            <div className="text-right">
+              <div className="text-lg font-bold text-slate-700 tabular-nums leading-none">
+                {distanceMeters !== null ? formatDistance(distanceMeters) : '—'}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1">Remaining</div>
+            </div>
+          </div>
+
+          {/* Turn-by-turn instruction */}
+          <div className="bg-slate-900 text-white rounded-xl p-3.5 flex items-center gap-3">
+            {isLoadingRoute ? (
+              <>
+                <Loader2 className="w-5 h-5 shrink-0 animate-spin text-slate-300" />
+                <span className="text-xs font-medium text-slate-300">Fetching live route…</span>
+              </>
+            ) : currentStep ? (
+              <>
+                <Navigation2 className="w-5 h-5 shrink-0 text-blue-400" />
+                <div className="min-w-0">
+                  <div className="text-xs font-semibold truncate">{currentStep.instruction}</div>
+                  {nextStep && (
+                    <div className="text-[10.5px] text-slate-400 truncate mt-0.5">
+                      Then: {nextStep.instruction}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400" />
+                <span className="text-xs font-medium text-slate-300">
+                  {routeError || 'Route unavailable — showing a direct line.'}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            <button
+              onClick={onUpdateStatus}
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="text-[10px] font-semibold">Update Status</span>
+            </button>
+            <button
+              onClick={onCallDispatcher}
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 transition-colors"
+            >
+              <Phone className="w-4 h-4" />
+              <span className="text-[10px] font-semibold">Call Dispatcher</span>
+            </button>
+            <button
+              onClick={onMarkArrived}
+              disabled={isMarkingArrived}
+              className="flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+            >
+              {isMarkingArrived ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              <span className="text-[10px] font-semibold">Mark as Arrived</span>
+            </button>
+          </div>
+
+          {/* Trust/severity footer strip */}
+          {sosReport && (
+            <div className="flex items-center gap-1.5 pt-2 text-[10.5px] text-slate-400 border-t border-slate-100">
+              <Shield className="w-3 h-3" />
+              Trust score {sosReport.trust_score} · Reported {new Date(sosReport.created_at).toLocaleTimeString()}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
