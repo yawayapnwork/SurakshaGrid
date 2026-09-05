@@ -640,26 +640,28 @@ export default function DashboardPage() {
   }, [focusedAssignment, sosReports]);
 
   return (
-    <main className="h-screen w-screen overflow-hidden flex flex-col bg-slate-100/90 text-slate-900 relative font-sans">
-      {/* Top Navigation & Telemetry Stats Bar */}
-      <TopStatsBar
-        monitoredAreaKm2={analyticsStats?.monitored_area_km2 || 42.5}
-        activeSosCount={activeSosCount}
-        criticalCount={criticalCount}
-        dispatchedUnitsCount={dispatchedUnitsCount}
-        avgEtaMinutes={avgEtaMinutes}
-        isConnected={isConnected}
-        isReplayMode={isReplayMode}
-        n8nStatus={n8nFeed.syncStatus}
-        isMuted={isMuted}
-        onToggleMute={handleToggleMute}
-        onOpenAARModal={() => setIsAARModalOpen(true)}
-        onOpenSMSModal={() => setIsSMSModalOpen(true)}
-        demoState={demoTour}
-      />
+    <main className="h-screen w-screen overflow-hidden flex flex-col bg-slate-50 text-slate-900 relative font-sans">
+      {/* Top Navigation & Telemetry Stats Bar (Fixed shrink-0 height) */}
+      <div className="shrink-0 flex-shrink-0 w-full z-30 relative">
+        <TopStatsBar
+          monitoredAreaKm2={analyticsStats?.monitored_area_km2 || 42.5}
+          activeSosCount={activeSosCount}
+          criticalCount={criticalCount}
+          dispatchedUnitsCount={dispatchedUnitsCount}
+          avgEtaMinutes={avgEtaMinutes}
+          isConnected={isConnected}
+          isReplayMode={isReplayMode}
+          n8nStatus={n8nFeed.syncStatus}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+          onOpenAARModal={() => setIsAARModalOpen(true)}
+          onOpenSMSModal={() => setIsSMSModalOpen(true)}
+          demoState={demoTour}
+        />
+      </div>
 
-      {/* 2. TOP EOC MODULAR FOCUS VIEW SWITCHER BAR */}
-      <div className="bg-white border-b border-slate-200/80 px-4 py-2 flex items-center justify-between shadow-xs shrink-0 z-20">
+      {/* 2. TOP EOC MODULAR FOCUS VIEW SWITCHER BAR (Fixed shrink-0 height) */}
+      <div className="bg-white border-b border-slate-200/80 px-4 py-2 flex items-center justify-between shadow-xs shrink-0 flex-shrink-0 z-20">
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-2 hidden sm:inline">
             Focus Mode:
@@ -758,15 +760,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Dynamic Module Content View Container (Strict Viewport Fit) */}
-      <div className="flex-1 min-h-0 overflow-hidden p-4">
+      {/* Dynamic Workspace Content Area (Strict Viewport Isolation) */}
+      <div className="flex-1 w-full h-full min-h-0 overflow-hidden relative flex flex-col p-4">
         {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD UN-SQUASHED 2-COLUMN VIEWPORT GRID) */}
         {activeFocusModule === 'overview' && (
-          <div className="h-full w-full grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+          <div className="w-full h-full min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
             {/* Left Primary Column: Command Map Hero Card + Hydro Telemetry (8 Cols) */}
             <div className="lg:col-span-8 h-full flex flex-col gap-4 min-h-0 overflow-hidden">
               {/* Map Container Hero Card (Flex-1 fills remaining vertical space) */}
-              <div className="flex-1 min-h-0 rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden relative bg-white">
+              <div className="flex-1 min-h-0 w-full rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden relative bg-white">
                 <MapErrorBoundary>
                   <MapContainer
                     riskGrid={riskGrid}
@@ -786,8 +788,8 @@ export default function DashboardPage() {
                 </MapErrorBoundary>
               </div>
 
-              {/* Hydro Telemetry Data Metrics Panel (Fixed bottom height) */}
-              <div className="shrink-0">
+              {/* Hydro Telemetry Data Metrics Panel (Fixed bottom height with internal scroll if needed) */}
+              <div className="shrink-0 flex-shrink-0 w-full max-h-[220px] overflow-y-auto custom-scrollbar">
                 <ScientificTelemetryMetrics
                   telemetry={telemetryData}
                   isStreaming={isConnected}
@@ -798,7 +800,7 @@ export default function DashboardPage() {
             {/* Right Secondary Column: Scenario Controls + Live Dispatch Queue (4 Cols) */}
             <div className="lg:col-span-4 h-full flex flex-col gap-4 min-h-0 overflow-hidden">
               {/* Scenario Simulation Controls */}
-              <div className="shrink-0 max-h-[48%] overflow-y-auto custom-scrollbar rounded-2xl">
+              <div className="shrink-0 flex-shrink-0 max-h-[46%] overflow-y-auto custom-scrollbar rounded-2xl bg-white border border-slate-200/80">
                 <LeftController
                   rainfall={rainfall}
                   onRainfallChange={setRainfall}
@@ -815,7 +817,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Live Rescue Units Dispatch Queue (Fills remaining height) */}
-              <div className="flex-1 min-h-0 flex flex-col">
+              <div className="flex-1 min-h-0 w-full h-full overflow-hidden flex flex-col">
                 <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
               </div>
             </div>
@@ -824,7 +826,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 2: COMMAND MAP FOCUS (FULL SCREEN MAP 100%) */}
         {activeFocusModule === 'map' && (
-          <div className="w-full h-full rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative bg-white">
+          <div className="w-full h-full min-h-0 rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative bg-white">
             <MapErrorBoundary>
               <MapContainer
                 riskGrid={riskGrid}
@@ -847,7 +849,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 3: LIVE DISPATCH QUEUE FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'dispatch' && (
-          <div className="w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+          <div className="w-full h-full min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
             <div className="lg:col-span-7 h-full min-h-0 flex flex-col overflow-hidden">
               <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
             </div>
@@ -883,7 +885,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 4: SCENARIO CONTROLS FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'scenario' && (
-          <div className="w-full h-full max-w-4xl mx-auto overflow-y-auto custom-scrollbar">
+          <div className="w-full h-full min-h-0 max-w-4xl mx-auto overflow-y-auto custom-scrollbar p-1">
             <LeftController
               rainfall={rainfall}
               onRainfallChange={setRainfall}
@@ -902,7 +904,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 5: HYDRO TELEMETRY FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'telemetry' && (
-          <div className="w-full h-full overflow-y-auto custom-scrollbar space-y-4">
+          <div className="w-full h-full min-h-0 overflow-y-auto custom-scrollbar space-y-4 p-1">
             <ScientificTelemetryMetrics
               telemetry={telemetryData}
               isStreaming={isConnected}
@@ -928,8 +930,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Replay Time-Scrubber */}
-      <div className="px-4 pb-3 shrink-0">
+      {/* Replay Time-Scrubber (Fixed shrink-0 height) */}
+      <div className="px-4 pb-3 shrink-0 flex-shrink-0">
         <ReplayScrubber
           isReplayMode={isReplayMode}
           onToggleReplayMode={handleToggleReplayMode}
