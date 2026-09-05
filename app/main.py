@@ -14,6 +14,7 @@ from app.routers.dispatch import router as dispatch_router
 from app.routers.flood_zones import router as flood_zones_router
 from app.routers.photo_verification import router as photo_verification_router
 from app.routers.replay import router as replay_router
+from app.routers.report_translation import router as report_translation_router
 from app.routers.risk import router as risk_router
 from app.routers.simulation import router as simulation_router
 from app.routers.sos import router as sos_router
@@ -67,6 +68,7 @@ app.include_router(simulation_router, prefix="/api/v1")
 app.include_router(analytics_router, prefix="/api/v1")
 app.include_router(photo_verification_router, prefix="/api")
 app.include_router(audio_transcription_router, prefix="/api")
+app.include_router(report_translation_router, prefix="/api")
 app.include_router(ws_router)
 
 

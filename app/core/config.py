@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     # for higher accuracy when GPU memory is available.
     WHISPER_MODEL_ID: str = Field(default="openai/whisper-small")
 
+    NLLB_MODEL_ID: str = Field(default="facebook/nllb-200-distilled-600M")
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> list[str]:
