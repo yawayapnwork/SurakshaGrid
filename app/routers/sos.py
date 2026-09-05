@@ -21,6 +21,7 @@ from app.schemas.sos_confirmation import SOSConfirmationRead
 from app.schemas.sos_report import SOSReportRead
 from app.services.cloudinary_service import upload_image_to_cloudinary
 from app.services.cv_service import estimate_water_confidence
+from app.services.notification_utils import build_sos_alert_message
 from app.services.sms_service import broadcast_sms_alert
 from app.services.webhook_dispatcher import dispatch_sos_webhook
 from app.services.ws_manager import ws_manager
@@ -175,10 +176,10 @@ async def create_sos_report(
     settings = get_settings()
     if severity == SOSSeverity.CRITICAL_TRAPPED and settings.DISPATCHER_ALERT_PHONE_NUMBERS:
         try:
-            alert_message = (
-                f"SurakshaGrid CRITICAL SOS #{str(report.id)[:8]}: trapped citizen reported at "
-                f"({latitude:.4f}, {longitude:.4f}). Trust score {report.trust_score}. "
-                "Immediate rescue dispatch required."
+            alert_message = build_sos_alert_message(
+                sos_id=str(report.id),
+                trust_score=report.trust_score,
+                source={"latitude": latitude, "longitude": longitude},
             )
             await broadcast_sms_alert(settings.DISPATCHER_ALERT_PHONE_NUMBERS, alert_message)
         except Exception as exc:  # noqa: BLE001 - an SMS failure must never fail SOS submission
