@@ -1,9 +1,45 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { DispatchAssignment, FloodZoneCollection, RescueUnit, RiskBreakdown, RiskFeatureProperties, RiskGridCollection, SOSReport } from '@/types';
+import {
+  Building2,
+  ChevronDown,
+  Layers,
+  MapPin,
+  Navigation,
+  Radio,
+  ShieldAlert,
+  SlidersHorizontal,
+} from 'lucide-react';
+import {
+  DispatchAssignment,
+  FloodZoneCollection,
+  RescueUnit,
+  RiskBreakdown,
+  RiskFeatureProperties,
+  RiskGridCollection,
+  SOSReport,
+} from '@/types';
+
+export interface CityPreset {
+  id: string;
+  name: string;
+  state: string;
+  coordinates: [number, number]; // [lon, lat]
+  zoom: number;
+}
+
+export const CITY_PRESETS: CityPreset[] = [
+  { id: 'chennai', name: 'Chennai', state: 'Tamil Nadu', coordinates: [80.25, 13.05], zoom: 12 },
+  { id: 'mumbai', name: 'Mumbai', state: 'Maharashtra', coordinates: [72.8777, 19.0760], zoom: 12 },
+  { id: 'bengaluru', name: 'Bengaluru', state: 'Karnataka', coordinates: [77.5946, 12.9716], zoom: 12 },
+  { id: 'kolkata', name: 'Kolkata', state: 'West Bengal', coordinates: [88.3639, 22.5726], zoom: 12 },
+  { id: 'delhi', name: 'Delhi / NCR', state: 'Delhi', coordinates: [77.2090, 28.6139], zoom: 12 },
+  { id: 'kochi', name: 'Kochi', state: 'Kerala', coordinates: [76.2711, 9.9312], zoom: 12 },
+  { id: 'guwahati', name: 'Guwahati', state: 'Assam', coordinates: [91.7362, 26.1445], zoom: 12 },
+];
 
 interface MapContainerProps {
   riskGrid: RiskGridCollection | null;
@@ -12,15 +48,11 @@ interface MapContainerProps {
   rescueUnits: RescueUnit[];
   dispatchAssignments: DispatchAssignment[];
   onSelectRiskCell: (props: RiskFeatureProperties) => void;
-  /** Called once the viewer's real device location resolves, so the parent can re-center
-   *  the risk grid / flood zone data on it instead of leaving it fixed on Chennai. */
+  /** Called once the viewer's real device location resolves or city changes */
   onLocationResolved?: (location: { lat: number; lon: number }) => void;
-  /** Real OSRM road geometry for the currently-focused dispatch assignment (see
-   *  DispatchNavigationCard), rendered as a highlighted primary route on top of the
-   *  plain straight dispatch-assignment lines. Null clears it. */
+  /** Real OSRM road geometry for focused dispatch assignment */
   activeRouteGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
-  /** Simulated live position along that route (see useAnimatedRouteProgress). Null hides
-   *  the animated unit marker. */
+  /** Simulated live position along that route */
   animatedUnitPosition?: [number, number] | null;
 }
 
@@ -41,13 +73,24 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
   const animatedUnitMarkerRef = useRef<maplibregl.Marker | null>(null);
 
+  // City & Layer State
+  const [selectedCityId, setSelectedCityId] = useState<string>('chennai');
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState<boolean>(false);
+  const [isLayerPanelOpen, setIsLayerPanelOpen] = useState<boolean>(false);
+
+  const [layersVisible, setLayersVisible] = useState({
+    riskGrid: true,
+    floodZones: true,
+    sosReports: true,
+    rescueUnits: true,
+    dispatchRoutes: true,
+  });
+
   const onSelectRiskCellRef = useRef(onSelectRiskCell);
   onSelectRiskCellRef.current = onSelectRiskCell;
   const onLocationResolvedRef = useRef(onLocationResolved);
   onLocationResolvedRef.current = onLocationResolved;
 
-  // Chennai / Flood Monitoring Zone — used as the initial center and as the fallback
-  // whenever geolocation is denied, unsupported, or times out.
   const DEFAULT_CENTER: [number, number] = [80.25, 13.05];
 
   // Initialize MapLibre GL instance
@@ -56,90 +99,79 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: 'https://tiles.openfreemap.org/styles/liberty', // Free vector tile style
+      style: 'https://tiles.openfreemap.org/styles/liberty',
       center: DEFAULT_CENTER,
       zoom: 12,
       pitch: 30,
     });
 
-    map.addControl(new maplibregl.NavigationControl(), 'top-right');
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 
     map.on('load', () => {
-      // 0. Add Flood Zone Source & Layer (Rendered BELOW Risk Grid)
+      // 0. Flood Zone Source & Fill Layer
       map.addSource('flood-zone-source', {
         type: 'geojson',
         data: floodZones || { type: 'FeatureCollection', features: [] },
       });
 
-      // Soft cyan/blue radar-blip fill for the flood/rainfall extent. When the source
-      // holds concentric reflectivity bands (see build_rainfall_reflectivity_bands —
-      // 'light'/'heavy'/'core' features per zone, outermost first), color is keyed off
-      // `band` and opacity off each band's own `opacity` property, so a cloudburst reads
-      // as a denser, darker core rather than one polygon ballooning in size. The
-      // corridor-buffer fallback (build_flood_zone_polygon) carries neither property, so
-      // both expressions fall back to a flat sky-blue at 0.4 opacity for that path. No
-      // stroke layer: 'fill-outline-color' is left transparent so every band reads as an
-      // organic blob rather than a shape with a hard, geometric-looking border.
       map.addLayer({
         id: 'flood-zone-fill',
         type: 'fill',
         source: 'flood-zone-source',
+        layout: { visibility: layersVisible.floodZones ? 'visible' : 'none' },
         paint: {
           'fill-color': [
             'match',
             ['get', 'band'],
             'light',
-            '#38bdf8', // Light cyan — broad, smooth stratiform fringe
+            '#38bdf8',
             'heavy',
-            '#0ea5e9', // Sky blue — moderately dense band
+            '#0ea5e9',
             'core',
-            '#0284c7', // Deep blue — dense convective core
-            '#0ea5e9', // Default (corridor-buffer fallback, no band property)
+            '#0284c7',
+            '#0ea5e9',
           ],
           'fill-opacity': ['coalesce', ['get', 'opacity'], 0.4],
           'fill-outline-color': 'transparent',
         },
       });
 
-      // 1. Add Risk Grid Source & Layer
-      // promoteId lets MapLibre match features across setData() calls by the backend's
-      // stable zone_id (when present) instead of array position, which is what makes the
-      // fill-color-transition below animate a smooth recolor instead of an instant swap.
+      // 1. Risk Grid Source & Layers
       map.addSource('risk-grid-source', {
         type: 'geojson',
         data: riskGrid || { type: 'FeatureCollection', features: [] },
         promoteId: 'zone_id',
       });
 
-      // Polygon fill layer with dynamic color gradient based on risk_score
       map.addLayer({
         id: 'risk-grid-fill',
         type: 'fill',
         source: 'risk-grid-source',
+        layout: { visibility: layersVisible.riskGrid ? 'visible' : 'none' },
         paint: {
           'fill-color': [
             'interpolate',
             ['linear'],
             ['get', 'risk_score'],
             0.0,
-            'rgba(16, 185, 129, 0.25)', // Green (Low Risk)
+            'rgba(16, 185, 129, 0.25)',
             0.35,
-            'rgba(245, 158, 11, 0.45)', // Amber/Yellow (Moderate)
+            'rgba(245, 158, 11, 0.45)',
             0.65,
-            'rgba(249, 115, 22, 0.60)', // Orange (High)
+            'rgba(249, 115, 22, 0.60)',
             0.85,
-            'rgba(239, 68, 68, 0.75)', // Red (Critical)
+            'rgba(239, 68, 68, 0.75)',
           ],
           'fill-color-transition': { duration: 400, delay: 0 },
           'fill-outline-color': 'rgba(255, 255, 255, 0.4)',
         },
       });
 
-      // Polygon outline border
       map.addLayer({
         id: 'risk-grid-outline',
         type: 'line',
         source: 'risk-grid-source',
+        layout: { visibility: layersVisible.riskGrid ? 'visible' : 'none' },
         paint: {
           'line-color': '#0f172a',
           'line-width': 1.5,
@@ -147,13 +179,12 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         },
       });
 
-      // 2. Add Dispatch Routes GeoJSON Source & Line Layer
+      // 2. Dispatch Routes Source & Layer
       map.addSource('dispatch-routes-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
       });
 
-      // Dashed route line indicating an active unit-to-incident assignment
       map.addLayer({
         id: 'dispatch-routes-layer',
         type: 'line',
@@ -161,6 +192,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         layout: {
           'line-cap': 'round',
           'line-join': 'round',
+          visibility: layersVisible.dispatchRoutes ? 'visible' : 'none',
         },
         paint: {
           'line-color': '#0f172a',
@@ -170,11 +202,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         },
       });
 
-      // 2b. Active Route Source & Layers — the real OSRM road geometry for whichever
-      // dispatch assignment is currently focused in DispatchNavigationCard, drawn as a
-      // highlighted "primary route" (Blinkit/Uber style: a dark casing underneath a
-      // vivid colored line, both round-capped/joined) on top of the plain straight
-      // dispatch-assignment lines above.
+      // Active Route Highlight Source & Layers
       map.addSource('active-route-source', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] },
@@ -184,7 +212,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         id: 'active-route-casing',
         type: 'line',
         source: 'active-route-source',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+          visibility: layersVisible.dispatchRoutes ? 'visible' : 'none',
+        },
         paint: {
           'line-color': '#0f172a',
           'line-width': 7,
@@ -196,7 +228,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         id: 'active-route-line',
         type: 'line',
         source: 'active-route-source',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+          visibility: layersVisible.dispatchRoutes ? 'visible' : 'none',
+        },
         paint: {
           'line-color': '#2563eb',
           'line-width': 4.5,
@@ -204,7 +240,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         },
       });
 
-      // 3. Risk Grid Polygon Click Listener for Explainable Risk Card
+      // 3. Risk Grid Polygon Click Listener
       map.on('click', 'risk-grid-fill', (e: maplibregl.MapLayerMouseEvent) => {
         if (e.features && e.features.length > 0) {
           const props = e.features[0].properties as Record<string, unknown> | null;
@@ -244,10 +280,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
     mapRef.current = map;
 
-    // Fly to the viewer's real device location once it resolves. Chennai stays the
-    // initial center (so the map isn't blank while the browser prompts for/resolves
-    // permission) and remains the fallback if geolocation is denied, unsupported, or
-    // times out.
+    // Geolocation Resolution
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -266,13 +299,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           onLocationResolvedRef.current?.({ lat: latitude, lon: longitude });
         },
         (err) => {
-          // PERMISSION_DENIED, POSITION_UNAVAILABLE, or TIMEOUT — keep the Chennai default.
           console.warn('Geolocation unavailable, keeping default map center:', err.message);
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
       );
-    } else {
-      console.warn('Geolocation not supported by this browser, keeping default map center.');
     }
 
     return () => {
@@ -283,9 +313,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       map.remove();
       mapRef.current = null;
     };
-  }, []); // Run once on mount
+  }, []);
 
-  // Hot-swap Risk Grid Data on map when riskGrid prop updates
+  // Hot-swap Risk Grid
   useEffect(() => {
     if (!mapRef.current) return;
     const source = mapRef.current.getSource('risk-grid-source') as maplibregl.GeoJSONSource;
@@ -294,7 +324,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [riskGrid]);
 
-  // Hot-swap Flood Zone Data on map when floodZones prop updates
+  // Hot-swap Flood Zones
   useEffect(() => {
     if (!mapRef.current) return;
     const source = mapRef.current.getSource('flood-zone-source') as maplibregl.GeoJSONSource;
@@ -303,17 +333,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [floodZones]);
 
-  // Update Dispatch Routes on Map when dispatchAssignments, sosReports, or rescueUnits change
+  // Update Dispatch Routes
   useEffect(() => {
     if (!mapRef.current) return;
     const routeSource = mapRef.current.getSource('dispatch-routes-source') as maplibregl.GeoJSONSource;
     if (!routeSource) return;
 
     if (!dispatchAssignments || dispatchAssignments.length === 0) {
-      routeSource.setData({
-        type: 'FeatureCollection',
-        features: [],
-      });
+      routeSource.setData({ type: 'FeatureCollection', features: [] });
       return;
     }
 
@@ -356,8 +383,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     });
   }, [dispatchAssignments, sosReports, rescueUnits]);
 
-  // Hot-swap the highlighted active-route polyline when the focused assignment's route
-  // (re)loads or is cleared.
+  // Hot-swap Active Route Polyline
   useEffect(() => {
     if (!mapRef.current) return;
     const source = mapRef.current.getSource('active-route-source') as maplibregl.GeoJSONSource;
@@ -370,9 +396,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     );
   }, [activeRouteGeometry]);
 
-  // Move the animated unit marker to its simulated live position (see
-  // useAnimatedRouteProgress) each time it updates, creating it on first use and
-  // removing it once the nav card closes (animatedUnitPosition becomes null).
+  // Animated Unit Position
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -397,104 +421,307 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     }
   }, [animatedUnitPosition]);
 
-  // Render SOS Report Markers & Rescue Unit Markers with Visual Urgency State Machine
+  // Render SOS & Rescue Unit Markers with Visibility Filtering & Rich Popups
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Clear previous markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
 
     const now = Date.now();
 
-    // Render SOS Markers with Time-Elapsed Visual Urgency State Machine
-    sosReports.forEach((report) => {
-      const [lon, lat] = report.location.coordinates;
-      const el = document.createElement('div');
-      el.className = 'relative flex items-center justify-center cursor-pointer';
+    // SOS Markers
+    if (layersVisible.sosReports) {
+      sosReports.forEach((report) => {
+        const [lon, lat] = report.location.coordinates;
+        const el = document.createElement('div');
+        el.className = 'relative flex items-center justify-center cursor-pointer group';
 
-      // Compute elapsed minutes since report creation
-      const createdAtMs = new Date(report.created_at).getTime();
-      const elapsedMins = Math.max(0, (now - createdAtMs) / (1000 * 60));
+        const createdAtMs = new Date(report.created_at).getTime();
+        const elapsedMins = Math.max(0, (now - createdAtMs) / (1000 * 60));
 
-      let bgColor = 'bg-amber-400'; // < 2 mins
-      let isCritical = false;
+        let bgColor = 'bg-amber-400';
+        let isCritical = false;
 
-      if (report.severity === 'CRITICAL_TRAPPED' || elapsedMins >= 5.0) {
-        // > 5 mins or CRITICAL_TRAPPED: highest urgency
-        bgColor = 'bg-red-600';
-        isCritical = true;
-      } else if (elapsedMins >= 2.0 || report.severity === 'HIGH') {
-        // 2 to 5 mins
-        bgColor = 'bg-orange-500';
+        if (report.severity === 'CRITICAL_TRAPPED' || elapsedMins >= 5.0) {
+          bgColor = 'bg-red-600';
+          isCritical = true;
+        } else if (elapsedMins >= 2.0 || report.severity === 'HIGH') {
+          bgColor = 'bg-orange-500';
+        }
+
+        el.innerHTML = `
+          ${isCritical ? '<div class="absolute w-7 h-7 rounded-full bg-red-500 animate-ping opacity-40"></div>' : ''}
+          <div class="relative w-6 h-6 rounded-full ${bgColor} border-2 border-white flex items-center justify-center text-[10px] font-bold text-white shadow-md transition-transform group-hover:scale-110">
+            !
+          </div>
+        `;
+
+        const elapsedText = elapsedMins < 1 ? 'Just now' : `${elapsedMins.toFixed(1)}m ago`;
+
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([lon, lat])
+          .setPopup(
+            new maplibregl.Popup({ offset: 15, closeButton: true, className: 'suraksha-popup' }).setHTML(`
+              <div class="p-3 text-slate-900 font-sans max-w-xs">
+                <div class="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5 mb-1.5">
+                  <span class="font-bold text-xs flex items-center gap-1 ${isCritical ? 'text-red-600' : 'text-slate-900'}">
+                    ${isCritical ? '⚠️' : '🚨'} ${report.severity}
+                  </span>
+                  <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                    ${elapsedText}
+                  </span>
+                </div>
+                <div class="space-y-1 text-[11px] text-slate-600">
+                  <div><strong class="text-slate-800">Status:</strong> <span class="uppercase tracking-wider font-semibold text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">${report.status}</span></div>
+                  <div><strong class="text-slate-800">Trust Score:</strong> <span class="font-semibold text-emerald-700">${(report.trust_score * 100).toFixed(0)}%</span></div>
+                </div>
+                ${report.voice_transcript ? `<div class="text-[11px] bg-slate-50 border border-slate-200 p-2 rounded-lg mt-2 text-slate-700 italic">"${report.voice_transcript}"</div>` : ''}
+              </div>
+            `)
+          )
+          .addTo(mapRef.current!);
+
+        markersRef.current.push(marker);
+      });
+    }
+
+    // Rescue Unit Markers
+    if (layersVisible.rescueUnits) {
+      rescueUnits.forEach((unit) => {
+        const [lon, lat] = unit.current_location.coordinates;
+        const el = document.createElement('div');
+        el.className = 'relative flex items-center justify-center cursor-pointer group';
+        el.innerHTML = `
+          <div class="w-7 h-7 rounded-lg bg-slate-900 border-2 border-white flex items-center justify-center shadow-lg transition-transform group-hover:scale-110">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
+          </div>
+        `;
+
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([lon, lat])
+          .setPopup(
+            new maplibregl.Popup({ offset: 15, closeButton: true, className: 'suraksha-popup' }).setHTML(`
+              <div class="p-3 text-slate-900 font-sans max-w-xs">
+                <div class="font-bold text-xs text-slate-900 border-b border-slate-100 pb-1 mb-1.5">${unit.name}</div>
+                <div class="space-y-1 text-[11px] text-slate-600">
+                  <div><strong class="text-slate-800">Unit Type:</strong> <span class="font-semibold text-slate-700">${unit.unit_type}</span></div>
+                  <div><strong class="text-slate-800">Status:</strong> <span class="font-semibold text-emerald-600 uppercase tracking-wider text-[10px] bg-emerald-50 px-1.5 py-0.5 rounded">${unit.status}</span></div>
+                  <div class="text-[10px] text-slate-400 font-mono pt-1">Location: ${lat.toFixed(4)}°, ${lon.toFixed(4)}°</div>
+                </div>
+              </div>
+            `)
+          )
+          .addTo(mapRef.current!);
+
+        markersRef.current.push(marker);
+      });
+    }
+  }, [sosReports, rescueUnits, layersVisible]);
+
+  // Handle City Change Navigation
+  const handleCityChange = (cityId: string) => {
+    setSelectedCityId(cityId);
+    setIsCityDropdownOpen(false);
+
+    const city = CITY_PRESETS.find((c) => c.id === cityId);
+    if (!city || !mapRef.current) return;
+
+    mapRef.current.flyTo({
+      center: city.coordinates,
+      zoom: city.zoom,
+      pitch: 35,
+      duration: 2000,
+      essential: true,
+    });
+
+    onLocationResolvedRef.current?.({ lat: city.coordinates[1], lon: city.coordinates[0] });
+  };
+
+  // Handle Layer Visibility Toggle
+  const toggleLayer = (layerKey: keyof typeof layersVisible) => {
+    setLayersVisible((prev) => {
+      const nextState = { ...prev, [layerKey]: !prev[layerKey] };
+
+      if (mapRef.current) {
+        if (layerKey === 'riskGrid') {
+          const vis = nextState.riskGrid ? 'visible' : 'none';
+          if (mapRef.current.getLayer('risk-grid-fill')) mapRef.current.setLayoutProperty('risk-grid-fill', 'visibility', vis);
+          if (mapRef.current.getLayer('risk-grid-outline')) mapRef.current.setLayoutProperty('risk-grid-outline', 'visibility', vis);
+        } else if (layerKey === 'floodZones') {
+          const vis = nextState.floodZones ? 'visible' : 'none';
+          if (mapRef.current.getLayer('flood-zone-fill')) mapRef.current.setLayoutProperty('flood-zone-fill', 'visibility', vis);
+        } else if (layerKey === 'dispatchRoutes') {
+          const vis = nextState.dispatchRoutes ? 'visible' : 'none';
+          if (mapRef.current.getLayer('dispatch-routes-layer')) mapRef.current.setLayoutProperty('dispatch-routes-layer', 'visibility', vis);
+          if (mapRef.current.getLayer('active-route-casing')) mapRef.current.setLayoutProperty('active-route-casing', 'visibility', vis);
+          if (mapRef.current.getLayer('active-route-line')) mapRef.current.setLayoutProperty('active-route-line', 'visibility', vis);
+        }
       }
 
-      el.innerHTML = `
-        ${isCritical ? '<div class="absolute w-7 h-7 rounded-full bg-red-500 animate-ping opacity-40"></div>' : ''}
-        <div class="relative w-6 h-6 rounded-full ${bgColor} border-2 border-white flex items-center justify-center text-[9px] font-bold text-white shadow-md">
-          !
-        </div>
-      `;
-
-      const elapsedText = elapsedMins < 1 ? 'Just now' : `${elapsedMins.toFixed(1)}m ago`;
-
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([lon, lat])
-        .setPopup(
-          new maplibregl.Popup({ offset: 15 }).setHTML(`
-            <div class="p-2 text-slate-900 font-sans">
-              <div class="flex items-center justify-between gap-2">
-                <span class="font-semibold text-xs ${isCritical ? 'text-red-700' : 'text-slate-800'}">
-                  ${report.severity}
-                </span>
-                <span class="text-[10px] font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                  ${elapsedText}
-                </span>
-              </div>
-              <div class="text-[11px] text-slate-600 mt-1">Status: ${report.status}</div>
-              <div class="text-[11px] text-slate-600">Trust Score: ${report.trust_score}</div>
-              ${report.voice_transcript ? `<div class="text-[10px] bg-slate-100 p-1.5 rounded mt-1 text-slate-700 italic">"${report.voice_transcript}"</div>` : ''}
-            </div>
-          `)
-        )
-        .addTo(mapRef.current!);
-
-      markersRef.current.push(marker);
+      return nextState;
     });
+  };
 
-    // Render Rescue Unit Markers
-    rescueUnits.forEach((unit) => {
-      const [lon, lat] = unit.current_location.coordinates;
-      const el = document.createElement('div');
-      el.className = 'relative flex items-center justify-center cursor-pointer';
-      el.innerHTML = `
-        <div class="w-6 h-6 rounded-md bg-slate-900 border-2 border-white flex items-center justify-center shadow-md">
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
-        </div>
-      `;
-
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([lon, lat])
-        .setPopup(
-          new maplibregl.Popup({ offset: 15 }).setHTML(`
-            <div class="p-2 text-slate-900 font-sans">
-              <div class="font-semibold text-xs text-slate-800">${unit.name}</div>
-              <div class="text-[11px] text-slate-600">Type: ${unit.unit_type}</div>
-              <div class="text-[11px] text-slate-600">Status: ${unit.status}</div>
-            </div>
-          `)
-        )
-        .addTo(mapRef.current!);
-
-      markersRef.current.push(marker);
-    });
-  }, [sosReports, rescueUnits]);
+  const selectedCity = CITY_PRESETS.find((c) => c.id === selectedCityId) || CITY_PRESETS[0];
 
   return (
-    // Sizing, rounding, and border are owned by the grid cell this renders into
-    // (see the dashboard grid in app/page.tsx) — this just fills that cell exactly.
-    <div className="absolute inset-0">
+    <div className="absolute inset-0 overflow-hidden">
+      {/* MapLibre Canvas Container */}
       <div ref={mapContainerRef} className="w-full h-full" />
+
+      {/* Floating Tactical Overlay Controls */}
+      <div className="absolute top-4 left-4 z-20 flex flex-col sm:flex-row items-start sm:items-center gap-2 pointer-events-auto">
+        {/* City Selector Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
+            className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-slate-900/90 hover:bg-slate-900 text-white backdrop-blur-md border border-slate-700/80 shadow-xl transition-all active:scale-95 text-xs font-semibold"
+            aria-label="Select City Region"
+          >
+            <Building2 className="w-4 h-4 text-blue-400 shrink-0" />
+            <div className="text-left">
+              <div className="text-[11px] text-slate-400 font-normal leading-none">Monitoring Hub</div>
+              <div className="text-xs font-bold text-slate-100 leading-tight flex items-center gap-1">
+                {selectedCity.name}
+                <span className="text-[10px] font-normal text-slate-400">({selectedCity.state})</span>
+              </div>
+            </div>
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isCityDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {/* City Dropdown Menu */}
+          {isCityDropdownOpen && (
+            <div className="absolute top-full left-0 mt-2 w-56 rounded-xl bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 shadow-2xl p-1.5 z-30 space-y-0.5 text-xs">
+              <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                Select Indian Metro Hub
+              </div>
+              {CITY_PRESETS.map((city) => (
+                <button
+                  key={city.id}
+                  onClick={() => handleCityChange(city.id)}
+                  className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors ${
+                    city.id === selectedCityId
+                      ? 'bg-blue-600 text-white font-semibold'
+                      : 'text-slate-200 hover:bg-slate-800/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <MapPin className={`w-3.5 h-3.5 ${city.id === selectedCityId ? 'text-white' : 'text-slate-400'}`} />
+                    <span>{city.name}</span>
+                  </div>
+                  <span className={`text-[10px] ${city.id === selectedCityId ? 'text-blue-100' : 'text-slate-400'}`}>
+                    {city.state}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Collapsible Layer Control Button */}
+        <button
+          onClick={() => setIsLayerPanelOpen(!isLayerPanelOpen)}
+          className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold backdrop-blur-md border shadow-xl transition-all active:scale-95 ${
+            isLayerPanelOpen
+              ? 'bg-blue-600 text-white border-blue-500'
+              : 'bg-slate-900/90 hover:bg-slate-900 text-slate-200 border-slate-700/80'
+          }`}
+        >
+          <Layers className="w-4 h-4 text-blue-400" />
+          <span>Layers</span>
+          <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+        </button>
+      </div>
+
+      {/* Floating Layer Toggle Panel Overlay */}
+      {isLayerPanelOpen && (
+        <div className="absolute top-16 left-4 z-20 w-64 rounded-2xl bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 shadow-2xl p-4 space-y-3 text-xs text-white">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <span className="font-bold text-xs flex items-center gap-1.5 text-slate-100">
+              <Layers className="w-4 h-4 text-blue-400" /> Map Layers & Feeds
+            </span>
+            <button
+              onClick={() => setIsLayerPanelOpen(false)}
+              className="text-[10px] text-slate-400 hover:text-white underline"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {/* 1. Risk Grid */}
+            <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-400" />
+                <span className="font-medium text-slate-200">Flood Risk Grid</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={layersVisible.riskGrid}
+                onChange={() => toggleLayer('riskGrid')}
+                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+              />
+            </label>
+
+            {/* 2. Flood Radar Zones */}
+            <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2">
+                <Radio className="w-4 h-4 text-sky-400 animate-pulse" />
+                <span className="font-medium text-slate-200">Rainfall Radar Extent</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={layersVisible.floodZones}
+                onChange={() => toggleLayer('floodZones')}
+                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+              />
+            </label>
+
+            {/* 3. SOS Reports */}
+            <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-4 rounded-full bg-red-600 text-white font-bold flex items-center justify-center text-[9px]">!</span>
+                <span className="font-medium text-slate-200">Active SOS Reports</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={layersVisible.sosReports}
+                onChange={() => toggleLayer('sosReports')}
+                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+              />
+            </label>
+
+            {/* 4. Rescue Units */}
+            <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2">
+                <Navigation className="w-4 h-4 text-emerald-400" />
+                <span className="font-medium text-slate-200">Rescue Assets</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={layersVisible.rescueUnits}
+                onChange={() => toggleLayer('rescueUnits')}
+                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+              />
+            </label>
+
+            {/* 5. Dispatch Routes */}
+            <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-800/60 cursor-pointer transition-colors">
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-0.5 bg-blue-500 rounded-full" />
+                <span className="font-medium text-slate-200">Dispatch Routes</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={layersVisible.dispatchRoutes}
+                onChange={() => toggleLayer('dispatchRoutes')}
+                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+              />
+            </label>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

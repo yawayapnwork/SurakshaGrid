@@ -9,6 +9,7 @@ import { RiskCardModal } from '@/components/RiskCardModal';
 import { ReplayScrubber } from '@/components/ReplayScrubber';
 import { BroadcastSMSModal } from '@/components/BroadcastSMSModal';
 import { DispatchNavigationCard } from '@/components/DispatchNavigationCard';
+import { ScientificTelemetryMetrics } from '@/components/ScientificTelemetryMetrics';
 import { ExportAARModal } from '@/components/ExportAARModal';
 import { playTwoToneEmergencyAlert } from '@/components/AudioAlertManager';
 import { useAnimatedRouteProgress } from '@/hooks/useAnimatedRouteProgress';
@@ -36,6 +37,11 @@ import { MapErrorBoundary } from '@/components/MapErrorBoundary';
 // Dynamically import MapContainer to prevent SSR hydration errors with maplibre-gl
 const MapContainer = dynamic(
   () => import('@/components/MapContainer').then((mod) => mod.MapContainer),
+  { ssr: false }
+);
+
+const FloodInundationTelemetryDashboard = dynamic(
+  () => import('@/components/FloodInundationTelemetryDashboard').then((mod) => mod.FloodInundationTelemetryDashboard),
   { ssr: false }
 );
 
@@ -682,7 +688,64 @@ export default function DashboardPage() {
             <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
           </div>
 
-          {/* 5. Replay Time-Scrubber — its own full-width row below the grid columns */}
+          {/* 5. Scientific Telemetry & Hydro Metrics Panel */}
+          <div className="lg:col-span-12">
+            <ScientificTelemetryMetrics
+              telemetry={{
+                timestamp: new Date().toISOString(),
+                stationId: 'EOC-CH-04',
+                stationName: userLocation ? `Regional Hydro Radar (${userLocation.lat.toFixed(2)}°, ${userLocation.lon.toFixed(2)}°)` : 'Chennai Coastal Radar & Hydro Station',
+                wind: {
+                  speedKmH: Math.round(20 + (liveWeatherInfo?.intensity || rainfall) * 0.4),
+                  gustKmH: Math.round(35 + (liveWeatherInfo?.intensity || rainfall) * 0.6),
+                  directionDegrees: 225,
+                  heading: 'SW',
+                },
+                rainfall: {
+                  currentRateMmHr: liveWeatherInfo?.intensity ?? rainfall,
+                  cumulative24hMm: Math.round(((liveWeatherInfo?.intensity ?? rainfall) * 2.8) * 10) / 10,
+                  severity: (liveWeatherInfo?.intensity ?? rainfall) > 75 ? 'TORRENTIAL' : (liveWeatherInfo?.intensity ?? rainfall) > 35 ? 'HEAVY' : (liveWeatherInfo?.intensity ?? rainfall) > 7.5 ? 'MODERATE' : 'LIGHT',
+                },
+                atmospheric: {
+                  pressureHpa: Math.round((1013 - (liveWeatherInfo?.intensity || rainfall) * 0.25) * 10) / 10,
+                  pressureTrend: (liveWeatherInfo?.intensity || rainfall) > 40 ? 'FALLING' : 'STEADY',
+                  pressureDelta3h: Math.round((-1.2 - (liveWeatherInfo?.intensity || rainfall) * 0.08) * 10) / 10,
+                  humidityPercent: Math.min(100, Math.round(75 + (liveWeatherInfo?.intensity || rainfall) * 0.25)),
+                  dewPointC: 24.5,
+                },
+                soil: {
+                  soilSaturationPercent: Math.min(100, Math.round(55 + (liveWeatherInfo?.intensity || rainfall) * 0.45)),
+                  absorptionRateMmHr: 4.2,
+                  surfaceRunoffPotential: (liveWeatherInfo?.intensity || rainfall) > 60 ? 'EXTREME' : (liveWeatherInfo?.intensity || rainfall) > 30 ? 'HIGH' : 'MODERATE',
+                  groundwaterTableMeters: 0.45,
+                },
+              }}
+              isStreaming={isConnected}
+            />
+          </div>
+
+          {/* 6. Time-Series Flood Inundation & Hydro Telemetry Dashboard */}
+          <div className="lg:col-span-12">
+            <FloodInundationTelemetryDashboard
+              telemetry={{
+                timestamp: new Date().toISOString(),
+                locationName: userLocation ? `Regional Sensor Array (${userLocation.lat.toFixed(2)}°, ${userLocation.lon.toFixed(2)}°)` : 'Chennai Coastal Hydro Sensor Array',
+                windSpeedKmH: Math.round(22 + (liveWeatherInfo?.intensity || rainfall) * 0.45),
+                windGustKmH: Math.round(38 + (liveWeatherInfo?.intensity || rainfall) * 0.65),
+                windDirectionDeg: 215,
+                relativeHumidityPercent: Math.min(100, Math.round(78 + (liveWeatherInfo?.intensity || rainfall) * 0.22)),
+                soilMoisturePercent: Math.min(100, Math.round(58 + (liveWeatherInfo?.intensity || rainfall) * 0.42)),
+                rainfallRateMmHr: liveWeatherInfo?.intensity ?? rainfall,
+                rainfall24hMm: Math.round(((liveWeatherInfo?.intensity ?? rainfall) * 3.2) * 10) / 10,
+                pressureHpa: Math.round((1012 - (liveWeatherInfo?.intensity || rainfall) * 0.28) * 10) / 10,
+                pressureTrend: (liveWeatherInfo?.intensity || rainfall) > 40 ? 'FALLING' : 'STEADY',
+                pressureDelta3h: Math.round((-1.5 - (liveWeatherInfo?.intensity || rainfall) * 0.09) * 10) / 10,
+              }}
+              mapCenter={userLocation ? [userLocation.lon, userLocation.lat] : [80.24, 12.98]}
+            />
+          </div>
+
+          {/* 7. Replay Time-Scrubber — its own full-width row below the grid columns */}
           <div className="lg:col-span-12">
             <ReplayScrubber
               events={replayEvents}
