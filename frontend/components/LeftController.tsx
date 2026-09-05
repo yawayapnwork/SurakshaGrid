@@ -88,10 +88,10 @@ export const LeftController: React.FC<LeftControllerProps> = ({
 
       <aside
         className={`fixed inset-y-0 left-0 z-50 w-[85%] max-w-sm rounded-none border-r
-          lg:static lg:inset-auto lg:z-auto lg:w-full lg:h-full lg:max-h-full lg:rounded-xl lg:border
+          lg:static lg:inset-auto lg:z-auto lg:w-full lg:h-full lg:max-h-full lg:rounded-none lg:border-0 lg:shadow-none
           transition-transform duration-300 ease-out lg:translate-x-0
           ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
-          flex flex-col h-full max-h-full overflow-hidden bg-white border-slate-200 shadow-2xl lg:shadow-sm text-slate-900`}
+          flex flex-col w-full h-full min-h-0 overflow-hidden bg-white border-slate-200 text-slate-900`}
       >
         <div className="shrink-0 flex-shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 p-4">
           <div className="flex items-center gap-2">

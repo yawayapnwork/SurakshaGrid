@@ -761,10 +761,10 @@ export default function DashboardPage() {
       )}
 
       {/* Dynamic Workspace Content Area (Strict Viewport Isolation) */}
-      <main className="flex-1 w-full h-full min-h-0 overflow-hidden relative p-4 flex flex-col">
-        {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD UN-SQUASHED 2-COLUMN VIEWPORT GRID) */}
+      <main className="flex-1 w-full min-h-0 overflow-hidden relative p-4 flex flex-col">
+        {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD 2-COLUMN VIEWPORT GRID) */}
         {activeFocusModule === 'overview' && (
-          <div className="w-full h-full min-h-0 grid grid-cols-12 gap-4 overflow-hidden">
+          <div className="w-full flex-1 min-h-0 grid grid-cols-12 gap-4 overflow-hidden">
             {/* Left Primary Column: Command Map Hero Card + Hydro Telemetry (8 Cols) */}
             <div className="col-span-12 lg:col-span-8 h-full min-h-0 flex flex-col gap-4 overflow-hidden">
               {/* Map Container Hero Card (Flex-1 fills remaining vertical space) */}
@@ -800,7 +800,7 @@ export default function DashboardPage() {
             {/* Right Secondary Column: Scenario Controls + Live Dispatch Queue (4 Cols) */}
             <div className="col-span-12 lg:col-span-4 h-full min-h-0 flex flex-col gap-4 overflow-hidden">
               {/* Scenario Simulation Controls */}
-              <div className="flex-1 min-h-0 max-h-[48%] flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                 <LeftController
                   rainfall={rainfall}
                   onRainfallChange={setRainfall}
@@ -817,16 +817,16 @@ export default function DashboardPage() {
               </div>
 
               {/* Live Rescue Units Dispatch Queue */}
-              <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
+              <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                 <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
               </div>
             </div>
           </div>
         )}
 
-        {/* VIEW MODE 2: COMMAND MAP FOCUS (FULL SCREEN MAP 100%) */}
+        {/* VIEW MODE 2: COMMAND MAP FOCUS (100% EXPANDED SINGLE-COLUMN VIEW) */}
         {activeFocusModule === 'map' && (
-          <div className="w-full h-full min-h-0 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm relative">
+          <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm relative">
             <MapErrorBoundary>
               <MapContainer
                 riskGrid={riskGrid}
@@ -847,15 +847,15 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* VIEW MODE 3: LIVE DISPATCH QUEUE FOCUS (100% EXPANDED) */}
+        {/* VIEW MODE 3: LIVE DISPATCH QUEUE FOCUS (100% EXPANDED SINGLE-COLUMN / SPLIT VIEW) */}
         {activeFocusModule === 'dispatch' && (
-          <div className="w-full h-full min-h-0 grid grid-cols-12 gap-4 overflow-hidden">
+          <div className="w-full flex-1 min-h-0 grid grid-cols-12 gap-4 overflow-hidden">
             <div className="col-span-12 lg:col-span-7 h-full min-h-0 flex flex-col overflow-hidden">
               <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
             </div>
             <div className="col-span-12 lg:col-span-5 h-full min-h-0 flex flex-col overflow-hidden">
               {focusedAssignment ? (
-                <div className="flex-1 min-h-0 h-full flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
+                <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
                   <DispatchNavigationCard
                     assignment={focusedAssignment}
                     sosReport={focusedSosReport}
@@ -886,9 +886,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* VIEW MODE 4: SCENARIO CONTROLS FOCUS (100% EXPANDED) */}
+        {/* VIEW MODE 4: SCENARIO CONTROLS FOCUS (100% EXPANDED SINGLE-COLUMN VIEW) */}
         {activeFocusModule === 'scenario' && (
-          <div className="w-full h-full min-h-0 max-w-4xl mx-auto flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
+          <div className="w-full flex-1 min-h-0 flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
             <LeftController
               rainfall={rainfall}
               onRainfallChange={setRainfall}
@@ -905,9 +905,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* VIEW MODE 5: HYDRO TELEMETRY FOCUS (100% EXPANDED) */}
+        {/* VIEW MODE 5: HYDRO TELEMETRY FOCUS (100% EXPANDED SINGLE-COLUMN VIEW) */}
         {activeFocusModule === 'telemetry' && (
-          <div className="w-full h-full min-h-0 flex flex-col gap-4 overflow-hidden">
+          <div className="w-full flex-1 min-h-0 flex flex-col gap-4 overflow-hidden">
             <div className="shrink-0 flex-shrink-0 max-h-[35%] flex flex-col overflow-hidden bg-white border border-slate-200 rounded-xl shadow-sm">
               <ScientificTelemetryMetrics
                 telemetry={telemetryData}
@@ -937,8 +937,8 @@ export default function DashboardPage() {
         )}
       </main>
 
-      {/* Replay Time-Scrubber (Fixed shrink-0 height) */}
-      <footer className="px-4 pb-3 shrink-0 flex-shrink-0 z-20">
+      {/* Replay Time-Scrubber (Fixed shrink-0 height persistent footer bar) */}
+      <footer className="shrink-0 flex-shrink-0 px-4 pb-3 z-20">
         <ReplayScrubber
           isReplayMode={isReplayMode}
           onToggleReplayMode={handleToggleReplayMode}
