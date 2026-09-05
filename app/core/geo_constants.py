@@ -2,7 +2,14 @@
 
 import math
 
-from shapely.geometry import LineString, Polygon, mapping as shapely_mapping
+try:
+    from shapely.geometry import LineString, Polygon, mapping as shapely_mapping
+    HAS_SHAPELY = True
+except ImportError:
+    HAS_SHAPELY = False
+    LineString = None  # type: ignore
+    Polygon = None  # type: ignore
+    shapely_mapping = None  # type: ignore
 
 # Standard water corridor endpoints around Chennai: (x1, y1) to (x2, y2)
 WATER_CORRIDOR_LINE: tuple[tuple[float, float], tuple[float, float]] = (
@@ -61,7 +68,7 @@ def _meandering_corridor_linestring(
     corridor: tuple[tuple[float, float], tuple[float, float]],
     amplitude_deg: float,
     segments: int = 10,
-) -> LineString:
+):
     """Builds a multi-point LineString along `corridor` with a gentle sinusoidal meander
 
     perpendicular to it, instead of one perfectly straight segment. Deterministic (no
@@ -81,7 +88,9 @@ def _meandering_corridor_linestring(
         y = y1 + dy * t
         meander = math.sin(t * 2 * math.pi) * amplitude_deg
         points.append((x + nx * meander, y + ny * meander))
-    return LineString(points)
+    if HAS_SHAPELY and LineString is not None:
+        return LineString(points)
+    return points
 
 
 def build_flood_zone_polygon(
@@ -97,6 +106,19 @@ def build_flood_zone_polygon(
     """
     rainfall_norm = min(max(rainfall_intensity, 0.0), 100.0)
     buffer_deg = 0.01 + (rainfall_norm / 100.0) * 0.05
+
+    if not HAS_SHAPELY:
+        (x1, y1), (x2, y2) = corridor
+        coords = [
+            [round(x1 - buffer_deg, 6), round(y1 - buffer_deg, 6)],
+            [round(x2 + buffer_deg, 6), round(y1 - buffer_deg, 6)],
+            [round(x2 + buffer_deg, 6), round(y2 + buffer_deg, 6)],
+            [round(x1 - buffer_deg, 6), round(y1 - buffer_deg, 6)],
+            [round(x1 - buffer_deg, 6), round(y1 - buffer_deg, 6)],
+        ]
+        geojson_geom = {"type": "Polygon", "coordinates": [coords]}
+        wkt = f"SRID=4326;POLYGON(({','.join(f'{x[0]} {x[1]}' for x in coords)}))"
+        return wkt, geojson_geom
 
     # Meander amplitude scales with the buffer itself so the buffer always dominates the
     # linework and the result stays a simple (non-self-intersecting) polygon.
@@ -229,13 +251,17 @@ def build_rainfall_reflectivity_bands(
             )
         points.append(points[0])  # close the ring
 
-        polygon = Polygon(points).buffer(0)  # heals any incidental self-intersection
-        polygon = polygon.simplify(radius_deg * 0.02, preserve_topology=True)
+        if HAS_SHAPELY and Polygon is not None and shapely_mapping is not None:
+            polygon = Polygon(points).buffer(0)  # heals any incidental self-intersection
+            polygon = polygon.simplify(radius_deg * 0.02, preserve_topology=True)
 
-        geojson_geom = shapely_mapping(polygon)
-        geojson_geom["coordinates"] = [
-            [[round(x, 6), round(y, 6)] for x, y in ring] for ring in geojson_geom["coordinates"]
-        ]
+            geojson_geom = shapely_mapping(polygon)
+            geojson_geom["coordinates"] = [
+                [[round(x, 6), round(y, 6)] for x, y in ring] for ring in geojson_geom["coordinates"]
+            ]
+        else:
+            rounded_points = [[round(x, 6), round(y, 6)] for x, y in points]
+            geojson_geom = {"type": "Polygon", "coordinates": [rounded_points]}
 
         features.append(
             {
