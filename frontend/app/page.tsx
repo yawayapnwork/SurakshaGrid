@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { TopStatsBar } from '@/components/TopStatsBar';
-import { LeftController, LiveWeatherInfo } from '@/components/LeftController';
+import { LeftController } from '@/components/LeftController';
 import { RightDispatchQueue } from '@/components/RightDispatchQueue';
 import { RiskCardModal } from '@/components/RiskCardModal';
 import { ReplayScrubber } from '@/components/ReplayScrubber';
@@ -12,6 +12,7 @@ import { ExportAARModal } from '@/components/ExportAARModal';
 import { playTwoToneEmergencyAlert } from '@/components/AudioAlertManager';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useDemoTour } from '@/hooks/useDemoTour';
+import { useLiveRainfall } from '@/hooks/useLiveRainfall';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import {
   fetchActiveSOSReports,
@@ -40,7 +41,9 @@ export default function DashboardPage() {
   const debouncedRainfall = useDebounce(rainfall, 250);
 
   const [riskMode, setRiskMode] = useState<'simulated' | 'live'>('simulated');
-  const [liveWeatherInfo, setLiveWeatherInfo] = useState<LiveWeatherInfo | null>(null);
+  // Bumped on a WebSocket LIVE_RAINFALL_UPDATED push to force useLiveRainfall to re-poll
+  // immediately instead of waiting for its next fixed interval tick.
+  const [rainfallRefreshTrigger, setRainfallRefreshTrigger] = useState(0);
 
   const [riskGrid, setRiskGrid] = useState<RiskGridCollection | null>(null);
   const [floodZones, setFloodZones] = useState<FloodZoneCollection | null>(null);
@@ -77,6 +80,12 @@ export default function DashboardPage() {
   // Viewer's real device location, resolved by MapContainer's geolocation lookup. Once
   // set, the risk grid / flood zone simulation re-centers on it instead of Chennai.
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+
+  // Polls the live rainfall reading nearest to userLocation (see useLiveRainfall) — the
+  // authoritative, region-aware source for the "Live Feed" ticker and mode=live risk
+  // grid, replacing the old approach of only ever reflecting whatever the last global
+  // WebSocket broadcast said regardless of where this client's map was looking.
+  const liveWeatherInfo = useLiveRainfall(userLocation, riskMode === 'live', rainfallRefreshTrigger);
 
   // Load sound mute preference and active sim_id on client mount.
   // localStorage/sessionStorage don't exist during SSR, so this can only run
@@ -169,13 +178,12 @@ export default function DashboardPage() {
       const { event, data } = msg;
 
       if (event === 'LIVE_RAINFALL_UPDATED') {
-        const info: LiveWeatherInfo = {
-          intensity: data.rainfall_intensity ?? 0,
-          raw_mm: data.raw_mm ?? 0,
-          source: data.source || 'OpenWeatherMap',
-          timestamp: data.timestamp || new Date().toISOString(),
-        };
-        setLiveWeatherInfo(info);
+        // This broadcast has no relationship to whether the new reading is actually
+        // near this client's own map location — trigger useLiveRainfall to re-poll
+        // (which filters by userLocation) rather than trusting the pushed payload
+        // directly, so a reading ingested for a different region doesn't overwrite
+        // this client's correctly region-scoped weather state.
+        setRainfallRefreshTrigger((n) => n + 1);
         showToast(`Live weather update: ${data.rainfall_intensity}mm/hr (${data.source || 'OpenWeatherMap'})`, 'info');
       } else if (event === 'SOS_CREATED') {
         const newReport: SOSReport = {

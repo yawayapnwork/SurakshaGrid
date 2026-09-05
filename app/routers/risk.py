@@ -26,6 +26,7 @@ from app.schemas.risk import (
 )
 from app.services.dispatch_optimizer import extract_coordinates
 from app.services.spatial_risk_service import compute_dynamic_zone_risk_scores, zone_count
+from app.services.weather_service import fetch_live_rainfall_from_provider, find_nearest_recent_reading
 from app.services.ws_manager import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,8 @@ async def create_live_rainfall_reading(
         rainfall_intensity=payload.rainfall_intensity,
         raw_mm=payload.raw_mm,
         source=payload.source,
+        latitude=payload.latitude,
+        longitude=payload.longitude,
     )
     db.add(reading)
     await db.commit()
@@ -86,10 +89,59 @@ async def create_live_rainfall_reading(
             "rainfall_intensity": reading.rainfall_intensity,
             "raw_mm": reading.raw_mm,
             "source": reading.source,
+            "latitude": reading.latitude,
+            "longitude": reading.longitude,
         },
     )
 
     return LiveRainfallRead.model_validate(reading)
+
+
+@router.get(
+    "/risk-scores/live-rainfall/latest",
+    response_model=LiveRainfallRead,
+    status_code=status.HTTP_200_OK,
+    summary="Get the live rainfall reading nearest to a location, polled by the frontend's live-weather ticker",
+)
+async def get_latest_live_rainfall(
+    lat: Annotated[float | None, Query(description="Latitude to find the nearest reading for")] = None,
+    lon: Annotated[float | None, Query(description="Longitude to find the nearest reading for")] = None,
+    db: AsyncSession = Depends(get_db),
+) -> LiveRainfallRead:
+    """Returns the most recent ingested reading within ~50km/1hr of (lat, lon); if none
+
+    exists there and OPENWEATHER_API_KEY is configured, falls back to a direct
+    OpenWeatherMap call for that exact location (persisting the result so subsequent
+    requests near it hit the ingested-reading path instead of re-calling the provider).
+    404s only if neither source has anything — the frontend ticker treats that as "no
+    live data for this region yet", not an error.
+    """
+    reading = await find_nearest_recent_reading(db, lat, lon)
+    if reading is not None:
+        return LiveRainfallRead.model_validate(reading)
+
+    if lat is not None and lon is not None:
+        provider_result = await fetch_live_rainfall_from_provider(lat, lon)
+        if provider_result is not None:
+            intensity, raw_mm = provider_result
+            fresh_reading = LiveRainfallReading(
+                id=uuid.uuid4(),
+                timestamp=datetime.now(timezone.utc),
+                rainfall_intensity=intensity,
+                raw_mm=raw_mm,
+                source="openweathermap",
+                latitude=lat,
+                longitude=lon,
+            )
+            db.add(fresh_reading)
+            await db.commit()
+            await db.refresh(fresh_reading)
+            return LiveRainfallRead.model_validate(fresh_reading)
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="No live rainfall data available for this location.",
+    )
 
 
 @router.get(
@@ -133,9 +185,12 @@ async def simulate_risk_scores(
     effective_rainfall = rainfall
 
     if mode == "live":
-        live_stmt = select(LiveRainfallReading).order_by(LiveRainfallReading.timestamp.desc()).limit(1)
-        live_res = await db.execute(live_stmt)
-        latest_reading = live_res.scalar_one_or_none()
+        # Previously this always grabbed the single most recent reading anywhere on
+        # Earth and applied it to the grid regardless of where that grid was centered —
+        # "live" mode never actually varied by region. Now it looks for a reading near
+        # THIS grid's center (falling back to the latest reading of any location only
+        # when no center was supplied at all, e.g. an older client).
+        latest_reading = await find_nearest_recent_reading(db, center_lat, center_lon)
         if latest_reading:
             effective_rainfall = latest_reading.rainfall_intensity
 

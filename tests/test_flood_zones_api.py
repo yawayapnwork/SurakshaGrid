@@ -37,9 +37,10 @@ async def test_simulate_flood_zones_expanded():
     feature = data["features"][0]
     assert feature["properties"]["rainfall"] == 75.0
     assert feature["properties"]["buffer_degrees"] == 0.0475
-    # Confirm polygon ring expands
+    # Confirm polygon ring expands: a smoothed extent, not the old 4-corner rectangle.
     coords = feature["geometry"]["coordinates"][0]
-    assert len(coords) == 5
+    assert len(coords) > 10
+    assert coords[0] == coords[-1]
 
 
 @pytest.mark.asyncio
@@ -94,7 +95,7 @@ async def test_simulate_flood_zones_redis_cached():
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
     assert data["features"][0]["properties"]["rainfall"] == 75.0
-    mock_redis.get.assert_called_once_with("flood_zones:simulate:75.0:sim-99")
+    mock_redis.get.assert_called_once_with("flood_zones:simulate:75.0:sim-99:none")
     mock_redis.aclose.assert_called_once()
 
 

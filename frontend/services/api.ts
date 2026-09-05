@@ -3,6 +3,7 @@ import {
   EventLog,
   FloodZoneCollection,
   LiveAnalyticsStats,
+  LiveRainfallReading,
   PhotoVerificationResult,
   ReportTranslationResult,
   RiskGridCollection,
@@ -38,6 +39,21 @@ export async function fetchActiveSOSReports(simId?: string): Promise<SOSReport[]
   }
   const res = await fetch(url);
   if (!res.ok) return throwApiError(res, 'Failed to fetch active SOS reports');
+  return res.json();
+}
+
+// Note: Must stay in sync with backend GET /api/v1/risk-scores/live-rainfall/latest.
+// Returns null (not an error) when no live reading is available for this location — a
+// 404 there means "nothing live for this region yet", which the polling hook below
+// treats as a normal, expected state rather than a failure to surface as a toast.
+export async function fetchLatestLiveRainfall(center?: GridCenter): Promise<LiveRainfallReading | null> {
+  let url = `${API_BASE_URL}/api/v1/risk-scores/live-rainfall/latest`;
+  if (center) {
+    url += `?lat=${center.lat}&lon=${center.lon}`;
+  }
+  const res = await fetch(url);
+  if (res.status === 404) return null;
+  if (!res.ok) return throwApiError(res, 'Failed to fetch live rainfall');
   return res.json();
 }
 

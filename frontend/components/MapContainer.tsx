@@ -66,6 +66,25 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         },
       });
 
+      // Rounded line-cap/join tracing the now-organic (meandering-line-buffer) flood
+      // extent from build_flood_zone_polygon — a plain 'fill' layer alone renders no
+      // border, and MapLibre's default line joins are mitered/sharp, which would make
+      // even a smooth polygon's boundary look faceted at each vertex.
+      map.addLayer({
+        id: 'flood-zone-outline',
+        type: 'line',
+        source: 'flood-zone-source',
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
+        paint: {
+          'line-color': '#0284c7',
+          'line-width': 1.5,
+          'line-opacity': 0.65,
+        },
+      });
+
       // 1. Add Risk Grid Source & Layer
       // promoteId lets MapLibre match features across setData() calls by the backend's
       // stable zone_id (when present) instead of array position, which is what makes the

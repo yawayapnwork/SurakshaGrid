@@ -10,6 +10,12 @@ class LiveRainfallCreate(BaseModel):
     rainfall_intensity: float = Field(..., description="Calculated rainfall intensity (0 to 100)")
     raw_mm: float = Field(..., description="Raw rainfall in millimeters")
     source: str = Field(default="openweathermap", description="Source API / sensor identifier")
+    latitude: float | None = Field(
+        default=None, ge=-90.0, le=90.0, description="Latitude this reading was measured/fetched for"
+    )
+    longitude: float | None = Field(
+        default=None, ge=-180.0, le=180.0, description="Longitude this reading was measured/fetched for"
+    )
 
 
 class LiveRainfallRead(BaseModel):
@@ -22,3 +28,5 @@ class LiveRainfallRead(BaseModel):
     rainfall_intensity: float
     raw_mm: float
     source: str
+    latitude: float | None = None
+    longitude: float | None = None

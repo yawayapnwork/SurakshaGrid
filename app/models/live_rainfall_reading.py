@@ -22,3 +22,9 @@ class LiveRainfallReading(Base):
     rainfall_intensity: Mapped[float] = mapped_column(Float, nullable=False)
     raw_mm: Mapped[float] = mapped_column(Float, nullable=False)
     source: Mapped[str] = mapped_column(String(255), default="openweathermap", nullable=False)
+
+    # Nullable: older readings ingested before this column existed, or a reading a caller
+    # didn't tag with a location, have no coordinate — those only ever serve as the last-
+    # resort global fallback in find_nearest_recent_reading(), never a "nearest" match.
+    latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    longitude: Mapped[float | None] = mapped_column(Float, nullable=True)

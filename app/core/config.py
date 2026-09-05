@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     N8N_SOS_WEBHOOK_URL: str | None = Field(default=None)
     N8N_SCENARIO_WEBHOOK_URL: str | None = Field(default=None)
 
+    # Optional: OpenWeatherMap API key used as a direct fallback (see
+    # app/services/weather_service.py) when no n8n-ingested reading exists near a
+    # requested location. Leave unset to rely solely on n8n-pushed readings.
+    OPENWEATHER_API_KEY: str | None = Field(default=None)
+
     # Twilio credentials for direct SMS alerting (POST /api/alerts/send-sms, and the
     # automated critical-SOS / dispatch-confirmation broadcasts below). Optional — SMS
     # alerting is simply disabled wherever any of these three is unset.

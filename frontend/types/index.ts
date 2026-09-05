@@ -144,6 +144,16 @@ export interface ReportTranslationResult {
   target_lang: string;
 }
 
+export interface LiveRainfallReading {
+  id: string;
+  timestamp: string;
+  rainfall_intensity: number;
+  raw_mm: number;
+  source: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export type SMSAlertPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface SMSAlertRecipientResult {

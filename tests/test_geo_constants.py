@@ -21,4 +21,15 @@ def test_build_flood_zone_polygon():
     wkt, geojson = build_flood_zone_polygon(50.0)
     assert wkt.startswith("SRID=4326;POLYGON")
     assert geojson["type"] == "Polygon"
-    assert len(geojson["coordinates"][0]) == 5
+
+    ring = geojson["coordinates"][0]
+    # A smoothed (meandering-line-buffer) extent, not the old hardcoded 4-corner
+    # rectangle — expect many more than 5 points, and a properly closed ring.
+    assert len(ring) > 10
+    assert ring[0] == ring[-1]
+
+    from shapely.geometry import shape
+
+    polygon = shape(geojson)
+    assert polygon.is_valid
+    assert polygon.exterior.is_simple
