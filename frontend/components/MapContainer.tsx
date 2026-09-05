@@ -54,6 +54,8 @@ interface MapContainerProps {
   activeRouteGeometry?: { type: 'LineString'; coordinates: [number, number][] } | null;
   /** Simulated live position along that route */
   animatedUnitPosition?: [number, number] | null;
+  /** Real-time heading / rotation angle along street segments (in degrees 0..360) */
+  animatedUnitBearing?: number;
 }
 
 export const MapContainer: React.FC<MapContainerProps> = ({
@@ -66,6 +68,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   onLocationResolved,
   activeRouteGeometry,
   animatedUnitPosition,
+  animatedUnitBearing = 0,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -218,9 +221,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           visibility: layersVisible.dispatchRoutes ? 'visible' : 'none',
         },
         paint: {
-          'line-color': '#0f172a',
-          'line-width': 7,
-          'line-opacity': 0.35,
+          'line-color': '#1e40af',
+          'line-width': 10,
+          'line-opacity': 0.5,
+          'line-blur': 3,
         },
       });
 
@@ -234,9 +238,9 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           visibility: layersVisible.dispatchRoutes ? 'visible' : 'none',
         },
         paint: {
-          'line-color': '#2563eb',
-          'line-width': 4.5,
-          'line-opacity': 0.95,
+          'line-color': '#38bdf8',
+          'line-width': 5,
+          'line-opacity': 1.0,
         },
       });
 
@@ -383,7 +387,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
     });
   }, [dispatchAssignments, sosReports, rescueUnits]);
 
-  // Hot-swap Active Route Polyline
+  // Hot-swap Active Route Polyline & Fit Camera Bounds to Active Route
   useEffect(() => {
     if (!mapRef.current) return;
     const source = mapRef.current.getSource('active-route-source') as maplibregl.GeoJSONSource;
@@ -394,9 +398,19 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         ? { type: 'FeatureCollection', features: [{ type: 'Feature', geometry: activeRouteGeometry, properties: {} }] }
         : { type: 'FeatureCollection', features: [] }
     );
+
+    if (activeRouteGeometry && activeRouteGeometry.coordinates.length > 0) {
+      const bounds = new maplibregl.LngLatBounds();
+      activeRouteGeometry.coordinates.forEach((coord) => bounds.extend(coord));
+      mapRef.current.fitBounds(bounds, {
+        padding: { top: 90, bottom: 120, left: 90, right: 90 },
+        duration: 1500,
+        maxZoom: 16,
+      });
+    }
   }, [activeRouteGeometry]);
 
-  // Animated Unit Position
+  // Animated Unit Position & Heading Rotation
   useEffect(() => {
     if (!mapRef.current) return;
 
@@ -410,16 +424,22 @@ export const MapContainer: React.FC<MapContainerProps> = ({
       const el = document.createElement('div');
       el.className = 'relative flex items-center justify-center';
       el.innerHTML = `
-        <div class="absolute w-8 h-8 rounded-full bg-blue-500 opacity-30"></div>
-        <div class="relative w-7 h-7 rounded-full bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/></svg>
+        <div class="absolute w-9 h-9 rounded-full bg-blue-500/40 animate-ping"></div>
+        <div class="vehicle-icon-wrapper relative w-8 h-8 rounded-full bg-blue-600 border-2 border-white shadow-xl flex items-center justify-center transition-transform duration-200 ease-out" style="transform: rotate(${animatedUnitBearing}deg)">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m12 2 7 19-7-4-7 4 7-19z"/>
+          </svg>
         </div>
       `;
       animatedUnitMarkerRef.current = new maplibregl.Marker({ element: el }).setLngLat(animatedUnitPosition).addTo(mapRef.current);
     } else {
       animatedUnitMarkerRef.current.setLngLat(animatedUnitPosition);
+      const iconEl = animatedUnitMarkerRef.current.getElement().querySelector('.vehicle-icon-wrapper') as HTMLElement | null;
+      if (iconEl) {
+        iconEl.style.transform = `rotate(${animatedUnitBearing}deg)`;
+      }
     }
-  }, [animatedUnitPosition]);
+  }, [animatedUnitPosition, animatedUnitBearing]);
 
   // Render SOS & Rescue Unit Markers with Visibility Filtering & Rich Popups
   useEffect(() => {

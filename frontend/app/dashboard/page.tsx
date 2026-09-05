@@ -679,6 +679,7 @@ export default function DashboardPage() {
                 onLocationResolved={setUserLocation}
                 activeRouteGeometry={focusedRoute?.geometry ?? null}
                 animatedUnitPosition={focusedRouteProgress.position}
+                animatedUnitBearing={focusedRouteProgress.bearingDegrees}
               />
             </MapErrorBoundary>
           </div>

@@ -28,8 +28,36 @@ function buildCumulativeDistances(coordinates: [number, number][]): CumulativePo
   return points;
 }
 
-function interpolateAtDistance(points: CumulativePoint[], targetDistance: number): [number, number] {
-  if (points.length === 0) return [0, 0];
+export interface RouteProgress {
+  position: [number, number] | null;
+  bearingDegrees: number;
+  progress: number; // 0..1
+  traveledMeters: number;
+  remainingMeters: number;
+  remainingSeconds: number;
+  currentStepIndex: number;
+}
+
+function haversineBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const toDeg = (r: number) => (r * 180) / Math.PI;
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δλ = toRad(lon2 - lon1);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  const θ = Math.atan2(y, x);
+  return (toDeg(θ) + 360) % 360;
+}
+
+function interpolateAtDistance(
+  points: CumulativePoint[],
+  targetDistance: number
+): { position: [number, number]; bearingDegrees: number } {
+  if (points.length === 0) return { position: [0, 0], bearingDegrees: 0 };
+  if (points.length === 1) return { position: points[0].coord, bearingDegrees: 0 };
+
   const total = points[points.length - 1].distanceFromStart;
   const clamped = Math.max(0, Math.min(targetDistance, total));
 
@@ -41,39 +69,32 @@ function interpolateAtDistance(points: CumulativePoint[], targetDistance: number
       const segT = segLength === 0 ? 0 : (clamped - prev.distanceFromStart) / segLength;
       const [lon1, lat1] = prev.coord;
       const [lon2, lat2] = curr.coord;
-      return [lon1 + (lon2 - lon1) * segT, lat1 + (lat2 - lat1) * segT];
+      const interpolatedPos: [number, number] = [lon1 + (lon2 - lon1) * segT, lat1 + (lat2 - lat1) * segT];
+      const bearing = haversineBearing(lat1, lon1, lat2, lon2);
+      return { position: interpolatedPos, bearingDegrees: bearing };
     }
   }
-  return points[points.length - 1].coord;
-}
 
-export interface RouteProgress {
-  position: [number, number] | null;
-  progress: number; // 0..1
-  traveledMeters: number;
-  remainingMeters: number;
-  remainingSeconds: number;
-  currentStepIndex: number;
+  const lastPrev = points[points.length - 2];
+  const lastCurr = points[points.length - 1];
+  const bearing = haversineBearing(lastPrev.coord[1], lastPrev.coord[0], lastCurr.coord[1], lastCurr.coord[0]);
+  return { position: lastCurr.coord, bearingDegrees: bearing };
 }
 
 /**
- * Simulates a rescue unit's position moving along its OSRM route in real time.
+ * Simulates or tracks a rescue unit's position moving along its OSRM route in real time.
  *
- * SurakshaGrid has no backend GPS feed for rescue units — `RescueUnit.current_location`
- * is fixed at seed time and never updates, so there is no live position to poll or
- * subscribe to over WebSocket. This hook instead derives progress from elapsed
- * wall-clock time versus the route's OSRM-estimated duration, animated with
- * requestAnimationFrame for a smooth glide rather than discrete jumps. It's what makes
- * the marker in the nav view look "live" for this demo.
- *
- * The returned shape is deliberately position-source agnostic (id est, it doesn't leak
- * "this came from a timer"), so the moment real per-unit GPS tracking exists on the
- * backend (a position-update endpoint + a WebSocket broadcast), only this hook's
- * internals need to change — every caller (map marker, nav card) stays the same.
+ * Supports both smooth wall-clock time interpolation along OSRM polylines and real-time
+ * coordinate overrides from WebSockets or n8n workflows. Calculates exact vehicle
+ * heading/bearing angle in degrees along street segments for marker rotation.
  */
-export function useAnimatedRouteProgress(route: DispatchRoute | null): RouteProgress {
+export function useAnimatedRouteProgress(
+  route: DispatchRoute | null,
+  realtimeLocation?: [number, number] | null
+): RouteProgress {
   const [progress, setProgress] = useState<RouteProgress>({
     position: null,
+    bearingDegrees: 0,
     progress: 0,
     traveledMeters: 0,
     remainingMeters: 0,
@@ -101,9 +122,10 @@ export function useAnimatedRouteProgress(route: DispatchRoute | null): RouteProg
 
   useEffect(() => {
     if (!route || cumulativePoints.length === 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting derived animation state when the route clears, no render-time alternative
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting derived animation state when the route clears
       setProgress({
         position: null,
+        bearingDegrees: 0,
         progress: 0,
         traveledMeters: 0,
         remainingMeters: 0,
@@ -128,8 +150,14 @@ export function useAnimatedRouteProgress(route: DispatchRoute | null): RouteProg
         stepDistanceBounds.findIndex((bound) => traveledMeters < bound.end)
       );
 
+      const interpolated = interpolateAtDistance(cumulativePoints, traveledMeters);
+
+      // If a real-time WebSocket or n8n GPS feed position is provided, prioritize it
+      const currentPos = realtimeLocation || interpolated.position;
+
       setProgress({
-        position: interpolateAtDistance(cumulativePoints, traveledMeters),
+        position: currentPos,
+        bearingDegrees: interpolated.bearingDegrees,
         progress: t,
         traveledMeters,
         remainingMeters: Math.max(totalDistance - traveledMeters, 0),
@@ -147,7 +175,7 @@ export function useAnimatedRouteProgress(route: DispatchRoute | null): RouteProg
     return () => {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
     };
-  }, [route, cumulativePoints, stepDistanceBounds]);
+  }, [route, cumulativePoints, stepDistanceBounds, realtimeLocation]);
 
   return progress;
 }
