@@ -3,6 +3,22 @@ import { NextResponse } from 'next/server';
 let cachedToken: string | null = null;
 let tokenExpiresAt: number = 0;
 
+/** Distinguishes *why* getOfficerToken failed so the route handler can log a specific,
+ *  still-secret-free diagnostic server-side and map it to an appropriate HTTP status for
+ *  the browser — never the generic 500 a bare `Error` would collapse everything into.
+ *  `httpStatus` is what this route returns to the browser (never a raw proxy of the
+ *  backend's status: a 401 from a *misconfigured* ADMIN_PASSWORD_PLAIN is a server-side
+ *  problem, not the browser's, so it must not read as "your session is invalid"). */
+class OfficerAuthError extends Error {
+  constructor(
+    message: string,
+    public readonly httpStatus: number
+  ) {
+    super(message);
+    this.name = 'OfficerAuthError';
+  }
+}
+
 async function getOfficerToken(apiBaseUrl: string): Promise<string> {
   const now = Date.now();
   if (cachedToken && tokenExpiresAt > now + 60000) {
@@ -13,18 +29,34 @@ async function getOfficerToken(apiBaseUrl: string): Promise<string> {
   const password = process.env.ADMIN_PASSWORD_PLAIN;
 
   if (!password) {
-    throw new Error('ADMIN_PASSWORD_PLAIN environment variable is not configured on the server');
+    // Missing configuration: never reachable from user input, always an ops/deploy issue.
+    throw new OfficerAuthError('officer auth misconfigured: ADMIN_PASSWORD_PLAIN is not set', 500);
   }
 
-  const res = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password }),
-    cache: 'no-store',
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+      cache: 'no-store',
+    });
+  } catch (networkErr) {
+    // fetch() itself threw: DNS failure, connection refused, timeout — the backend is
+    // unreachable, not merely returning an error response.
+    const detail = networkErr instanceof Error ? networkErr.message : String(networkErr);
+    throw new OfficerAuthError(`officer auth backend unreachable at login: ${detail}`, 502);
+  }
 
   if (!res.ok) {
-    throw new Error(`Server-side officer authentication failed with status ${res.status}`);
+    if (res.status === 401) {
+      // The backend rejected ADMIN_USERNAME/ADMIN_PASSWORD_PLAIN itself — a credential
+      // mismatch between this deployment's env vars and the backend's ADMIN_PASSWORD
+      // hash, not a real end-user auth failure. Never log the response body: on a 401
+      // Twilio-style APIs sometimes echo back the submitted fields.
+      throw new OfficerAuthError('officer auth backend rejected configured credentials (401)', 502);
+    }
+    throw new OfficerAuthError(`officer auth backend returned HTTP ${res.status}`, 502);
   }
 
   const data = await res.json();
@@ -126,8 +158,18 @@ export async function POST(request: Request) {
     const data = await backendRes.json();
     return NextResponse.json(data, { status: backendRes.status });
   } catch (err) {
-    console.error('Error in officer-action route handler:', err);
-    const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ error: message }, { status: 500 });
+    if (err instanceof OfficerAuthError) {
+      // Safe to log in full: every OfficerAuthError message above is constructed without
+      // ever interpolating a password, token, or backend response body.
+      console.error(`officer-action: ${err.message}`);
+      return NextResponse.json(
+        { error: 'Officer authentication is temporarily unavailable. Please try again shortly.' },
+        { status: err.httpStatus }
+      );
+    }
+    // Anything else (e.g. the protected-endpoint fetch itself failing) — log only the
+    // error's type/message, never the request we sent (which carries the Bearer token).
+    console.error('Error in officer-action route handler:', err instanceof Error ? err.message : err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -4,7 +4,7 @@ Production backend for a flood response coordination platform: FastAPI + SQLAlch
 
 ## Architecture & Core Features
 
-- **Server-Side Auth Proxy**: Next.js API routes act as a secure server-side auth proxy holding officer credentials (`ADMIN_USERNAME` / `ADMIN_PASSWORD_PLAIN` or environment variables). JWT tokens are handled strictly server-to-server; the client browser never receives or stores administrative tokens directly.
+- **Server-Side Auth Proxy**: Next.js API routes (`/api/officer-action`) hold the officer credentials server-side (`ADMIN_USERNAME` / `ADMIN_PASSWORD_PLAIN`) and log in to the FastAPI backend on the browser's behalf. JWT tokens are handled strictly server-to-server; the client browser never receives or stores administrative tokens, the plaintext password, or the backend's bcrypt hash directly. See **Authentication** below for the full credential flow.
 - **3-Tier Dispatch Optimizer**: High-efficiency unit assignment engine using SciPy's Hungarian algorithm (`scipy.optimize.linear_sum_assignment`) with a robust 3-tier travel time/ETA calculation engine:
   1. **Tier 1 (OSRM Table Service)**: Real road network routing and travel duration matrices via Open Source Routing Machine.
   2. **Tier 2 (Batched PostGIS Geodesic Distance)**: `ST_Distance` over `geography` types for fast, accurate spherical Earth surface distance calculations on PostgreSQL.
@@ -20,7 +20,7 @@ Production backend for a flood response coordination platform: FastAPI + SQLAlch
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/healthz` | System liveness & PostgreSQL connection health check |
-| `POST` | `/api/v1/auth/login` | Officer JWT authentication (`ADMIN_USERNAME` / `ADMIN_PASSWORD_PLAIN`) |
+| `POST` | `/api/v1/auth/login` | Officer JWT authentication — verifies a plaintext password against the `ADMIN_PASSWORD` bcrypt hash (see **Authentication**) |
 | `GET` | `/api/v1/risk-scores/simulate` | Dynamic What-If flood risk grid simulator by rainfall intensity (`?rainfall=75`) |
 | `GET` | `/api/v1/flood-zones/simulate` | Live flood zone extent simulator returning GeoJSON `FeatureCollection` polygons (`?rainfall=50`) |
 | `POST` | `/api/v1/simulation/trigger` | Resets demo state, seeds 7 rescue units, and schedules background staggered SOS report delivery (~40–90s) |
@@ -44,12 +44,49 @@ python scripts/seed_db.py   # seed initial rescue units, baseline reports & gene
 uvicorn app.main:app --reload
 ```
 
-`DATABASE_URL` must use the `postgresql+asyncpg://` scheme. `CORS_ORIGINS` is a comma-separated list of allowed origins. `ADMIN_PASSWORD` is a required environment variable containing a bcrypt password hash.
+`DATABASE_URL` must use the `postgresql+asyncpg://` scheme. `CORS_ORIGINS` is a comma-separated list of allowed origins. `ADMIN_PASSWORD` is a required environment variable containing a bcrypt password hash — see **Authentication** below.
 
-To generate a bcrypt password hash for `ADMIN_PASSWORD`:
-```bash
-python -c "from app.core.security import get_password_hash; print(get_password_hash('yourpassword'))"
+## Authentication
+
+Officer/dispatcher auth uses **one password, in two different representations**, split across the two deployments:
+
 ```
+Browser
+   │  (no credentials, no JWT — just the app UI)
+   ▼
+Next.js  /api/officer-action                  env: ADMIN_USERNAME, ADMIN_PASSWORD_PLAIN
+   │  logs in server-side, caches the JWT in memory, never returns it or the
+   │  password to the browser
+   ▼
+FastAPI  POST /api/v1/auth/login               env: ADMIN_USERNAME, ADMIN_PASSWORD (bcrypt hash)
+   │  verify_password(plaintext, bcrypt_hash) via bcrypt.checkpw
+   ▼
+JWT (signed with JWT_SECRET — unrelated to the admin password)
+   ▼
+protected endpoint (e.g. /api/v1/dispatch/run), guarded by get_current_officer
+```
+
+`ADMIN_PASSWORD` (backend) and `ADMIN_PASSWORD_PLAIN` (frontend) are **intentionally
+different representations of the same credential** — the hash and the plaintext it was
+derived from. The backend must never see or store the plaintext outside of the login
+request body it verifies against the hash; the frontend must never see the hash, and
+must never expose `ADMIN_PASSWORD_PLAIN` through `NEXT_PUBLIC_*`, a client bundle, an
+API response, or a log line.
+
+To generate the bcrypt hash for `ADMIN_PASSWORD` from the plaintext password you intend
+to use, run this **locally** (never on a production/shared machine, and never commit the
+output):
+
+```bash
+python scripts/generate_admin_password_hash.py
+```
+
+It prompts for the password (input hidden) and prints only the bcrypt hash. Set that
+hash as `ADMIN_PASSWORD` on Render, and set the plaintext you typed as
+`ADMIN_PASSWORD_PLAIN` on Vercel.
+
+`JWT_SECRET` is a separate concept from `ADMIN_PASSWORD` — it signs/verifies JWTs and
+carries no relationship to the officer password. Never set one from the other.
 
 ## Database Seeding & Live Demo Rehearsal
 
@@ -103,7 +140,23 @@ render.yaml              # Render Web Service deployment blueprint
 
 ## Deployment (Render)
 
-`render.yaml` defines a web service that runs `alembic upgrade head` before starting `uvicorn`. Seeding is decoupled from process restarts to prevent accidental state resets during live demos; run `python -m scripts.seed_db` manually on initial deployment if database seeding is required. Set `DATABASE_URL`, `REDIS_URL`, `CORS_ORIGINS`, and `OSRM_BASE_URL` as environment variables in the Render dashboard (or via `render.yaml` env var groups); `JWT_SECRET` is auto-generated.
+`render.yaml` defines a web service that runs `alembic upgrade head` before starting `uvicorn`. Seeding is decoupled from process restarts to prevent accidental state resets during live demos; run `python -m scripts.seed_db` manually on initial deployment if database seeding is required. `DATABASE_URL`, `REDIS_URL`, `CORS_ORIGINS`, and `OSRM_BASE_URL` are set via `render.yaml`; `JWT_SECRET` is auto-generated (`generateValue: true`).
+
+`ADMIN_USERNAME` (defaults to `admin`) and `ADMIN_PASSWORD` (the bcrypt hash — see **Authentication**) are declared in `render.yaml` with `sync: false`, meaning Render will **not** auto-generate a value for them: open the service's Environment tab on the Render dashboard and paste in the bcrypt hash produced by `scripts/generate_admin_password_hash.py` yourself. Never use `generateValue` for `ADMIN_PASSWORD` — a randomly generated string is not a valid bcrypt hash of any known password, so login would never succeed.
+
+### Frontend (Vercel)
+
+Set these in the Vercel project's Environment Variables:
+
+| Variable | Value | Exposure |
+| :--- | :--- | :--- |
+| `ADMIN_USERNAME` | same username as the backend (`admin`) | server-only |
+| `ADMIN_PASSWORD_PLAIN` | the **plaintext** password you hashed for `ADMIN_PASSWORD` | server-only — never prefix with `NEXT_PUBLIC_` |
+| `NEXT_PUBLIC_API_URL` | the deployed Render FastAPI base URL, e.g. `https://surakshagrid-api.onrender.com` (no trailing slash, no `/api` suffix) | public (client-visible) |
+| `NEXT_PUBLIC_OFFICER_SESSION_KEY` | any string | public (client-visible) — see note below |
+
+> [!NOTE]
+> `NEXT_PUBLIC_OFFICER_SESSION_KEY` is **not a secret** despite gating `/api/officer-action` — anything under `NEXT_PUBLIC_*` ships in the client JS bundle and is readable by anyone. It exists only to stop the proxy route from being a fully anonymous open relay to the backend; the real access boundary is the officer JWT obtained server-side via `ADMIN_PASSWORD_PLAIN`, which the browser never sees.
 
 > [!NOTE]
 > **Render Hosting Cost Breakdown**: `render.yaml` configures the `starter` plan for all three managed components:

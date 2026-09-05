@@ -80,6 +80,11 @@ jobs:
           python scripts/seed_db.py --force-reset
 
       - name: Start FastAPI Backend Service & Execute Smoke Test
+        env:
+          # Plaintext counterpart of the job-level ADMIN_PASSWORD bcrypt hash above (see
+          # tests/conftest.py) — the smoke test logs in over HTTP like a real client, so
+          # it needs the plaintext password, never the hash.
+          ADMIN_PASSWORD_PLAIN: "test-password-123"
         run: |
           uvicorn app.main:app --host 127.0.0.1 --port 8000 &
           # Wait for FastAPI server to initialize

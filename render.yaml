@@ -22,6 +22,10 @@ services:
         value: "http://localhost:3000,https://suraksha-grid-app.vercel.app"
       - key: JWT_SECRET
         generateValue: true
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false
       - key: OSRM_BASE_URL
         value: "http://router.project-osrm.org"
       - key: ENVIRONMENT
