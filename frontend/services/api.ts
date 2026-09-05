@@ -100,6 +100,27 @@ export async function createSOSReport(data: {
   return res.json();
 }
 
+// Note: Must stay in sync with backend POST /api/transcribe-audio (multipart field "audio")
+export async function transcribeVoiceSOS(audioBlob: Blob): Promise<{
+  text: string;
+  detected_language: string | null;
+  duration_seconds: number | null;
+}> {
+  const formData = new FormData();
+  const extension = audioBlob.type.includes('webm') ? 'webm' : audioBlob.type.includes('mp3') ? 'mp3' : 'wav';
+  formData.append('audio', audioBlob, `sos_voice.${extension}`);
+
+  const res = await fetch(`${API_BASE_URL}/api/transcribe-audio`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Failed to transcribe audio: ${res.statusText}`);
+  }
+  return res.json();
+}
+
 export async function triggerSimulationScenario(): Promise<{
   status: string;
   sim_id?: string;

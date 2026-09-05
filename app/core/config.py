@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     VLM_MODEL_ID: str = Field(default="vikhyatk/moondream2")
     VLM_MODEL_REVISION: str = Field(default="2024-08-26")
 
+    # "openai/whisper-small" balances multilingual (Hindi/Tamil/etc.) accuracy against
+    # inference speed on CPU-only hosts; swap to "openai/whisper-medium" or "-large-v3"
+    # for higher accuracy when GPU memory is available.
+    WHISPER_MODEL_ID: str = Field(default="openai/whisper-small")
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> list[str]:
