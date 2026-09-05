@@ -797,10 +797,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Right Secondary Column: Scenario Controls + Live Dispatch Queue (4 Cols) */}
-            <div className="col-span-12 lg:col-span-4 h-full min-h-0 flex flex-col gap-6 overflow-hidden">
-              {/* Scenario Simulation Controls */}
-              <div className="flex-1 min-h-0 flex flex-col h-full max-h-full overflow-hidden">
+            {/* Right Secondary Column: Scenario Controls + Live Dispatch Queue */}
+            <div className="col-span-12 lg:col-span-4 h-full min-h-0 flex flex-col gap-4 overflow-hidden w-full lg:w-[420px]">
+              {/* Scenario Simulation Controls Card */}
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 <LeftController
                   rainfall={rainfall}
                   onRainfallChange={setRainfall}
@@ -816,8 +816,8 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* Live Rescue Units Dispatch Queue */}
-              <div className="flex-1 min-h-0 flex flex-col h-full max-h-full overflow-hidden">
+              {/* Live Rescue Units Dispatch Queue Card */}
+              <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
                 <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
               </div>
             </div>

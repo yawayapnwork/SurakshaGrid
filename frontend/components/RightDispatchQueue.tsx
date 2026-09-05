@@ -14,25 +14,25 @@ export const RightDispatchQueue: React.FC<RightDispatchQueueProps> = ({
   onSelectAssignment,
 }) => {
   return (
-    <aside className="flex flex-col h-full max-h-full w-full overflow-hidden bg-white border border-slate-200 rounded-xl p-5 sm:p-6 shadow-sm text-slate-900">
+    <aside className="flex flex-col flex-1 min-h-0 w-full h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 overflow-hidden text-slate-900">
       {/* Header */}
-      <div className="shrink-0 flex-shrink-0 flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center">
-            <Navigation className="w-4 h-4 text-slate-600" />
+      <div className="shrink-0 flex-shrink-0 flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+            <Navigation className="w-3.5 h-3.5 text-slate-600" />
           </div>
           <div>
-            <h2 className="font-bold text-sm text-slate-900 tracking-tight">Live Dispatch Queue</h2>
-            <p className="text-[11px] text-slate-500">Optimizer-assigned rescue units</p>
+            <h2 className="font-semibold text-[13px] text-slate-900 tracking-tight">Live Dispatch Queue</h2>
+            <p className="text-[11px] text-slate-400">Optimizer-assigned rescue units</p>
           </div>
         </div>
-        <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-900 text-white tabular-nums">
+        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-slate-900 text-white tabular-nums">
           {assignments.length}
         </span>
       </div>
 
       {/* Dispatch Cards List */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
         {assignments.length === 0 ? (
           <div className="text-center py-12 px-4 bg-slate-50/70 rounded-xl border border-dashed border-slate-200">
             <UserCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
