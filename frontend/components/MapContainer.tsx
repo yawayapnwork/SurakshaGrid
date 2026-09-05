@@ -1136,24 +1136,24 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const currentStations = GAUGING_STATIONS[selectedCityId] || GAUGING_STATIONS['delhi'];
 
   return (
-    <div className="absolute inset-0 overflow-hidden bg-slate-950 font-sans">
+    <div className="absolute inset-0 overflow-hidden bg-slate-100 font-sans">
       {/* 1. TOP HEADER NAVIGATION BANNER */}
-      <div className="absolute top-0 left-0 right-0 z-20 h-11 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/90 px-3 flex items-center justify-between text-white shadow-2xl">
+      <div className="absolute top-0 left-0 right-0 z-20 h-11 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-3 flex items-center justify-between text-slate-900 shadow-xs">
         {/* City Selector Dropdown */}
         <div className="relative">
           <button
             onClick={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
-            className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-100 border border-slate-700/80 shadow-md transition-all text-xs font-bold"
+            className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200/80 shadow-xs transition-all text-xs font-bold"
           >
-            <Building2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+            <Building2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
             <span className="truncate max-w-[110px] sm:max-w-none">{selectedCity.name}</span>
             <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${isCityDropdownOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {/* City Dropdown Menu */}
           {isCityDropdownOpen && (
-            <div className="absolute top-full left-0 mt-1.5 w-56 rounded-xl bg-slate-950/95 backdrop-blur-xl border border-slate-800 shadow-2xl p-1.5 z-40 space-y-0.5 text-xs">
-              <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800">
+            <div className="absolute top-full left-0 mt-1.5 w-56 rounded-xl bg-white border border-slate-200 shadow-xl p-1.5 z-40 space-y-0.5 text-xs text-slate-900">
+              <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
                 Select Indian Metro Hub
               </div>
               {CITY_PRESETS.map((city) => (
@@ -1162,15 +1162,15 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                   onClick={() => handleCityChange(city.id)}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-left transition-colors ${
                     city.id === selectedCityId
-                      ? 'bg-blue-600 text-white font-semibold'
-                      : 'text-slate-200 hover:bg-slate-800/80'
+                      ? 'bg-slate-900 text-white font-semibold'
+                      : 'text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <MapPin className={`w-3.5 h-3.5 ${city.id === selectedCityId ? 'text-white' : 'text-slate-400'}`} />
                     <span>{city.name}</span>
                   </div>
-                  <span className={`text-[10px] ${city.id === selectedCityId ? 'text-blue-100' : 'text-slate-400'}`}>
+                  <span className={`text-[10px] ${city.id === selectedCityId ? 'text-slate-300' : 'text-slate-400'}`}>
                     {city.state}
                   </span>
                 </button>
@@ -1180,11 +1180,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         </div>
 
         {/* 2. TABBED VIEW SWITCHER (Restructured operational view group) */}
-        <div className="flex items-center bg-slate-900/90 p-0.5 rounded-lg border border-slate-800 text-[11px] font-medium">
+        <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/80 text-[11px] font-medium">
           <button
             onClick={() => handleSelectViewTab('map')}
             className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${
-              activeViewTab === 'map' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
+              activeViewTab === 'map' ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Eye className="w-3 h-3" />
@@ -1193,28 +1193,28 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           <button
             onClick={() => handleSelectViewTab('wind')}
             className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${
-              activeViewTab === 'wind' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
+              activeViewTab === 'wind' ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Wind className="w-3 h-3 text-sky-400" />
+            <Wind className="w-3 h-3 text-sky-600" />
             <span className="hidden md:inline">Wind Vectors</span>
           </button>
           <button
             onClick={() => handleSelectViewTab('radar')}
             className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${
-              activeViewTab === 'radar' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
+              activeViewTab === 'radar' ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
+            <Radio className="w-3 h-3 text-emerald-600 animate-pulse" />
             <span className="hidden md:inline">Precip Radar</span>
           </button>
           <button
             onClick={() => handleSelectViewTab('hydro')}
             className={`px-2.5 py-1 rounded-md transition-all flex items-center gap-1 ${
-              activeViewTab === 'hydro' ? 'bg-blue-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
+              activeViewTab === 'hydro' ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Gauge className="w-3 h-3 text-amber-400" />
+            <Gauge className="w-3 h-3 text-amber-600" />
             <span className="hidden md:inline">Hydro Stations</span>
           </button>
         </div>
@@ -1223,13 +1223,13 @@ export const MapContainer: React.FC<MapContainerProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsDrawerOpen(!isDrawerOpen)}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold backdrop-blur-md border shadow-md transition-all active:scale-95 ${
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold backdrop-blur-md border shadow-xs transition-all active:scale-95 ${
               isDrawerOpen
-                ? 'bg-blue-600 text-white border-blue-500'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-700/80'
+                ? 'bg-slate-900 text-white border-slate-800'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80'
             }`}
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
+            <SlidersHorizontal className="w-3.5 h-3.5 text-sky-600" />
             <span className="hidden sm:inline">Telemetry Drawer</span>
           </button>
         </div>
@@ -1240,32 +1240,32 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
       {/* 4. COLLAPSIBLE TELEMETRY & INSPECTOR SIDEBAR PANEL */}
       <div
-        className={`absolute top-11 right-0 bottom-0 z-30 w-80 bg-slate-950/95 backdrop-blur-2xl border-l border-slate-800/90 shadow-2xl flex flex-col text-white transition-transform duration-300 ease-in-out ${
+        className={`absolute top-11 right-0 bottom-0 z-30 w-80 bg-white/98 backdrop-blur-xl border-l border-slate-200 shadow-2xl flex flex-col text-slate-900 transition-transform duration-300 ease-in-out ${
           isDrawerOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4 text-sky-400 animate-pulse" />
-            <h3 className="font-bold text-xs font-mono tracking-wider text-slate-100 uppercase">
+            <Activity className="w-4 h-4 text-sky-600 animate-pulse" />
+            <h3 className="font-bold text-xs font-mono tracking-wider text-slate-900 uppercase">
               EOC Telemetry & Inspector
             </h3>
           </div>
           <button
             onClick={() => setIsDrawerOpen(false)}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Internal Drawer Tab Bar */}
-        <div className="flex items-center border-b border-slate-800 bg-slate-900/50 p-1 text-[11px] font-medium">
+        <div className="flex items-center border-b border-slate-100 bg-slate-50 p-1 text-[11px] font-medium">
           <button
             onClick={() => setDrawerTab('layers')}
             className={`flex-1 py-1.5 text-center rounded-md transition-colors ${
-              drawerTab === 'layers' ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              drawerTab === 'layers' ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             Layers
@@ -1273,7 +1273,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           <button
             onClick={() => setDrawerTab('wind')}
             className={`flex-1 py-1.5 text-center rounded-md transition-colors ${
-              drawerTab === 'wind' ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              drawerTab === 'wind' ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             Wind
@@ -1281,7 +1281,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           <button
             onClick={() => setDrawerTab('radar')}
             className={`flex-1 py-1.5 text-center rounded-md transition-colors ${
-              drawerTab === 'radar' ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              drawerTab === 'radar' ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             Radar
@@ -1289,7 +1289,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           <button
             onClick={() => setDrawerTab('hydro')}
             className={`flex-1 py-1.5 text-center rounded-md transition-colors ${
-              drawerTab === 'hydro' || drawerTab === 'station_detail' ? 'bg-slate-800 text-white font-bold' : 'text-slate-400 hover:text-slate-200'
+              drawerTab === 'hydro' || drawerTab === 'station_detail' ? 'bg-white text-slate-900 font-bold shadow-xs border border-slate-200/80' : 'text-slate-500 hover:text-slate-900'
             }`}
           >
             Hydro
@@ -1301,14 +1301,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           {/* TAB 1: LAYERS CONTROL */}
           {drawerTab === 'layers' && (
             <div className="space-y-2.5">
-              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-1">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1">
                 Active Map Layers
               </div>
 
-              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-900/80 cursor-pointer transition-colors border border-slate-800/60">
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-slate-200/80">
                 <div className="flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-emerald-400 animate-pulse" />
-                  <span className="font-medium text-slate-200">Radar Precipitation Overlay</span>
+                  <Radio className="w-4 h-4 text-emerald-600 animate-pulse" />
+                  <span className="font-medium text-slate-800">Radar Precipitation Overlay</span>
                 </div>
                 <input
                   type="checkbox"
@@ -1318,10 +1318,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 />
               </label>
 
-              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-900/80 cursor-pointer transition-colors border border-slate-800/60">
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-slate-200/80">
                 <div className="flex items-center gap-2">
-                  <Gauge className="w-4 h-4 text-sky-400" />
-                  <span className="font-medium text-slate-200">Barrages & Hydro Gauges</span>
+                  <Gauge className="w-4 h-4 text-sky-600" />
+                  <span className="font-medium text-slate-800">Barrages & Hydro Gauges</span>
                 </div>
                 <input
                   type="checkbox"
@@ -1331,10 +1331,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 />
               </label>
 
-              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-900/80 cursor-pointer transition-colors border border-slate-800/60">
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-slate-200/80">
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-400" />
-                  <span className="font-medium text-slate-200">Flood Risk Grid</span>
+                  <ShieldAlert className="w-4 h-4 text-amber-600" />
+                  <span className="font-medium text-slate-800">Flood Risk Grid</span>
                 </div>
                 <input
                   type="checkbox"
@@ -1344,10 +1344,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 />
               </label>
 
-              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-900/80 cursor-pointer transition-colors border border-slate-800/60">
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-slate-200/80">
                 <div className="flex items-center gap-2">
-                  <Wind className="w-4 h-4 text-sky-300" />
-                  <span className="font-medium text-slate-200">Airflow Wind Vectors</span>
+                  <Wind className="w-4 h-4 text-sky-600" />
+                  <span className="font-medium text-slate-800">Airflow Wind Vectors</span>
                 </div>
                 <input
                   type="checkbox"
@@ -1357,10 +1357,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 />
               </label>
 
-              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-900/80 cursor-pointer transition-colors border border-slate-800/60">
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-slate-200/80">
                 <div className="flex items-center gap-2">
-                  <Droplets className="w-4 h-4 text-teal-400" />
-                  <span className="font-medium text-slate-200">Soil Saturation Index</span>
+                  <Droplets className="w-4 h-4 text-teal-600" />
+                  <span className="font-medium text-slate-800">Soil Saturation Index</span>
                 </div>
                 <input
                   type="checkbox"
@@ -1370,10 +1370,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 />
               </label>
 
-              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-900/80 cursor-pointer transition-colors border border-slate-800/60">
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-slate-200/80">
                 <div className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full bg-red-600 text-white font-bold flex items-center justify-center text-[9px]">!</span>
-                  <span className="font-medium text-slate-200">Active SOS Reports</span>
+                  <span className="font-medium text-slate-800">Active SOS Reports</span>
                 </div>
                 <input
                   type="checkbox"
@@ -1383,10 +1383,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 />
               </label>
 
-              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-900/80 cursor-pointer transition-colors border border-slate-800/60">
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors border border-slate-200/80">
                 <div className="flex items-center gap-2">
-                  <Navigation className="w-4 h-4 text-emerald-400" />
-                  <span className="font-medium text-slate-200">Rescue Assets</span>
+                  <Navigation className="w-4 h-4 text-emerald-600" />
+                  <span className="font-medium text-slate-800">Rescue Assets</span>
                 </div>
                 <input
                   type="checkbox"
@@ -1401,56 +1401,56 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           {/* TAB 2: WIND FLOW INSPECTOR */}
           {drawerTab === 'wind' && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                <span className="font-bold text-xs font-mono text-slate-100 uppercase">WIND VECTOR FIELD</span>
-                <span className="text-[10px] font-mono text-sky-400 bg-sky-950 px-2 py-0.5 rounded border border-sky-800/80">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                <span className="font-bold text-xs font-mono text-slate-800 uppercase">WIND VECTOR FIELD</span>
+                <span className="text-[10px] font-mono text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
                   {telemetry?.wind.heading || 'SE'} VECTOR
                 </span>
               </div>
 
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-2">
-                <div className="flex justify-between items-center text-slate-300">
-                  <span className="text-slate-400">Wind Direction:</span>
-                  <span className="font-mono font-bold text-sky-300">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-2">
+                <div className="flex justify-between items-center text-slate-700">
+                  <span className="text-slate-500">Wind Direction:</span>
+                  <span className="font-mono font-bold text-sky-700">
                     {telemetry?.wind.heading || 'SE'} ({telemetry?.wind.directionDegrees || 135}°)
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-slate-300">
-                  <span className="text-slate-400">Avg Speed:</span>
-                  <span className="font-mono font-bold text-white">{telemetry?.wind.speedKmH || 18} km/h</span>
+                <div className="flex justify-between items-center text-slate-700">
+                  <span className="text-slate-500">Avg Speed:</span>
+                  <span className="font-mono font-bold text-slate-900">{telemetry?.wind.speedKmH || 18} km/h</span>
                 </div>
-                <div className="flex justify-between items-center text-slate-300">
-                  <span className="text-slate-400">Peak Gusts:</span>
-                  <span className="font-mono font-semibold text-amber-400">{telemetry?.wind.gustKmH || 32} km/h</span>
+                <div className="flex justify-between items-center text-slate-700">
+                  <span className="text-slate-500">Peak Gusts:</span>
+                  <span className="font-mono font-semibold text-amber-700">{telemetry?.wind.gustKmH || 32} km/h</span>
                 </div>
               </div>
 
               {/* Compass & Mini Vector Field */}
-              <div className="bg-slate-900 rounded-xl p-3 border border-slate-800 flex items-center justify-between">
-                <div className="relative w-14 h-14 rounded-full border border-sky-500/40 flex items-center justify-center bg-slate-950 shadow-inner">
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200/80 flex items-center justify-between">
+                <div className="relative w-14 h-14 rounded-full border border-sky-300 flex items-center justify-center bg-white shadow-xs">
                   <div
                     className="w-full h-full flex items-center justify-center transition-transform duration-700"
                     style={{ transform: `rotate(${telemetry?.wind.directionDegrees || 135}deg)` }}
                   >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="21" x2="12" y2="3" />
                       <polyline points="6 9 12 3 18 9" />
                     </svg>
                   </div>
-                  <span className="absolute -top-1 text-[8px] font-mono text-slate-400 font-bold">N</span>
+                  <span className="absolute -top-1 text-[8px] font-mono text-slate-500 font-bold">N</span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   {[0, 1, 2, 3, 4, 5].map((idx) => (
                     <div
                       key={idx}
-                      className="w-7 h-7 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-center"
+                      className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center"
                     >
                       <div
                         className="transition-transform duration-700"
                         style={{ transform: `rotate(${telemetry?.wind.directionDegrees || 135}deg)` }}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" strokeWidth="2.5">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0284c7" strokeWidth="2.5">
                           <line x1="12" y1="19" x2="12" y2="5" />
                           <polyline points="6 11 12 5 18 11" />
                         </svg>
@@ -1465,22 +1465,22 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           {/* TAB 3: PRECIPITATION RADAR LEGEND */}
           {drawerTab === 'radar' && (
             <div className="space-y-3">
-              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-1">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1">
                 24H Precipitation Radar Scale
               </div>
 
-              <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-3">
-                <div className="flex justify-between text-slate-300 font-mono text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-3">
+                <div className="flex justify-between text-slate-700 font-mono text-xs">
                   <span>Current Intensity:</span>
-                  <span className="font-bold text-sky-300">{telemetry?.rainfall.currentRateMmHr || 0} mm/hr</span>
+                  <span className="font-bold text-sky-700">{telemetry?.rainfall.currentRateMmHr || 0} mm/hr</span>
                 </div>
 
                 {/* Multi-Color Gradient Bar */}
                 <div className="relative my-2">
-                  <div className="h-4 w-full rounded-lg bg-gradient-to-r from-emerald-500 via-yellow-400 via-orange-500 via-red-600 to-purple-600 border border-slate-700 shadow-inner" />
+                  <div className="h-4 w-full rounded-lg bg-gradient-to-r from-emerald-500 via-yellow-400 via-orange-500 via-red-600 to-purple-600 border border-slate-200 shadow-xs" />
                 </div>
 
-                <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                <div className="flex justify-between text-[10px] font-mono text-slate-500">
                   <span>0mm</span>
                   <span>25mm</span>
                   <span>50mm</span>
@@ -1489,14 +1489,14 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 space-y-1.5 text-slate-300">
+              <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-200/80 space-y-1.5 text-slate-700">
                 <div className="flex justify-between text-[11px]">
                   <span>Severity Index:</span>
-                  <span className="font-bold text-emerald-400 uppercase">{telemetry?.rainfall.severity || 'MODERATE'}</span>
+                  <span className="font-bold text-emerald-700 uppercase">{telemetry?.rainfall.severity || 'MODERATE'}</span>
                 </div>
                 <div className="flex justify-between text-[11px]">
                   <span>Cumulative 24h:</span>
-                  <span className="font-mono text-white">{telemetry?.rainfall.cumulative24hMm || 0} mm</span>
+                  <span className="font-mono text-slate-900">{telemetry?.rainfall.cumulative24hMm || 0} mm</span>
                 </div>
               </div>
             </div>
@@ -1505,7 +1505,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
           {/* TAB 4: HYDROLOGICAL STATIONS LIST & DETAIL */}
           {drawerTab === 'hydro' && (
             <div className="space-y-2.5">
-              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider border-b border-slate-800 pb-1">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1">
                 {selectedCity.name} Hydro Gauging Stations
               </div>
 
@@ -1519,18 +1519,18 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                       mapRef.current.flyTo({ center: st.location, zoom: 13.5, essential: true });
                     }
                   }}
-                  className="w-full text-left p-3 rounded-xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 transition-all flex items-center justify-between group"
+                  className="w-full text-left p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 transition-all flex items-center justify-between group"
                 >
                   <div className="space-y-1">
-                    <div className="font-bold text-slate-100 text-xs flex items-center gap-1.5">
+                    <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
                       <span>{st.name}</span>
                     </div>
-                    <div className="text-[10.5px] text-slate-400 flex items-center gap-2 font-mono">
-                      <span>Level: <strong className="text-white">{st.waterLevel}</strong></span>
-                      <span>Danger: <strong className="text-red-400">{st.dangerLevel}</strong></span>
+                    <div className="text-[10.5px] text-slate-500 flex items-center gap-2 font-mono">
+                      <span>Level: <strong className="text-slate-900">{st.waterLevel}</strong></span>
+                      <span>Danger: <strong className="text-red-600">{st.dangerLevel}</strong></span>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
+                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-900 transition-colors" />
                 </button>
               ))}
             </div>
@@ -1541,16 +1541,16 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             <div className="space-y-3">
               <button
                 onClick={() => setDrawerTab('hydro')}
-                className="text-[10px] font-mono text-sky-400 hover:underline flex items-center gap-1"
+                className="text-[10px] font-mono text-sky-600 hover:underline flex items-center gap-1"
               >
                 ← Back to station list
               </button>
 
-              <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-3">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                   <div>
-                    <h4 className="font-bold text-xs text-white">{selectedStation.name}</h4>
-                    <span className="text-[10px] text-slate-400">{selectedStation.type}</span>
+                    <h4 className="font-bold text-xs text-slate-900">{selectedStation.name}</h4>
+                    <span className="text-[10px] text-slate-500">{selectedStation.type}</span>
                   </div>
                   <span
                     className={`text-[9px] font-mono font-bold uppercase text-white px-2 py-0.5 rounded-md ${
@@ -1566,21 +1566,21 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200">
                     <span className="text-[9.5px] text-slate-400 block">Water Level</span>
-                    <span className="font-mono font-bold text-white text-xs">{selectedStation.waterLevel}</span>
+                    <span className="font-mono font-bold text-slate-900 text-xs">{selectedStation.waterLevel}</span>
                   </div>
-                  <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200">
                     <span className="text-[9.5px] text-slate-400 block">Danger Mark</span>
-                    <span className="font-mono font-bold text-red-400 text-xs">{selectedStation.dangerLevel}</span>
+                    <span className="font-mono font-bold text-red-600 text-xs">{selectedStation.dangerLevel}</span>
                   </div>
-                  <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200">
                     <span className="text-[9.5px] text-slate-400 block">Discharge Rate</span>
-                    <span className="font-mono font-semibold text-slate-200">{selectedStation.dischargeRate}</span>
+                    <span className="font-mono font-semibold text-slate-800">{selectedStation.dischargeRate}</span>
                   </div>
-                  <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="bg-white p-2 rounded-lg border border-slate-200">
                     <span className="text-[9.5px] text-slate-400 block">Trend</span>
-                    <span className="font-mono font-semibold text-sky-400">{selectedStation.trend}</span>
+                    <span className="font-mono font-semibold text-sky-700">{selectedStation.trend}</span>
                   </div>
                 </div>
 
@@ -1590,12 +1590,12 @@ export const MapContainer: React.FC<MapContainerProps> = ({
                     <span>6H HYDRO LEVEL TREND</span>
                     <span>LIVE SENSOR</span>
                   </div>
-                  <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center justify-center shadow-inner">
+                  <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-center shadow-xs">
                     <div
                       dangerouslySetInnerHTML={{
                         __html: renderSparklineSvg(
                           selectedStation.sparklineData,
-                          selectedStation.flowStatus === 'CRITICAL' ? '#ef4444' : '#38bdf8'
+                          selectedStation.flowStatus === 'CRITICAL' ? '#dc2626' : '#0284c7'
                         ),
                       }}
                     />

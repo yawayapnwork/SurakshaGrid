@@ -351,7 +351,7 @@ export const FloodInundationTelemetryDashboard: React.FC<DashboardProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setCurrentHour(0)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 border border-slate-200/80 transition-colors"
           >
             <RotateCcw className="w-3.5 h-3.5" /> Reset (0h)
           </button>
@@ -363,57 +363,57 @@ export const FloodInundationTelemetryDashboard: React.FC<DashboardProps> = ({
         {/* Left/Center Column: Time-Series Inundation Map + Scrub Bar */}
         <div className="lg:col-span-8 space-y-4 flex flex-col">
           {/* Map Container Container */}
-          <div className="relative w-full h-[380px] sm:h-[440px] rounded-2xl border border-slate-800 overflow-hidden bg-slate-900 shadow-inner">
+          <div className="relative w-full h-[380px] sm:h-[440px] rounded-2xl border border-slate-200/80 overflow-hidden bg-slate-100 shadow-xs">
             <div ref={mapContainerRef} className="w-full h-full" />
 
             {/* Map Overlay Badge: Active Hour Indicator */}
-            <div className="absolute top-4 left-4 z-10 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 px-3.5 py-2 rounded-xl text-xs font-bold text-white shadow-xl flex items-center gap-2">
-              <Clock className="w-4 h-4 text-blue-400 animate-pulse" />
+            <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md border border-slate-200/80 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-900 shadow-sm flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-600 animate-pulse" />
               <span>Simulation Time:</span>
-              <span className="text-blue-400 font-mono text-sm font-black">+{currentHour}h</span>
+              <span className="text-blue-600 font-mono text-sm font-black">+{currentHour}h</span>
             </div>
 
             {/* Zone Metadata Inspection Card Overlay */}
             {selectedZone && (
-              <div className="absolute bottom-4 left-4 z-10 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 p-3.5 rounded-2xl text-xs text-white max-w-xs shadow-2xl space-y-1.5 animate-fade-in">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                  <span className="font-bold text-slate-100 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-red-400" /> {selectedZone.subRegionName}
+              <div className="absolute bottom-4 left-4 z-10 bg-white/98 backdrop-blur-xl border border-slate-200 p-3.5 rounded-2xl text-xs text-slate-900 max-w-xs shadow-xl space-y-1.5 animate-fade-in">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span className="font-bold text-slate-900 flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-red-600" /> {selectedZone.subRegionName}
                   </span>
-                  <button onClick={() => setSelectedZone(null)} className="text-slate-400 hover:text-white font-bold">
+                  <button onClick={() => setSelectedZone(null)} className="text-slate-400 hover:text-slate-900 font-bold">
                     ✕
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
-                  <div>Inundation Arrival: <strong className="text-blue-400 font-mono">+{selectedZone.hourStart}h</strong></div>
-                  <div>Max Water Depth: <strong className="text-amber-400 font-mono">{selectedZone.floodDepthMeters}m</strong></div>
-                  <div className="col-span-2">Est. Affected Population: <strong className="text-red-400 font-mono">{selectedZone.affectedPopulationEstimate.toLocaleString()}</strong></div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600">
+                  <div>Inundation Arrival: <strong className="text-blue-600 font-mono">+{selectedZone.hourStart}h</strong></div>
+                  <div>Max Water Depth: <strong className="text-amber-700 font-mono">{selectedZone.floodDepthMeters}m</strong></div>
+                  <div className="col-span-2">Est. Affected Population: <strong className="text-red-600 font-mono">{selectedZone.affectedPopulationEstimate.toLocaleString()}</strong></div>
                 </div>
               </div>
             )}
           </div>
 
           {/* Time-Series Scrub Bar & Playback Controller */}
-          <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-2xl space-y-3 shadow-xl">
+          <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-3 shadow-xs">
             <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3 font-semibold text-slate-200">
+              <div className="flex items-center gap-3 font-semibold text-slate-800">
                 <button
                   onClick={() => setIsPlaying(!isPlaying)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition-all shadow-md ${
-                    isPlaying ? 'bg-amber-500 text-slate-950 hover:bg-amber-400' : 'bg-blue-600 text-white hover:bg-blue-500'
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl font-bold transition-all shadow-xs ${
+                    isPlaying ? 'bg-amber-500 text-slate-950 hover:bg-amber-400' : 'bg-slate-900 text-white hover:bg-slate-800'
                   }`}
                 >
                   {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
                   <span>{isPlaying ? 'Pause Simulation' : 'Play Propagation'}</span>
                 </button>
-                <span className="font-mono text-sm font-bold text-blue-400">T + {currentHour} Hours</span>
+                <span className="font-mono text-sm font-bold text-blue-700">T + {currentHour} Hours</span>
               </div>
 
               {/* Aggregated Quick Metrics */}
-              <div className="flex items-center gap-4 text-[11px] font-medium text-slate-400">
-                <div>Active Zones: <span className="font-bold text-white font-mono">{activeZones.length} / {inundationZones.length}</span></div>
-                <div>Max Depth: <span className="font-bold text-amber-400 font-mono">{maxDepth.toFixed(1)}m</span></div>
-                <div>Pop. At Risk: <span className="font-bold text-red-400 font-mono">{totalPopulationAtRisk.toLocaleString()}</span></div>
+              <div className="flex items-center gap-4 text-[11px] font-medium text-slate-500">
+                <div>Active Zones: <span className="font-bold text-slate-900 font-mono">{activeZones.length} / {inundationZones.length}</span></div>
+                <div>Max Depth: <span className="font-bold text-amber-700 font-mono">{maxDepth.toFixed(1)}m</span></div>
+                <div>Pop. At Risk: <span className="font-bold text-red-600 font-mono">{totalPopulationAtRisk.toLocaleString()}</span></div>
               </div>
             </div>
 
@@ -425,7 +425,7 @@ export const FloodInundationTelemetryDashboard: React.FC<DashboardProps> = ({
               step={1}
               value={currentHour}
               onChange={(e) => setCurrentHour(Number(e.target.value))}
-              className="w-full h-2.5 rounded-full appearance-none cursor-pointer accent-blue-500 bg-slate-800 border border-slate-700"
+              className="w-full h-2.5 rounded-full appearance-none cursor-pointer accent-slate-900 bg-slate-200"
             />
 
             {/* Legend Color Band Chips */}
@@ -436,13 +436,13 @@ export const FloodInundationTelemetryDashboard: React.FC<DashboardProps> = ({
                   onClick={() => setCurrentHour(band.hourEnd)}
                   className={`p-1.5 rounded-lg border text-center cursor-pointer transition-all ${
                     currentHour >= band.hourStart && currentHour <= band.hourEnd
-                      ? 'bg-slate-800 border-white font-bold shadow-md scale-105'
-                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                      ? 'bg-white border-slate-900 font-bold shadow-xs scale-105 text-slate-900'
+                      : 'bg-white/80 border-slate-200 text-slate-500 hover:border-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-center gap-1">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: band.color }} />
-                    <span className="font-mono text-white">{band.label}</span>
+                    <span className="font-mono">{band.label}</span>
                   </div>
                 </div>
               ))}
@@ -452,96 +452,96 @@ export const FloodInundationTelemetryDashboard: React.FC<DashboardProps> = ({
 
         {/* Right Column: Scientific Telemetry Operational Panel */}
         <div className="lg:col-span-4 space-y-3.5">
-          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
-              <span className="font-bold text-xs text-white flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-400" /> Operational Hydro-Sensor Feed
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-4 shadow-xs">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+              <span className="font-bold text-xs text-slate-900 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-emerald-600" /> Operational Hydro-Sensor Feed
               </span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
 
             {/* 1. Wind & Vector Compass */}
-            <div className="bg-slate-950/70 border border-slate-800 p-3 rounded-xl space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-1.5 font-semibold">
-                  <Wind className="w-3.5 h-3.5 text-sky-400" /> Wind Velocity
+            <div className="bg-white border border-slate-200/80 p-3 rounded-xl space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                  <Wind className="w-3.5 h-3.5 text-sky-600" /> Wind Velocity
                 </span>
-                <span className="font-mono font-bold text-slate-200">{degreesToCardinal(telemetry.windDirectionDeg)}</span>
+                <span className="font-mono font-bold text-slate-800">{degreesToCardinal(telemetry.windDirectionDeg)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xl font-black text-white font-mono">{telemetry.windSpeedKmH} <span className="text-xs font-normal text-slate-400">km/h</span></div>
-                  <div className="text-[10px] text-slate-400">Gusts: <strong className="text-amber-400">{telemetry.windGustKmH} km/h</strong></div>
+                  <div className="text-xl font-black text-slate-900 font-mono">{telemetry.windSpeedKmH} <span className="text-xs font-normal text-slate-500">km/h</span></div>
+                  <div className="text-[10px] text-slate-500">Gusts: <strong className="text-amber-700">{telemetry.windGustKmH} km/h</strong></div>
                 </div>
-                <div className="relative w-10 h-10 rounded-full border border-slate-700 bg-slate-900 flex items-center justify-center">
-                  <Compass className="w-8 h-8 text-slate-700 absolute" />
+                <div className="relative w-10 h-10 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center">
+                  <Compass className="w-8 h-8 text-slate-300 absolute" />
                   <div
                     className="w-full h-full flex items-center justify-center transition-transform duration-500"
                     style={{ transform: `rotate(${telemetry.windDirectionDeg}deg)` }}
                   >
-                    <div className="w-0.5 h-5 bg-sky-400 rounded-full" />
+                    <div className="w-0.5 h-5 bg-sky-600 rounded-full" />
                   </div>
                 </div>
               </div>
             </div>
 
             {/* 2. Rainfall Rate & Accumulation */}
-            <div className="bg-slate-950/70 border border-slate-800 p-3 rounded-xl space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-1.5 font-semibold">
-                  <CloudRain className="w-3.5 h-3.5 text-blue-400" /> Precip Rate
+            <div className="bg-white border border-slate-200/80 p-3 rounded-xl space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                  <CloudRain className="w-3.5 h-3.5 text-blue-600" /> Precip Rate
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 border border-orange-200">
                   HEAVY
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xl font-black text-white font-mono">{telemetry.rainfallRateMmHr} <span className="text-xs font-normal text-slate-400">mm/hr</span></div>
-                  <div className="text-[10px] text-slate-400">24h Total: <strong className="text-slate-200">{telemetry.rainfall24hMm} mm</strong></div>
+                  <div className="text-xl font-black text-slate-900 font-mono">{telemetry.rainfallRateMmHr} <span className="text-xs font-normal text-slate-500">mm/hr</span></div>
+                  <div className="text-[10px] text-slate-500">24h Total: <strong className="text-slate-800">{telemetry.rainfall24hMm} mm</strong></div>
                 </div>
               </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
                 <div className="bg-orange-500 h-full rounded-full" style={{ width: `${Math.min(100, (telemetry.rainfallRateMmHr / 60) * 100)}%` }} />
               </div>
             </div>
 
             {/* 3. Barometric Pressure Trend */}
-            <div className="bg-slate-950/70 border border-slate-800 p-3 rounded-xl space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-1.5 font-semibold">
-                  <Gauge className="w-3.5 h-3.5 text-indigo-400" /> Barometric Pressure
+            <div className="bg-white border border-slate-200/80 p-3 rounded-xl space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                  <Gauge className="w-3.5 h-3.5 text-indigo-600" /> Barometric Pressure
                 </span>
-                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-300">
-                  <ArrowDown className="w-3.5 h-3.5 text-red-400 animate-bounce" /> {telemetry.pressureTrend}
+                <span className="flex items-center gap-1 text-[10px] font-bold text-slate-700">
+                  <ArrowDown className="w-3.5 h-3.5 text-red-600 animate-bounce" /> {telemetry.pressureTrend}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="text-xl font-black text-white font-mono">{telemetry.pressureHpa} <span className="text-xs font-normal text-slate-400">hPa</span></div>
-                <div className="text-xs font-mono font-bold text-red-400">{telemetry.pressureDelta3h} hPa / 3h</div>
+                <div className="text-xl font-black text-slate-900 font-mono">{telemetry.pressureHpa} <span className="text-xs font-normal text-slate-500">hPa</span></div>
+                <div className="text-xs font-mono font-bold text-red-600">{telemetry.pressureDelta3h} hPa / 3h</div>
               </div>
             </div>
 
             {/* 4. Relative Humidity & Soil Saturation */}
-            <div className="bg-slate-950/70 border border-slate-800 p-3 rounded-xl space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-1.5 font-semibold">
-                  <Droplets className="w-3.5 h-3.5 text-teal-400" /> Soil Moisture & Humidity
+            <div className="bg-white border border-slate-200/80 p-3 rounded-xl space-y-2">
+              <div className="flex items-center justify-between text-xs text-slate-500">
+                <span className="flex items-center gap-1.5 font-semibold text-slate-700">
+                  <Droplets className="w-3.5 h-3.5 text-teal-600" /> Soil Moisture & Humidity
                 </span>
-                <span className="text-[10px] font-bold text-red-400">88% SATURATED</span>
+                <span className="text-[10px] font-bold text-red-600 font-mono">88% SATURATED</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
                   <span className="text-[10px] text-slate-400 block">Humidity</span>
-                  <span className="font-bold text-white font-mono">{telemetry.relativeHumidityPercent}%</span>
+                  <span className="font-bold text-slate-900 font-mono">{telemetry.relativeHumidityPercent}%</span>
                 </div>
                 <div>
                   <span className="text-[10px] text-slate-400 block">Soil Saturation</span>
-                  <span className="font-bold text-amber-400 font-mono">{telemetry.soilMoisturePercent}%</span>
+                  <span className="font-bold text-amber-700 font-mono">{telemetry.soilMoisturePercent}%</span>
                 </div>
               </div>
-              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-teal-400 h-full rounded-full" style={{ width: `${telemetry.soilMoisturePercent}%` }} />
+              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-teal-500 h-full rounded-full" style={{ width: `${telemetry.soilMoisturePercent}%` }} />
               </div>
             </div>
           </div>

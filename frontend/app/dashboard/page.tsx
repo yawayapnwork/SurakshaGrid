@@ -640,10 +640,10 @@ export default function DashboardPage() {
   }, [focusedAssignment, sosReports]);
 
   return (
-    <main className="w-full min-h-screen lg:h-screen overflow-x-hidden overflow-y-auto lg:overflow-hidden flex flex-col bg-[#0f172a] font-sans">
-      {/* 1. Persistent Top Stats Bar */}
+    <main className="min-h-screen flex flex-col bg-slate-100/90 text-slate-900 relative font-sans overflow-hidden">
+      {/* Top Navigation & Telemetry Stats Bar */}
       <TopStatsBar
-        monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
+        monitoredAreaKm2={analyticsStats?.monitored_area_km2 || 42.5}
         activeSosCount={activeSosCount}
         criticalCount={criticalCount}
         dispatchedUnitsCount={dispatchedUnitsCount}
@@ -659,17 +659,17 @@ export default function DashboardPage() {
       />
 
       {/* 2. TOP EOC MODULAR FOCUS VIEW SWITCHER BAR */}
-      <div className="bg-slate-900 border-b border-slate-800 px-4 py-1.5 flex items-center justify-between shadow-md shrink-0 z-20">
+      <div className="bg-white border-b border-slate-200/80 px-4 py-2 flex items-center justify-between shadow-xs shrink-0 z-20">
         <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-semibold">
           <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mr-2 hidden sm:inline">
             Focus Mode:
           </span>
           <button
             onClick={() => setActiveFocusModule('overview')}
-            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'overview'
-                ? 'bg-blue-600 text-white font-bold shadow-md'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-slate-900 text-white font-bold shadow-xs'
+                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
             }`}
           >
             <LayoutGrid className="w-3.5 h-3.5" />
@@ -677,24 +677,24 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveFocusModule('map')}
-            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'map'
-                ? 'bg-blue-600 text-white font-bold shadow-md'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-slate-900 text-white font-bold shadow-xs'
+                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
             }`}
           >
-            <MapIcon className="w-3.5 h-3.5 text-sky-400" />
+            <MapIcon className="w-3.5 h-3.5 text-sky-600" />
             <span>Command Map</span>
           </button>
           <button
             onClick={() => setActiveFocusModule('dispatch')}
-            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'dispatch'
-                ? 'bg-blue-600 text-white font-bold shadow-md'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-slate-900 text-white font-bold shadow-xs'
+                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
             }`}
           >
-            <Radio className="w-3.5 h-3.5 text-red-400" />
+            <Radio className="w-3.5 h-3.5 text-red-600" />
             <span>Live Dispatch</span>
             {activeSosCount > 0 && (
               <span className="bg-red-600 text-white text-[9.5px] px-1.5 py-0.2 rounded-full font-bold">
@@ -704,32 +704,32 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveFocusModule('scenario')}
-            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'scenario'
-                ? 'bg-blue-600 text-white font-bold shadow-md'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-slate-900 text-white font-bold shadow-xs'
+                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
             }`}
           >
-            <Sliders className="w-3.5 h-3.5 text-amber-400" />
+            <Sliders className="w-3.5 h-3.5 text-amber-600" />
             <span>Scenario Controls</span>
           </button>
           <button
             onClick={() => setActiveFocusModule('telemetry')}
-            className={`px-3 py-1 rounded-lg flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all ${
               activeFocusModule === 'telemetry'
-                ? 'bg-blue-600 text-white font-bold shadow-md'
-                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 hover:text-white'
+                ? 'bg-slate-900 text-white font-bold shadow-xs'
+                : 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900 border border-slate-200/80'
             }`}
           >
-            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <Activity className="w-3.5 h-3.5 text-emerald-600" />
             <span>Hydro Telemetry</span>
           </button>
         </div>
 
         {/* Active Dynamic Region Coordinate Tag */}
-        <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-300">
+        <div className="hidden lg:flex items-center gap-2 text-xs font-mono text-slate-600">
           <span className="text-slate-400 text-[11px]">COORDINATE BOUND:</span>
-          <span className="text-sky-300 font-bold bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-[11px]">
+          <span className="text-slate-800 font-bold bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200/80 text-[11px]">
             {selectedCityInfo.name.toUpperCase()} ({selectedCityInfo.coords[1].toFixed(2)}°, {selectedCityInfo.coords[0].toFixed(2)}°)
           </span>
         </div>
@@ -741,12 +741,12 @@ export default function DashboardPage() {
           <div
             className={`px-4 py-2 rounded-xl border shadow-md backdrop-blur-md flex items-center gap-2 text-xs font-semibold ${
               toastMessage.type === 'success'
-                ? 'bg-emerald-950/95 text-emerald-300 border-emerald-800'
-                : 'bg-slate-900/95 text-slate-200 border-slate-700'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-white text-slate-800 border-slate-200'
             }`}
           >
             {toastMessage.type === 'success' ? (
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
+              <CheckCircle className="w-4 h-4 text-emerald-600" />
             ) : (
               <Info className="w-4 h-4 text-slate-400" />
             )}
@@ -759,66 +759,71 @@ export default function DashboardPage() {
       )}
 
       {/* Dynamic Module Content View Container */}
-      <div className="flex-1 lg:min-h-0 overflow-y-auto lg:overflow-hidden p-4">
-        {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD GRID) */}
+      <div className="flex-1 lg:min-h-0 overflow-y-auto p-4 space-y-4">
+        {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD UN-SQUASHED 2-COLUMN GRID) */}
         {activeFocusModule === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-full">
-            {/* Scenario Controls (3 Cols) */}
-            <div className="lg:col-span-3 lg:h-full lg:min-h-0">
-              <LeftController
-                rainfall={rainfall}
-                onRainfallChange={setRainfall}
-                riskMode={riskMode}
-                onRiskModeChange={setRiskMode}
-                liveWeatherInfo={liveWeatherInfo}
-                onTriggerFloodScenario={handleTriggerFloodScenario}
-                onResetScenario={handleResetScenario}
-                onRunDispatch={handleRunDispatch}
-                isDispatching={isDispatching}
-                isTriggering={isTriggering}
-                isResetting={isResetting}
-              />
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+            {/* Left Primary Column: Command Map Hero Card + Hydro Telemetry (7 Cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="w-full h-[480px] lg:h-[520px] rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden relative bg-white">
+                <MapErrorBoundary>
+                  <MapContainer
+                    riskGrid={riskGrid}
+                    floodZones={floodZones}
+                    sosReports={sosReports}
+                    rescueUnits={rescueUnits}
+                    dispatchAssignments={dispatchAssignments}
+                    onSelectRiskCell={setSelectedRiskCell}
+                    onLocationResolved={setUserLocation}
+                    activeRouteGeometry={focusedRoute?.geometry ?? null}
+                    animatedUnitPosition={focusedRouteProgress.position}
+                    animatedUnitBearing={focusedRouteProgress.bearingDegrees}
+                    telemetry={telemetryData}
+                    selectedCityId={selectedCityId}
+                    onCityChange={setSelectedCityId}
+                  />
+                </MapErrorBoundary>
+              </div>
 
-            {/* Command Map (6 Cols) */}
-            <div className="lg:col-span-6 relative h-[50vh] lg:h-full min-h-[320px] rounded-2xl border border-slate-800 shadow-xl overflow-hidden bg-slate-950">
-              <MapErrorBoundary>
-                <MapContainer
-                  riskGrid={riskGrid}
-                  floodZones={floodZones}
-                  sosReports={sosReports}
-                  rescueUnits={rescueUnits}
-                  dispatchAssignments={dispatchAssignments}
-                  onSelectRiskCell={setSelectedRiskCell}
-                  onLocationResolved={setUserLocation}
-                  activeRouteGeometry={focusedRoute?.geometry ?? null}
-                  animatedUnitPosition={focusedRouteProgress.position}
-                  animatedUnitBearing={focusedRouteProgress.bearingDegrees}
+              {/* Hydro Telemetry Data Metrics Panel */}
+              <div className="w-full">
+                <ScientificTelemetryMetrics
                   telemetry={telemetryData}
-                  selectedCityId={selectedCityId}
-                  onCityChange={setSelectedCityId}
+                  isStreaming={isConnected}
                 />
-              </MapErrorBoundary>
+              </div>
             </div>
 
-            {/* Live Dispatch Queue (3 Cols) */}
-            <div className="lg:col-span-3 lg:h-full lg:min-h-0">
-              <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
-            </div>
+            {/* Right Secondary Column: Scenario Controls + Live Dispatch Queue (5 Cols) */}
+            <div className="lg:col-span-5 space-y-4">
+              {/* Scenario Simulation Controls */}
+              <div className="w-full">
+                <LeftController
+                  rainfall={rainfall}
+                  onRainfallChange={setRainfall}
+                  riskMode={riskMode}
+                  onRiskModeChange={setRiskMode}
+                  liveWeatherInfo={liveWeatherInfo}
+                  onTriggerFloodScenario={handleTriggerFloodScenario}
+                  onResetScenario={handleResetScenario}
+                  onRunDispatch={handleRunDispatch}
+                  isDispatching={isDispatching}
+                  isTriggering={isTriggering}
+                  isResetting={isResetting}
+                />
+              </div>
 
-            {/* Scientific Telemetry Panel */}
-            <div className="lg:col-span-12">
-              <ScientificTelemetryMetrics
-                telemetry={telemetryData}
-                isStreaming={isConnected}
-              />
+              {/* Live Rescue Units Dispatch Queue */}
+              <div className="w-full lg:h-[480px]">
+                <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
+              </div>
             </div>
           </div>
         )}
 
-        {/* VIEW MODE 2: COMMAND MAP FOCUS (FULL SCREEN MAP) */}
+        {/* VIEW MODE 2: COMMAND MAP FOCUS (FULL SCREEN MAP 100%) */}
         {activeFocusModule === 'map' && (
-          <div className="w-full h-full min-h-[80vh] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden relative bg-slate-950">
+          <div className="w-full h-[calc(100vh-160px)] min-h-[550px] rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative bg-white">
             <MapErrorBoundary>
               <MapContainer
                 riskGrid={riskGrid}
@@ -839,13 +844,13 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* VIEW MODE 3: LIVE DISPATCH QUEUE FOCUS */}
+        {/* VIEW MODE 3: LIVE DISPATCH QUEUE FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'dispatch' && (
-          <div className="w-full h-full min-h-[80vh] grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-8 lg:h-full">
+          <div className="w-full min-h-[80vh] grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div className="lg:col-span-7 lg:h-[calc(100vh-160px)]">
               <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
             </div>
-            <div className="lg:col-span-4 lg:h-full">
+            <div className="lg:col-span-5 lg:h-[calc(100vh-160px)]">
               {focusedAssignment ? (
                 <DispatchNavigationCard
                   assignment={focusedAssignment}
@@ -861,11 +866,13 @@ export default function DashboardPage() {
                   isMarkingArrived={isMarkingArrived}
                 />
               ) : (
-                <div className="w-full h-full rounded-2xl bg-slate-900 border border-slate-800 p-6 flex flex-col items-center justify-center text-center text-slate-400 space-y-2">
-                  <Radio className="w-8 h-8 text-sky-400 animate-pulse" />
-                  <h4 className="font-bold text-sm text-slate-200">Select a Dispatch Assignment</h4>
-                  <p className="text-xs text-slate-500 max-w-xs">
-                    Click any assigned unit in the queue to inspect real OSRM road geometry, ETA timer, and live navigation tracking.
+                <div className="w-full h-full rounded-2xl bg-white border border-slate-200/80 p-8 flex flex-col items-center justify-center text-center text-slate-500 space-y-3 shadow-xs">
+                  <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                    <Radio className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <h4 className="font-bold text-base text-slate-900">Select a Dispatch Assignment</h4>
+                  <p className="text-xs text-slate-500 max-w-sm">
+                    Click any active unit in the queue to preview turn-by-turn road geometry, ETA updates, and live dispatch tracking.
                   </p>
                 </div>
               )}
@@ -873,9 +880,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* VIEW MODE 4: SCENARIO CONTROLS FOCUS */}
+        {/* VIEW MODE 4: SCENARIO CONTROLS FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'scenario' && (
-          <div className="w-full h-full min-h-[80vh] max-w-4xl mx-auto">
+          <div className="w-full min-h-[80vh] max-w-4xl mx-auto">
             <LeftController
               rainfall={rainfall}
               onRainfallChange={setRainfall}
@@ -892,9 +899,9 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* VIEW MODE 5: HYDRO TELEMETRY FOCUS */}
+        {/* VIEW MODE 5: HYDRO TELEMETRY FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'telemetry' && (
-          <div className="w-full h-full min-h-[80vh] space-y-4">
+          <div className="w-full min-h-[80vh] space-y-4">
             <ScientificTelemetryMetrics
               telemetry={telemetryData}
               isStreaming={isConnected}
