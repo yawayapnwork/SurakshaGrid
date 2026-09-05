@@ -338,7 +338,10 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   }, [sosReports, rescueUnits]);
 
   return (
-    <div className="absolute inset-0 bg-slate-100">
+    // Mobile: a fixed-viewport-fraction block in normal flow, so the map never eats
+    // the whole page (and never triggers layout thrash while the drawer/queue below
+    // it render). Desktop (lg+): revert to the classic absolute-fill-behind-panels layout.
+    <div className="relative w-full h-[50vh] min-h-[320px] lg:absolute lg:inset-0 lg:h-full lg:min-h-0 bg-slate-100">
       <div ref={mapContainerRef} className="w-full h-full" />
     </div>
   );

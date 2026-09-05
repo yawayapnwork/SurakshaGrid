@@ -14,7 +14,9 @@ export const RightDispatchQueue: React.FC<RightDispatchQueueProps> = ({
   onSelectAssignment,
 }) => {
   return (
-    <aside className="absolute right-6 top-6 z-20 w-[22rem] max-h-[calc(100%-3rem)] bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm text-slate-900 flex flex-col">
+    // Mobile: stacks below the map as a normal-flow block (full width, capped height,
+    // internal scroll). Desktop (lg+): the original floating card pinned top-right.
+    <aside className="relative w-full max-h-[70vh] lg:absolute lg:right-6 lg:top-6 lg:z-20 lg:w-[22rem] lg:max-h-[calc(100%-3rem)] bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-sm text-slate-900 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 mb-4">
         <div className="flex items-center gap-2">

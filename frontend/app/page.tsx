@@ -433,7 +433,9 @@ export default function DashboardPage() {
   });
 
   return (
-    <main className="w-full h-screen overflow-hidden flex flex-col bg-[#F8FAFC] font-sans">
+    // Mobile/tablet: the whole page scrolls (map + stacked panels exceed one viewport).
+    // Desktop (lg+): pinned to the viewport height, map+panels manage their own layout.
+    <main className="w-full min-h-screen lg:h-screen overflow-y-auto lg:overflow-hidden flex flex-col bg-[#F8FAFC] font-sans">
       {/* 1. Persistent Top Stats Bar */}
       <TopStatsBar
         monitoredAreaKm2={analyticsStats ? analyticsStats.monitored_area_km2 : 42.5}
@@ -449,13 +451,16 @@ export default function DashboardPage() {
         demoState={demoTour}
       />
 
-      {/* Map + floating panels area: panels are positioned relative to THIS
-          container (not the viewport), so header height/wrapping can never
-          push them out of place or make them overlap each other. */}
-      <div className="relative flex-1 min-h-0">
-        {/* Non-Blocking Toast Notification */}
+      {/* Map + floating panels area: on lg+, panels are positioned absolutely relative
+          to THIS container (not the viewport), so header height/wrapping can never push
+          them out of place or make them overlap each other. Below lg, this same container
+          switches to a normal-flow vertical stack (map, then queue, then replay bar) and
+          the whole page scrolls instead. */}
+      <div className="relative flex flex-col gap-4 p-4 lg:p-0 lg:block lg:flex-1 lg:min-h-0">
+        {/* Non-Blocking Toast Notification — fixed to the viewport so it stays visible
+            even while the mobile stacked layout is scrolled. */}
         {toastMessage && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-fade-in">
             <div
               className={`px-4 py-2.5 rounded-xl border shadow-sm backdrop-blur-md flex items-center gap-2 text-xs font-semibold ${
                 toastMessage.type === 'success'
