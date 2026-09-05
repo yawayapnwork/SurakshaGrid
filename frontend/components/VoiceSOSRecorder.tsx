@@ -36,9 +36,17 @@ export const VoiceSOSRecorder: React.FC<VoiceSOSRecorderProps> = ({ onTranscript
   const { isRecording, isTranscribing, errorMessage, startRecording, stopRecording } =
     useVoiceSOSRecorder(handleTranscript);
 
+  const handleToggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      setElapsedSeconds(0);
+      startRecording();
+    }
+  };
+
   useEffect(() => {
     if (isRecording) {
-      setElapsedSeconds(0);
       intervalRef.current = setInterval(() => setElapsedSeconds((s) => s + 1), 1000);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -61,7 +69,7 @@ export const VoiceSOSRecorder: React.FC<VoiceSOSRecorderProps> = ({ onTranscript
       <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-3">
         <button
           type="button"
-          onClick={isRecording ? stopRecording : startRecording}
+          onClick={handleToggleRecording}
           disabled={isTranscribing}
           className={`shrink-0 p-3 rounded-full transition-all disabled:opacity-50 ${
             isRecording

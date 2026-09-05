@@ -61,6 +61,10 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const valueRef = useRef(value);
+  valueRef.current = value;
 
   useEffect(() => {
     const win = window as WindowWithSpeechRecognition;
@@ -83,7 +87,8 @@ export const VoiceToTextInput: React.FC<VoiceToTextInputProps> = ({ value, onCha
         currentTranscript += event.results[i][0].transcript;
       }
       if (currentTranscript) {
-        onChange(value ? `${value} ${currentTranscript}` : currentTranscript);
+        const val = valueRef.current;
+        onChangeRef.current(val ? `${val} ${currentTranscript}` : currentTranscript);
         setErrorMessage(null);
       }
     };

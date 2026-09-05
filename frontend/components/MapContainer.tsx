@@ -41,6 +41,11 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
   const animatedUnitMarkerRef = useRef<maplibregl.Marker | null>(null);
 
+  const onSelectRiskCellRef = useRef(onSelectRiskCell);
+  onSelectRiskCellRef.current = onSelectRiskCell;
+  const onLocationResolvedRef = useRef(onLocationResolved);
+  onLocationResolvedRef.current = onLocationResolved;
+
   // Chennai / Flood Monitoring Zone — used as the initial center and as the fallback
   // whenever geolocation is denied, unsupported, or times out.
   const DEFAULT_CENTER: [number, number] = [80.25, 13.05];
@@ -215,7 +220,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             } else if (rawBreakdown && typeof rawBreakdown === 'object') {
               breakdown = rawBreakdown as RiskBreakdown;
             }
-            onSelectRiskCell({
+            onSelectRiskCellRef.current({
               risk_score: Number(props.risk_score),
               breakdown: breakdown || {
                 rainfall_impact: 0.5,
@@ -258,7 +263,7 @@ export const MapContainer: React.FC<MapContainerProps> = ({
             .addTo(map);
 
           map.flyTo({ center: [longitude, latitude], zoom: 13, pitch: 30, essential: true });
-          onLocationResolved?.({ lat: latitude, lon: longitude });
+          onLocationResolvedRef.current?.({ lat: latitude, lon: longitude });
         },
         (err) => {
           // PERMISSION_DENIED, POSITION_UNAVAILABLE, or TIMEOUT — keep the Chennai default.

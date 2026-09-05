@@ -2,7 +2,7 @@ import uuid
 import pytest
 from geoalchemy2 import Geography
 from sqlalchemy import cast, func, select, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.models.enums import RescueUnitStatus, RescueUnitType, SOSSeverity, SOSStatus
@@ -13,27 +13,6 @@ from app.routers.sos import get_nearby_sos_reports
 from app.services.dispatch_optimizer import compute_postgis_duration_matrix
 
 settings = get_settings()
-
-
-@pytest.fixture(scope="module")
-async def postgres_session():
-    """Yields a real AsyncSession connected to PostgreSQL/PostGIS.
-
-    If PostgreSQL is unreachable or PostGIS extension is missing, skips the integration tests.
-    """
-    engine = create_async_engine(settings.DATABASE_URL, echo=False)
-    try:
-        async with engine.connect() as conn:
-            res = await conn.execute(text("SELECT PostGIS_Version();"))
-            _ = res.scalar()
-    except Exception as exc:
-        pytest.skip(f"PostgreSQL/PostGIS database not available ({exc}). Skipping integration tests.")
-
-    SessionMaker = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
-    async with SessionMaker() as session:
-        yield session
-
-    await engine.dispose()
 
 
 @pytest.mark.asyncio

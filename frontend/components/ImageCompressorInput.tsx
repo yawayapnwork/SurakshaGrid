@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Camera, Trash2, UploadCloud } from 'lucide-react';
 import { compressImage } from '@/utils/imageCompression';
 
@@ -60,9 +61,12 @@ export const ImageCompressorInput: React.FC<ImageCompressorInputProps> = ({ onIm
 
       {previewUrl ? (
         <div className="relative bg-white border border-slate-200 rounded-xl p-3 flex items-center gap-4">
-          <img
+          <Image
             src={previewUrl}
             alt="Flood evidence preview"
+            width={80}
+            height={80}
+            unoptimized
             className="w-20 h-20 object-cover rounded-lg border border-slate-200"
           />
           <div className="flex-1 space-y-1">

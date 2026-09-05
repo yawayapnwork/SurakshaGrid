@@ -23,12 +23,18 @@ export function useLiveRainfall(
 ): LiveWeatherInfo | null {
   const [liveWeatherInfo, setLiveWeatherInfo] = useState<LiveWeatherInfo | null>(null);
 
+  const centerLat = center?.lat;
+  const centerLon = center?.lon;
+
   useEffect(() => {
     if (!enabled) return;
     let isSubscribed = true;
 
+    const currentCenter: GridCenter | undefined =
+      centerLat != null && centerLon != null ? { lat: centerLat, lon: centerLon } : undefined;
+
     const poll = () => {
-      fetchLatestLiveRainfall(center || undefined)
+      fetchLatestLiveRainfall(currentCenter)
         .then((reading) => {
           if (!isSubscribed || !reading) return;
           setLiveWeatherInfo({
@@ -48,7 +54,7 @@ export function useLiveRainfall(
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, [center?.lat, center?.lon, enabled, refreshTrigger]);
+  }, [centerLat, centerLon, enabled, refreshTrigger]);
 
   return liveWeatherInfo;
 }

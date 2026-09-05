@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { CloudRain, ExternalLink, Play, QrCode, RotateCcw, Sliders, X } from 'lucide-react';
 
 export interface LiveWeatherInfo {
@@ -221,11 +222,12 @@ export const LeftController: React.FC<LeftControllerProps> = ({
         </div>
         <div className="flex justify-center py-1">
           <div className="p-1.5 bg-white rounded-lg shadow-xs border border-slate-200/80 inline-block">
-            <img
+            <Image
               src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(reportUrl)}`}
               alt="Scan QR code to open Citizen SOS report form"
               width={110}
               height={110}
+              unoptimized
               className="w-24 h-24 object-contain"
             />
           </div>
