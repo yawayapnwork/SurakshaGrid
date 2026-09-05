@@ -98,7 +98,7 @@ function NavBar() {
             Citizen SOS
           </Link>
           <Link
-            href="/"
+            href="/dashboard"
             className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
           >
             Get Started
@@ -135,7 +135,7 @@ function NavBar() {
               Citizen SOS
             </Link>
             <Link
-              href="/"
+              href="/dashboard"
               className="text-center bg-slate-900 text-white text-sm font-semibold rounded-lg py-2"
             >
               Get Started
@@ -411,7 +411,7 @@ function FinalCTA() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center gap-2 bg-white text-slate-900 font-semibold text-sm px-6 py-3 rounded-xl transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5"
             >
               <Play className="w-4 h-4 fill-current" />
@@ -436,7 +436,7 @@ function Footer() {
     {
       title: 'Product',
       links: [
-        { label: 'Command Center', href: '/' },
+        { label: 'Command Center', href: '/dashboard' },
         { label: 'Citizen SOS', href: '/report' },
         { label: 'Capabilities', href: '#features' },
         { label: 'How it works', href: '#how-it-works' },
@@ -527,7 +527,7 @@ export const LandingPage: React.FC = () => {
 
           <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/"
+              href="/dashboard"
               className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-6 py-3 rounded-xl transition-all duration-200 shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/30 hover:-translate-y-0.5"
             >
               Open Command Center

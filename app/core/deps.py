@@ -32,6 +32,17 @@ async def get_current_officer(
                 detail="Invalid token payload",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        # Defense-in-depth: today /auth/login is the only token issuer and it always sets
+        # role="officer" (see create_access_token call in app/routers/auth.py), so this
+        # can't currently be triggered by a real login — but it stops a token minted with
+        # a different role claim (present or future issuer) from passing as an officer.
+        # 403, not 401: the credentials themselves are valid, they just lack this permission.
+        role = payload.get("role")
+        if role != "officer":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Token does not carry officer privileges",
+            )
         return payload
     except jwt.PyJWTError as exc:
         raise HTTPException(
