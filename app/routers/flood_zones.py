@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 
 from app.core.config import get_settings
-from app.core.geo_constants import WATER_CORRIDOR_LINE, build_flood_zone_polygon
+from app.core.geo_constants import build_flood_zone_polygon, translated_water_corridor
 from app.db.session import get_db
 from app.models.flood_zone import FloodZone
 
@@ -52,12 +52,21 @@ async def simulate_flood_zones(
         str | None,
         Query(description="Optional active simulation ID to read latest persisted flood zone"),
     ] = None,
+    center_lon: Annotated[
+        float | None,
+        Query(description="Optional zone center longitude (e.g. the viewer's geolocation) for the synthetic fallback zone"),
+    ] = None,
+    center_lat: Annotated[
+        float | None,
+        Query(description="Optional zone center latitude (e.g. the viewer's geolocation) for the synthetic fallback zone"),
+    ] = None,
 ) -> dict:
     """Reads the latest persisted flood zone polygon for an active sim_id or rainfall intensity,
     or falls back to generating the matching polygon buffer representation. Cached in Redis for 3s.
     """
     redis_client = await get_redis_client()
-    cache_key = f"{CACHE_KEY_PREFIX}:{round(rainfall, 2)}:{sim_id or 'none'}"
+    center_key = f"{round(center_lon, 3)},{round(center_lat, 3)}" if center_lon is not None and center_lat is not None else "none"
+    cache_key = f"{CACHE_KEY_PREFIX}:{round(rainfall, 2)}:{sim_id or 'none'}:{center_key}"
 
     if redis_client:
         try:
@@ -101,7 +110,8 @@ async def simulate_flood_zones(
 
     # 2. Fall back to shared polygon calculation formula
     if not result_data:
-        _, geojson_geom = build_flood_zone_polygon(rainfall)
+        corridor = translated_water_corridor(center_lon, center_lat)
+        _, geojson_geom = build_flood_zone_polygon(rainfall, corridor)
         buffer_deg = 0.01 + (min(max(rainfall, 0.0), 100.0) / 100.0) * 0.05
 
         result_data = {

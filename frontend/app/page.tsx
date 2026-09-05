@@ -69,6 +69,10 @@ export default function DashboardPage() {
   // Active Simulation ID State (persisted in sessionStorage for multi-tenant isolation)
   const [activeSimId, setActiveSimId] = useState<string | null>(null);
 
+  // Viewer's real device location, resolved by MapContainer's geolocation lookup. Once
+  // set, the risk grid / flood zone simulation re-centers on it instead of Chennai.
+  const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
+
   // Load sound mute preference and active sim_id on client mount.
   // localStorage/sessionStorage don't exist during SSR, so this can only run
   // client-side after mount — an effect is the correct (unavoidable) place.
@@ -103,8 +107,8 @@ export default function DashboardPage() {
   useEffect(() => {
     let isSubscribed = true;
     Promise.all([
-      fetchSimulatedRiskScores(debouncedRainfall, activeSimId || undefined, riskMode),
-      fetchSimulatedFloodZones(debouncedRainfall, activeSimId || undefined),
+      fetchSimulatedRiskScores(debouncedRainfall, activeSimId || undefined, riskMode, userLocation || undefined),
+      fetchSimulatedFloodZones(debouncedRainfall, activeSimId || undefined, userLocation || undefined),
     ])
       .then(([riskData, floodData]) => {
         if (isSubscribed) {
@@ -117,7 +121,7 @@ export default function DashboardPage() {
     return () => {
       isSubscribed = false;
     };
-  }, [debouncedRainfall, activeSimId, riskMode, liveWeatherInfo]);
+  }, [debouncedRainfall, activeSimId, riskMode, liveWeatherInfo, userLocation]);
 
   // Periodic polling (every 3s) for live analytics aggregator metrics
   useEffect(() => {
@@ -511,6 +515,7 @@ export default function DashboardPage() {
                 rescueUnits={rescueUnits}
                 dispatchAssignments={dispatchAssignments}
                 onSelectRiskCell={setSelectedRiskCell}
+                onLocationResolved={setUserLocation}
               />
             </MapErrorBoundary>
           </div>

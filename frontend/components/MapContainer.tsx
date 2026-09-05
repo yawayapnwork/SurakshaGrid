@@ -12,6 +12,9 @@ interface MapContainerProps {
   rescueUnits: RescueUnit[];
   dispatchAssignments: DispatchAssignment[];
   onSelectRiskCell: (props: RiskFeatureProperties) => void;
+  /** Called once the viewer's real device location resolves, so the parent can re-center
+   *  the risk grid / flood zone data on it instead of leaving it fixed on Chennai. */
+  onLocationResolved?: (location: { lat: number; lon: number }) => void;
 }
 
 export const MapContainer: React.FC<MapContainerProps> = ({
@@ -21,20 +24,25 @@ export const MapContainer: React.FC<MapContainerProps> = ({
   rescueUnits,
   dispatchAssignments,
   onSelectRiskCell,
+  onLocationResolved,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const userLocationMarkerRef = useRef<maplibregl.Marker | null>(null);
+
+  // Chennai / Flood Monitoring Zone — used as the initial center and as the fallback
+  // whenever geolocation is denied, unsupported, or times out.
+  const DEFAULT_CENTER: [number, number] = [80.25, 13.05];
 
   // Initialize MapLibre GL instance
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
-    // Center over Chennai / Flood Monitoring Zone
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: 'https://tiles.openfreemap.org/styles/liberty', // Free vector tile style
-      center: [80.25, 13.05],
+      center: DEFAULT_CENTER,
       zoom: 12,
       pitch: 30,
     });
@@ -167,7 +175,40 @@ export const MapContainer: React.FC<MapContainerProps> = ({
 
     mapRef.current = map;
 
+    // Fly to the viewer's real device location once it resolves. Chennai stays the
+    // initial center (so the map isn't blank while the browser prompts for/resolves
+    // permission) and remains the fallback if geolocation is denied, unsupported, or
+    // times out.
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { longitude, latitude } = position.coords;
+          const el = document.createElement('div');
+          el.className = 'relative flex items-center justify-center';
+          el.innerHTML = `
+            <div class="absolute w-6 h-6 rounded-full bg-blue-500 animate-ping opacity-40"></div>
+            <div class="relative w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white shadow-md"></div>
+          `;
+          userLocationMarkerRef.current = new maplibregl.Marker({ element: el })
+            .setLngLat([longitude, latitude])
+            .addTo(map);
+
+          map.flyTo({ center: [longitude, latitude], zoom: 13, pitch: 30, essential: true });
+          onLocationResolved?.({ lat: latitude, lon: longitude });
+        },
+        (err) => {
+          // PERMISSION_DENIED, POSITION_UNAVAILABLE, or TIMEOUT — keep the Chennai default.
+          console.warn('Geolocation unavailable, keeping default map center:', err.message);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 }
+      );
+    } else {
+      console.warn('Geolocation not supported by this browser, keeping default map center.');
+    }
+
     return () => {
+      userLocationMarkerRef.current?.remove();
+      userLocationMarkerRef.current = null;
       map.remove();
       mapRef.current = null;
     };

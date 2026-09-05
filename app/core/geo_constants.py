@@ -6,6 +6,30 @@ WATER_CORRIDOR_LINE: tuple[tuple[float, float], tuple[float, float]] = (
     (80.35, 13.10),
 )
 
+# Center of the default synthetic demo grid (Chennai). Used only to translate the
+# water corridor line when a caller supplies a different grid center (e.g. the
+# viewer's real geolocation) via `translated_water_corridor`, so the synthetic
+# flood-proximity scene keeps the same shape wherever it's recentered.
+DEFAULT_GRID_CENTER: tuple[float, float] = (80.25, 13.05)  # (lon, lat)
+
+
+def translated_water_corridor(
+    center_lon: float | None, center_lat: float | None
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Shifts WATER_CORRIDOR_LINE so it stays positioned relative to `center` the same
+
+    way it's positioned relative to DEFAULT_GRID_CENTER. Returns WATER_CORRIDOR_LINE
+    unchanged when no center is supplied.
+    """
+    if center_lon is None or center_lat is None:
+        return WATER_CORRIDOR_LINE
+
+    default_lon, default_lat = DEFAULT_GRID_CENTER
+    delta_lon = center_lon - default_lon
+    delta_lat = center_lat - default_lat
+    (x1, y1), (x2, y2) = WATER_CORRIDOR_LINE
+    return ((x1 + delta_lon, y1 + delta_lat), (x2 + delta_lon, y2 + delta_lat))
+
 # Beyond this distance from the water corridor, flood proximity risk is treated as zero.
 MAX_FLOOD_PROXIMITY_METERS: float = 3000.0
 
@@ -17,20 +41,27 @@ REPORT_DENSITY_RADIUS_METERS: float = 250.0
 REPORT_DENSITY_SATURATION_COUNT: float = 3.0
 
 
-def distance_to_water_corridor(lon: float, lat: float) -> float:
+def distance_to_water_corridor(
+    lon: float,
+    lat: float,
+    corridor: tuple[tuple[float, float], tuple[float, float]] = WATER_CORRIDOR_LINE,
+) -> float:
     """Calculates the vertical distance in degrees from (lon, lat) to the water corridor line."""
-    (x1, y1), (x2, y2) = WATER_CORRIDOR_LINE
+    (x1, y1), (x2, y2) = corridor
     slope = (y2 - y1) / (x2 - x1)
     y_corridor = y1 + slope * (lon - x1)
     return abs(lat - y_corridor)
 
 
-def build_flood_zone_polygon(rainfall_intensity: float) -> tuple[str, dict]:
+def build_flood_zone_polygon(
+    rainfall_intensity: float,
+    corridor: tuple[tuple[float, float], tuple[float, float]] = WATER_CORRIDOR_LINE,
+) -> tuple[str, dict]:
     """Generates PostGIS EWKT Polygon and GeoJSON geometry dict for a given rainfall intensity (0..100)."""
     rainfall_norm = min(max(rainfall_intensity, 0.0), 100.0)
     buffer_deg = 0.01 + (rainfall_norm / 100.0) * 0.05
 
-    (x1, y1), (x2, y2) = WATER_CORRIDOR_LINE
+    (x1, y1), (x2, y2) = corridor
 
     dx = x2 - x1
     dy = y2 - y1

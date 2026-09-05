@@ -13,14 +13,23 @@ const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
 ).replace(/\/+$/, '');
 
+export interface GridCenter {
+  lat: number;
+  lon: number;
+}
+
 export async function fetchSimulatedRiskScores(
   rainfall: number = 0,
   simId?: string,
-  mode: 'simulated' | 'live' = 'simulated'
+  mode: 'simulated' | 'live' = 'simulated',
+  center?: GridCenter
 ): Promise<RiskGridCollection> {
   let url = `${API_BASE_URL}/api/v1/risk-scores/simulate?rainfall=${rainfall}&mode=${mode}`;
   if (simId) {
     url += `&sim_id=${encodeURIComponent(simId)}`;
+  }
+  if (center) {
+    url += `&center_lon=${center.lon}&center_lat=${center.lat}`;
   }
   const res = await fetch(url);
   if (!res.ok) {
@@ -29,10 +38,17 @@ export async function fetchSimulatedRiskScores(
   return res.json();
 }
 
-export async function fetchSimulatedFloodZones(rainfall: number = 0, simId?: string): Promise<FloodZoneCollection> {
+export async function fetchSimulatedFloodZones(
+  rainfall: number = 0,
+  simId?: string,
+  center?: GridCenter
+): Promise<FloodZoneCollection> {
   let url = `${API_BASE_URL}/api/v1/flood-zones/simulate?rainfall=${rainfall}`;
   if (simId) {
     url += `&sim_id=${encodeURIComponent(simId)}`;
+  }
+  if (center) {
+    url += `&center_lon=${center.lon}&center_lat=${center.lat}`;
   }
   const res = await fetch(url);
   if (!res.ok) {

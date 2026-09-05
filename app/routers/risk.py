@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import redis.asyncio as aioredis
 
 from app.core.config import get_settings
-from app.core.geo_constants import distance_to_water_corridor
+from app.core.geo_constants import distance_to_water_corridor, translated_water_corridor
 from app.db.session import get_db
 from app.models.enums import SOSStatus
 from app.models.live_rainfall_reading import LiveRainfallReading
@@ -115,6 +115,14 @@ async def simulate_risk_scores(
         str | None,
         Query(description="Optional active simulation ID to isolate risk density metrics"),
     ] = None,
+    center_lon: Annotated[
+        float | None,
+        Query(description="Optional grid center longitude (e.g. the viewer's geolocation) for the synthetic fallback grid"),
+    ] = None,
+    center_lat: Annotated[
+        float | None,
+        Query(description="Optional grid center latitude (e.g. the viewer's geolocation) for the synthetic fallback grid"),
+    ] = None,
     db: AsyncSession = Depends(get_db),
 ) -> RiskGridCollection:
     """Ingests simulated rainfall intensity parameter, evaluates an explainable risk formula
@@ -132,7 +140,8 @@ async def simulate_risk_scores(
             effective_rainfall = latest_reading.rainfall_intensity
 
     redis_client = await get_redis_client()
-    cache_key = f"{CACHE_KEY_PREFIX}:{mode}:{round(effective_rainfall, 2)}:{sim_id or 'none'}"
+    center_key = f"{round(center_lon, 3)},{round(center_lat, 3)}" if center_lon is not None and center_lat is not None else "none"
+    cache_key = f"{CACHE_KEY_PREFIX}:{mode}:{round(effective_rainfall, 2)}:{sim_id or 'none'}:{center_key}"
 
     if redis_client:
         try:
@@ -146,7 +155,7 @@ async def simulate_risk_scores(
     # Prefer live PostGIS-driven scoring across designated emergency zones once they've
     # been seeded; fall back to the synthetic bounding-box grid below for a fresh/demo DB.
     if await zone_count(db) > 0:
-        response = await compute_dynamic_zone_risk_scores(db, effective_rainfall, sim_id)
+        response = await compute_dynamic_zone_risk_scores(db, effective_rainfall, sim_id, center_lon, center_lat)
         if redis_client:
             try:
                 await redis_client.setex(cache_key, CACHE_TTL_SECONDS, response.model_dump_json())
@@ -176,10 +185,20 @@ async def simulate_risk_scores(
         lats = [c[1] for c in report_coords]
         min_lon, max_lon = min(lons) - 0.04, max(lons) + 0.04
         min_lat, max_lat = min(lats) - 0.04, max(lats) + 0.04
+    elif center_lon is not None and center_lat is not None:
+        # Center the same-sized synthetic grid on the viewer's real location instead of
+        # forcing everyone onto the Chennai demo area.
+        min_lon, max_lon = center_lon - 0.10, center_lon + 0.10
+        min_lat, max_lat = center_lat - 0.10, center_lat + 0.10
     else:
         # Default region bounds (e.g. Chennai flood zone area)
         min_lon, max_lon = 80.15, 80.35
         min_lat, max_lat = 12.95, 13.15
+
+    # Water corridor line translated to match the grid center, so flood_proximity stays
+    # meaningful (a "virtual creek" running through wherever the grid is centered) instead
+    # of measuring distance to a corridor that only makes sense in Chennai.
+    corridor = translated_water_corridor((min_lon + max_lon) / 2.0, (min_lat + max_lat) / 2.0)
 
     # 3. Create N x N grid cells (e.g. 5x5)
     grid_size = 5
@@ -198,17 +217,17 @@ async def simulate_risk_scores(
             c_min_lat = min_lat + j * lat_step
             c_max_lat = c_min_lat + lat_step
 
-            center_lon = (c_min_lon + c_max_lon) / 2.0
-            center_lat = (c_min_lat + c_max_lat) / 2.0
+            cell_center_lon = (c_min_lon + c_max_lon) / 2.0
+            cell_center_lat = (c_min_lat + c_max_lat) / 2.0
 
             # 4. Itemized explainable score calculations
             # a) Flood proximity score (using shared water corridor line from geo_constants)
-            dist_to_water_line = distance_to_water_corridor(center_lon, center_lat) / 0.15
+            dist_to_water_line = distance_to_water_corridor(cell_center_lon, cell_center_lat, corridor) / 0.15
             flood_proximity = round(max(0.0, 1.0 - min(dist_to_water_line, 1.0)), 4)
 
             # b) Elevation drop score (lowland hazard near coast / southern basin)
             elevation_drop = round(
-                max(0.0, min(1.0, 0.85 - (center_lat - min_lat) / (lat_step * grid_size))), 4
+                max(0.0, min(1.0, 0.85 - (cell_center_lat - min_lat) / (lat_step * grid_size))), 4
             )
 
             # c) Report density score (SOS reports in cell bounds or close radius)

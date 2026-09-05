@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.geo_constants import (
+    DEFAULT_GRID_CENTER,
     MAX_FLOOD_PROXIMITY_METERS,
     REPORT_DENSITY_RADIUS_METERS,
     REPORT_DENSITY_SATURATION_COUNT,
@@ -28,6 +29,15 @@ _ACTIVE_STATUSES = [SOSStatus.PENDING.value, SOSStatus.ASSIGNED.value]
 #                            geography-cast ST_DWithin
 #   - geometry_geojson    : the zone polygon simplified (topology-preserving) and emitted
 #                            with 6 decimal digits, to keep payloads small for MapLibre
+#
+# `:delta_lon`/`:delta_lat` translate every seeded zone/elevation-point geometry by the
+# same offset (viewer's real location minus the default Chennai grid center) before any
+# distance/containment math runs, so the whole designated-zone scene — including its
+# shape and relative position to the water corridor — moves as one rigid body to wherever
+# the viewer is, instead of only recoloring in place. They default to 0 (no shift) when no
+# viewer location is supplied. Active SOS report positions are deliberately NOT shifted —
+# real incident reports stay where they were actually filed, matching how the synthetic
+# grid fallback (see risk.py) also leaves real report_coords untranslated.
 _ZONE_RISK_QUERY = text(
     """
     WITH corridor AS (
@@ -39,33 +49,41 @@ _ZONE_RISK_QUERY = text(
             4326
         )::geography AS geog
     ),
+    shifted_zones AS (
+        SELECT id, name, ST_Translate(geometry, :delta_lon, :delta_lat) AS geometry
+        FROM emergency_zones
+    ),
+    shifted_elevation_points AS (
+        SELECT id, ST_Translate(geometry, :delta_lon, :delta_lat) AS geometry, elevation_m
+        FROM elevation_points
+    ),
     elevation_bounds AS (
         SELECT
             COALESCE(MIN(elevation_m), 0.0) AS min_elev,
             COALESCE(MAX(elevation_m), 1.0) AS max_elev
-        FROM elevation_points
+        FROM shifted_elevation_points
     ),
     zone_elevation_contained AS (
         SELECT z.id AS zone_id, AVG(e.elevation_m) AS avg_elevation
-        FROM emergency_zones z
-        JOIN elevation_points e ON ST_Contains(z.geometry, e.geometry)
+        FROM shifted_zones z
+        JOIN shifted_elevation_points e ON ST_Contains(z.geometry, e.geometry)
         GROUP BY z.id
     ),
     zone_elevation_nearest AS (
         SELECT DISTINCT ON (z.id)
             z.id AS zone_id,
             e.elevation_m AS nearest_elevation
-        FROM emergency_zones z
+        FROM shifted_zones z
         JOIN LATERAL (
             SELECT elevation_m
-            FROM elevation_points
+            FROM shifted_elevation_points
             ORDER BY geometry <-> ST_Centroid(z.geometry)
             LIMIT 1
         ) e ON true
     ),
     zone_reports AS (
         SELECT z.id AS zone_id, COUNT(r.id) AS report_count
-        FROM emergency_zones z
+        FROM shifted_zones z
         LEFT JOIN sos_reports r
             ON ST_DWithin(z.geometry::geography, r.location::geography, :density_radius_m)
             AND r.status = ANY(:active_statuses)
@@ -81,7 +99,7 @@ _ZONE_RISK_QUERY = text(
         eb.min_elev,
         eb.max_elev,
         COALESCE(zr.report_count, 0) AS report_count
-    FROM emergency_zones z
+    FROM shifted_zones z
     CROSS JOIN corridor
     CROSS JOIN elevation_bounds eb
     LEFT JOIN zone_elevation_contained zec ON zec.zone_id = z.id
@@ -105,6 +123,8 @@ async def compute_dynamic_zone_risk_scores(
     db: AsyncSession,
     rainfall_multiplier: float,
     sim_id: str | None = None,
+    center_lon: float | None = None,
+    center_lat: float | None = None,
 ) -> RiskGridCollection:
     """Computes an updated spatial risk weight for every designated emergency zone using
 
@@ -113,21 +133,34 @@ async def compute_dynamic_zone_risk_scores(
     fallback), and active SOS incident density, combined with the current rainfall
     intensity multiplier from the What-If slider.
 
+    When `center_lon`/`center_lat` are given (e.g. the viewer's real geolocation), every
+    zone and elevation-point geometry is rigidly translated by the offset between that
+    point and the default Chennai grid center before any math runs, so the designated
+    zones themselves relocate near the viewer instead of only their fill color updating.
+
     Returns a GeoJSON FeatureCollection whose polygons are simplified/precision-trimmed
     for fast MapLibre rendering, and whose features carry a stable `zone_id` so the
     frontend can animate fill-color transitions per feature instead of replacing the
     whole layer on every slider tick.
     """
+    if center_lon is not None and center_lat is not None:
+        default_lon, default_lat = DEFAULT_GRID_CENTER
+        delta_lon, delta_lat = center_lon - default_lon, center_lat - default_lat
+    else:
+        delta_lon, delta_lat = 0.0, 0.0
+
     (corridor_x1, corridor_y1), (corridor_x2, corridor_y2) = WATER_CORRIDOR_LINE
 
     rows = (
         await db.execute(
             _ZONE_RISK_QUERY,
             {
-                "corridor_x1": corridor_x1,
-                "corridor_y1": corridor_y1,
-                "corridor_x2": corridor_x2,
-                "corridor_y2": corridor_y2,
+                "corridor_x1": corridor_x1 + delta_lon,
+                "corridor_y1": corridor_y1 + delta_lat,
+                "corridor_x2": corridor_x2 + delta_lon,
+                "corridor_y2": corridor_y2 + delta_lat,
+                "delta_lon": delta_lon,
+                "delta_lat": delta_lat,
                 "density_radius_m": REPORT_DENSITY_RADIUS_METERS,
                 "active_statuses": _ACTIVE_STATUSES,
                 "sim_id": sim_id,
