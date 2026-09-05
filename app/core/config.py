@@ -44,6 +44,9 @@ class Settings(BaseSettings):
 
     NLLB_MODEL_ID: str = Field(default="facebook/nllb-200-distilled-600M")
 
+    KOKORO_VOICE: str = Field(default="af_heart")
+    KOKORO_LANG_CODE: str = Field(default="a")  # 'a' = American English voice pack
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> list[str]:

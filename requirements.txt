@@ -22,3 +22,5 @@ accelerate==1.1.1
 einops==0.8.0
 Pillow==11.0.0
 sentencepiece==0.2.0
+kokoro==0.9.4
+soundfile==0.12.1
