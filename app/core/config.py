@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     KOKORO_VOICE: str = Field(default="af_heart")
     KOKORO_LANG_CODE: str = Field(default="a")  # 'a' = American English voice pack
 
+    # Caps how many of {VLM, Whisper, NLLB} may sit loaded in memory at once. 0 disables
+    # eviction (fine with plenty of RAM); 1 is the safe default for small Render instances —
+    # loading a second model evicts whichever model was used least recently. See
+    # app/services/model_registry.py for the eviction policy this drives.
+    MAX_RESIDENT_MODELS: int = Field(default=1, ge=0)
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _parse_cors_origins(cls, value: object) -> list[str]:

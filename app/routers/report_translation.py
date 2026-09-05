@@ -1,13 +1,11 @@
 import logging
 
 from fastapi import APIRouter, HTTPException, status
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas.report_translation import ReportTranslationRequest, ReportTranslationResult
-from app.services.nllb_translation_service import (
-    TranslationUnavailableError,
-    resolve_flores_code,
-    translate_report_text,
-)
+from app.services.model_registry import ModelUnavailableError
+from app.services.nllb_translation_service import get_nllb_model, resolve_flores_code, translate_report_text
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +24,11 @@ async def translate_report(payload: ReportTranslationRequest) -> ReportTranslati
     Tamil) into English for dispatch operators, or the reverse for operator replies.
     """
     try:
-        translated_text = await translate_report_text(payload.text, payload.source_lang, payload.target_lang)
+        nllb = await run_in_threadpool(get_nllb_model)
+        translated_text = await translate_report_text(nllb, payload.text, payload.source_lang, payload.target_lang)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-    except TranslationUnavailableError as exc:
+    except ModelUnavailableError as exc:
         logger.error(f"NLLB translation unavailable: {exc}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

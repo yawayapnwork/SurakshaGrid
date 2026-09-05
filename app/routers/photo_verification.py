@@ -1,9 +1,11 @@
 import logging
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas.photo_verification import PhotoVerificationResult
-from app.services.vlm_verification_service import ModelUnavailableError, verify_flood_photo
+from app.services.model_registry import ModelUnavailableError
+from app.services.vlm_verification_service import get_vlm_model, verify_flood_photo
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,11 @@ async def verify_photo(
     """Runs a local open-source VLM (e.g. Moondream2) against the uploaded photo to judge
 
     whether it shows active structural flooding, trapped citizens, or heavy debris.
+
+    Deliberately does NOT pull `get_vlm_model` in via `Depends()`: FastAPI resolves every
+    dependency before the route body runs, which would load the (multi-GB) model even for
+    a request that's about to fail the checks below. Loading it explicitly, after
+    validation, means a malformed upload never triggers a model load at all.
     """
     content_type = (image.content_type or "").lower().strip()
     if content_type and content_type not in ALLOWED_IMAGE_CONTENT_TYPES:
@@ -43,7 +50,11 @@ async def verify_photo(
         )
 
     try:
-        verdict = await verify_flood_photo(image_bytes)
+        # get_vlm_model() is a plain, blocking, singleton-accessor function — it must
+        # run off the event loop the same as inference does, since the first call
+        # loads the model from disk (or evicts another model first).
+        vlm = await run_in_threadpool(get_vlm_model)
+        verdict = await verify_flood_photo(vlm, image_bytes)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     except ModelUnavailableError as exc:
