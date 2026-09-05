@@ -640,7 +640,7 @@ export default function DashboardPage() {
   }, [focusedAssignment, sosReports]);
 
   return (
-    <main className="min-h-screen flex flex-col bg-slate-100/90 text-slate-900 relative font-sans overflow-hidden">
+    <main className="h-screen w-screen overflow-hidden flex flex-col bg-slate-100/90 text-slate-900 relative font-sans">
       {/* Top Navigation & Telemetry Stats Bar */}
       <TopStatsBar
         monitoredAreaKm2={analyticsStats?.monitored_area_km2 || 42.5}
@@ -758,14 +758,15 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Dynamic Module Content View Container */}
-      <div className="flex-1 lg:min-h-0 overflow-y-auto p-4 space-y-4">
-        {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD UN-SQUASHED 2-COLUMN GRID) */}
+      {/* Dynamic Module Content View Container (Strict Viewport Fit) */}
+      <div className="flex-1 min-h-0 overflow-hidden p-4">
+        {/* VIEW MODE 1: OVERVIEW (SPLIT DASHBOARD UN-SQUASHED 2-COLUMN VIEWPORT GRID) */}
         {activeFocusModule === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
-            {/* Left Primary Column: Command Map Hero Card + Hydro Telemetry (7 Cols) */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="w-full h-[480px] lg:h-[520px] rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden relative bg-white">
+          <div className="h-full w-full grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+            {/* Left Primary Column: Command Map Hero Card + Hydro Telemetry (8 Cols) */}
+            <div className="lg:col-span-8 h-full flex flex-col gap-4 min-h-0 overflow-hidden">
+              {/* Map Container Hero Card (Flex-1 fills remaining vertical space) */}
+              <div className="flex-1 min-h-0 rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden relative bg-white">
                 <MapErrorBoundary>
                   <MapContainer
                     riskGrid={riskGrid}
@@ -785,8 +786,8 @@ export default function DashboardPage() {
                 </MapErrorBoundary>
               </div>
 
-              {/* Hydro Telemetry Data Metrics Panel */}
-              <div className="w-full">
+              {/* Hydro Telemetry Data Metrics Panel (Fixed bottom height) */}
+              <div className="shrink-0">
                 <ScientificTelemetryMetrics
                   telemetry={telemetryData}
                   isStreaming={isConnected}
@@ -794,10 +795,10 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Right Secondary Column: Scenario Controls + Live Dispatch Queue (5 Cols) */}
-            <div className="lg:col-span-5 space-y-4">
+            {/* Right Secondary Column: Scenario Controls + Live Dispatch Queue (4 Cols) */}
+            <div className="lg:col-span-4 h-full flex flex-col gap-4 min-h-0 overflow-hidden">
               {/* Scenario Simulation Controls */}
-              <div className="w-full">
+              <div className="shrink-0 max-h-[48%] overflow-y-auto custom-scrollbar rounded-2xl">
                 <LeftController
                   rainfall={rainfall}
                   onRainfallChange={setRainfall}
@@ -813,8 +814,8 @@ export default function DashboardPage() {
                 />
               </div>
 
-              {/* Live Rescue Units Dispatch Queue */}
-              <div className="w-full lg:h-[480px]">
+              {/* Live Rescue Units Dispatch Queue (Fills remaining height) */}
+              <div className="flex-1 min-h-0 flex flex-col">
                 <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
               </div>
             </div>
@@ -823,7 +824,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 2: COMMAND MAP FOCUS (FULL SCREEN MAP 100%) */}
         {activeFocusModule === 'map' && (
-          <div className="w-full h-[calc(100vh-160px)] min-h-[550px] rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative bg-white">
+          <div className="w-full h-full rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden relative bg-white">
             <MapErrorBoundary>
               <MapContainer
                 riskGrid={riskGrid}
@@ -846,11 +847,11 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 3: LIVE DISPATCH QUEUE FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'dispatch' && (
-          <div className="w-full min-h-[80vh] grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div className="lg:col-span-7 lg:h-[calc(100vh-160px)]">
+          <div className="w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+            <div className="lg:col-span-7 h-full min-h-0 flex flex-col overflow-hidden">
               <RightDispatchQueue assignments={dispatchAssignments} onSelectAssignment={setFocusedAssignment} />
             </div>
-            <div className="lg:col-span-5 lg:h-[calc(100vh-160px)]">
+            <div className="lg:col-span-5 h-full min-h-0 flex flex-col overflow-hidden">
               {focusedAssignment ? (
                 <DispatchNavigationCard
                   assignment={focusedAssignment}
@@ -882,7 +883,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 4: SCENARIO CONTROLS FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'scenario' && (
-          <div className="w-full min-h-[80vh] max-w-4xl mx-auto">
+          <div className="w-full h-full max-w-4xl mx-auto overflow-y-auto custom-scrollbar">
             <LeftController
               rainfall={rainfall}
               onRainfallChange={setRainfall}
@@ -901,7 +902,7 @@ export default function DashboardPage() {
 
         {/* VIEW MODE 5: HYDRO TELEMETRY FOCUS (100% EXPANDED) */}
         {activeFocusModule === 'telemetry' && (
-          <div className="w-full min-h-[80vh] space-y-4">
+          <div className="w-full h-full overflow-y-auto custom-scrollbar space-y-4">
             <ScientificTelemetryMetrics
               telemetry={telemetryData}
               isStreaming={isConnected}
